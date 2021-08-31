@@ -1,0 +1,17 @@
+{
+  // Change this to match your project
+  "include": ["../SynonymGroup.ts"],
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outFile": "index.d.ts",
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable",
+      "scripthost"
+    ],
+    "target": "esnext",
+    "module": "esnext"
+  }
+}

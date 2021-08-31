@@ -1,10 +1,10 @@
 {
   "name": "@factsmission/synogroup",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "deno-publish": "cd ..; deno bundle SynonymGroup.ts > package/index.js; cd package; npm publish --access public"
+    "deno-publish": "cd ..; deno bundle SynonymGroup.ts package/index.js; cd package; ./node_modules/typescript/bin/tsc; npm publish --access public"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/factsmission/synogroup/issues"
   },
-  "homepage": "https://github.com/factsmission/synogroup#readme"
+  "homepage": "https://github.com/factsmission/synogroup#readme",
+  "devDependencies": {
+    "typescript": "^4.4.2"
+  }
 }

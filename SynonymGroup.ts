@@ -1,5 +1,3 @@
-import type SparqlEndpoint from 'https://esm.sh/@retog/sparql-client'
-
 interface Justification {
   toString: () => string;
   precedingSynonym?: JustifiedSynonym; // eslint-disable-line no-use-before-define
@@ -227,6 +225,11 @@ export type SyncJustifiedSynonym = {
   loading: boolean
 }
 
+type SparqlEndpoint = {
+  // deno-lint-ignore no-explicit-any
+  getSparqlResultSet: (query: string, fetchOptions?: any) => Promise<SparqlJson>
+}
+
 type SparqlJson = {
   head: {
     vars: string[];
@@ -242,7 +245,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   isFinished = false
   isAborted = false
 
-  constructor (sparqlEndpoint: typeof SparqlEndpoint, taxonName: string, ignoreRank = false) {
+  constructor (sparqlEndpoint: SparqlEndpoint, taxonName: string, ignoreRank = false) {
     /** Maps from taxonConceptUris to their synonyms */
     const justifiedSynonyms: Map<string, number> = new Map()
     const expandedTaxonNames: Set<string> = new Set()
@@ -305,8 +308,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
             return Promise.resolve([])
           }
           expandedTaxonNames.add(taxon.taxonNameUri)
-          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.map(t => {
-            if (!t.tc) return undefined
+          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.filter(t => t.tc).map(t => {
             return {
               taxonConceptUri: t.tc.value,
               taxonNameUri: taxon.taxonNameUri,
@@ -321,7 +323,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               },
               loading: true
             }
-          }).filter(v => !!v))
+          }))
         },
         /** Get the Synonyms deprecating {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
@@ -342,8 +344,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?tc ?tn ?treat ?date`
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
-          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.map(t => {
-            if (!t.tc) return undefined
+          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.filter(t => t.tc).map(t => {
             return {
               taxonConceptUri: t.tc.value,
               taxonNameUri: t.tn.value,
@@ -359,7 +360,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               },
               loading: true
             }
-          }).filter(v => !!v))
+          }))
         },
         /** Get the Synonyms deprecated by {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
@@ -380,8 +381,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?tc ?tn ?treat ?date`
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
-          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.map(t => {
-            if (!t.tc) return undefined
+          return sparqlEndpoint.getSparqlResultSet(query).then((json: SparqlJson) => json.results.bindings.filter(t => t.tc).map(t => {
             return {
               taxonConceptUri: t.tc.value,
               taxonNameUri: t.tn.value,
@@ -397,7 +397,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               },
               loading: true
             }
-          }).filter(v => !!v))
+          }))
         }
       ]
 

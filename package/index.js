@@ -232,8 +232,8 @@ class SynonymGroup1 {
                         return Promise.resolve([]);
                     }
                     expandedTaxonNames.add(taxon.taxonNameUri);
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.map((t)=>{
-                            if (!t.tc) return undefined;
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
+                        ).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: taxon.taxonNameUri,
@@ -251,8 +251,7 @@ class SynonymGroup1 {
                                 },
                                 loading: true
                             };
-                        }).filter((v)=>!!v
-                        )
+                        })
                     );
                 },
                 (taxon)=>{
@@ -271,8 +270,8 @@ class SynonymGroup1 {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.map((t)=>{
-                            if (!t.tc) return undefined;
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
+                        ).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
@@ -295,8 +294,7 @@ class SynonymGroup1 {
                                 },
                                 loading: true
                             };
-                        }).filter((v)=>!!v
-                        )
+                        })
                     );
                 },
                 (taxon)=>{
@@ -315,8 +313,8 @@ class SynonymGroup1 {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.map((t)=>{
-                            if (!t.tc) return undefined;
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
+                        ).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
@@ -339,8 +337,7 @@ class SynonymGroup1 {
                                 },
                                 loading: true
                             };
-                        }).filter((v)=>!!v
-                        )
+                        })
                     );
                 }
             ];
@@ -478,4 +475,3 @@ class SynonymGroup1 {
 }
 export { JustificationSet1 as JustificationSet };
 export { SynonymGroup1 as SynonymGroup };
-
