@@ -1,0 +1,19 @@
+{
+  "name": "synogroup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "deno-publish": "cd ..; deno bundle SynonymGroup.ts > package/index.js; cd package; npm publish --access public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/factsmission/synogroup.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/factsmission/synogroup/issues"
+  },
+  "homepage": "https://github.com/factsmission/synogroup#readme"
+}
