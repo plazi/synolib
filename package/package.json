@@ -1,10 +1,10 @@
 {
   "name": "@factsmission/synogroup",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "deno-publish": "cd ..; deno bundle SynonymGroup.ts package/index.js; cd package; ./node_modules/typescript/bin/tsc; npm publish --access public"
+    "deno-publish": "deno bundle ../index.ts index.js && ./node_modules/typescript/bin/tsc && npm publish --access public"
   },
   "repository": {
     "type": "git",
