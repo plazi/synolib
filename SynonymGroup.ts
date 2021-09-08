@@ -28,11 +28,10 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
   contents: anyJustification[] = [];
   isFinished = false;
   isAborted = false;
-  entries =
-    ((Array.from(this.contents.values()).map((v) => [v, v])) as [
-      anyJustification,
-      anyJustification,
-    ][]).values;
+  entries = ((Array.from(this.contents.values()).map((v) => [v, v])) as [
+    anyJustification,
+    anyJustification,
+  ][]).values;
 
   constructor(iterable?: Iterable<anyJustification>) {
     if (iterable) {
@@ -256,7 +255,7 @@ type SparqlJson = {
   };
 };
 
-export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
+export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   justifiedArray: JustifiedSynonym[] = [];
   monitor = new EventTarget();
   isFinished = false;
@@ -309,9 +308,7 @@ export class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 taxonNameUri: t.tn.value,
                 justifications: new JustificationSet([
                   `matches "${genus}${species ? " " + species : ""}${
-                    subspecies
-                      ? " " + subspecies
-                      : ""
+                    subspecies ? " " + subspecies : ""
                   }"`,
                 ]),
                 treatments: {
