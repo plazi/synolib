@@ -457,7 +457,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         return foundGroups.reduce((a, b) => a.concat(b), []);
       }
 
-      function getTreatments(uri: string): Promise<Treatments> {
+      function getTreatments(uri: string, treatments: Treatments): Promise<void> {
         const treat = "http://plazi.org/vocab/treatment#";
         const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -473,11 +473,6 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?treat ?how ?date`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getTreatments('${uri}')`)
-        const result: Treatments = {
-          def: new TreatmentSet(),
-          aug: new TreatmentSet(),
-          dpr: new TreatmentSet(),
-        };
         return sparqlEndpoint.getSparqlResultSet(query).then(
           (json: SparqlJson) => {
             json.results.bindings.forEach((t) => {
@@ -489,25 +484,23 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               };
               switch (t.how.value) {
                 case treat + "definesTaxonConcept":
-                  result.def.add(treatment);
+                  treatments.def.add(treatment);
                   break;
                 case treat + "augmentsTaxonConcept":
-                  result.aug.add(treatment);
+                  treatments.aug.add(treatment);
                   break;
                 case treat + "deprecates":
-                  result.dpr.add(treatment);
+                  treatments.dpr.add(treatment);
                   break;
               }
             });
-            return result;
           },
         );
       }
 
       const finish = (justsyn: JustifiedSynonym) => {
         justsyn.justifications.finish();
-        getTreatments(justsyn.taxonConceptUri).then((t) => {
-          justsyn.treatments = t;
+        getTreatments(justsyn.taxonConceptUri, justsyn.treatments).then(() => {
           justsyn.treatments.def.finish();
           justsyn.treatments.aug.finish();
           justsyn.treatments.dpr.finish();
