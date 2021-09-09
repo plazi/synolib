@@ -31,8 +31,9 @@ jobs:
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
 
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@3.6.2
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.5
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: .
