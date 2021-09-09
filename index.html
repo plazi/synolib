@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <meta name="author" content="">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="css/style.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <p id="root">You should see a list of synonyms here</p>
+
+  <script type="module">
+    import SynoGroup, { SparqlEndpoint } from "./build/synonym-group.js";
+
+    const sparqlEndpoint = new SparqlEndpoint("https://treatment.ld.plazi.org/sparql")
+    const taxonName = "Sadayoshia acroporae";
+    const synoGroup = new SynoGroup(sparqlEndpoint, taxonName);
+    const root = document.getElementById("root")
+    root.innerHTML = `<h1>Synonym Group For ${taxonName}</h1>`;
+    for await (const synonym of synoGroup) {
+      const synElem = document.createElement("div");
+      root.appendChild(synElem);
+      synElem.innerHTML = `<h2>${synonym.taxonConceptUri}</h2>
+      Justifications:
+      <ul class="justification-list"></ul>
+      Treatments:
+      <ul class="treatment-list"></ul>
+      `;
+      const justListElem = synElem.getElementsByClassName("justification-list")[0];
+      const treatListElem = synElem.getElementsByClassName("treatment-list")[0];
+      (async () => {
+        for await (const justification of synonym.justifications) {
+          const justElem = document.createElement("li");
+          justElem.innerHTML = `${justification}`
+          justListElem.appendChild(justElem)
+        }
+      })();
+      (async () => {
+        for await (const treatment of synonym.treatments.aug) {
+          const treatElem = document.createElement("li");
+          treatElem.innerHTML = `${treatment.url}`
+          treatListElem.appendChild(treatElem)
+        }
+      })();
+      (async () => {
+        for await (const treatment of synonym.treatments.def) {
+          const treatElem = document.createElement("li");
+          treatElem.innerHTML = `${treatment.url}`
+          treatListElem.appendChild(treatElem)
+        }
+      })();
+      (async () => {
+        for await (const treatment of synonym.treatments.dpr) {
+          const treatElem = document.createElement("li");
+          treatElem.innerHTML = `${treatment.url}`
+          treatListElem.appendChild(treatElem)
+        }
+      })();
+    }
+
+  </script>
+
+
+</body>
+
+</html>
