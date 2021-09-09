@@ -20,6 +20,9 @@ jobs:
         with:
           deno-version: v1.x
 
+      - mame: prepare
+        run: mkdir build
+        
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
 
