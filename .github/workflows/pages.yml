@@ -1,0 +1,41 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # Set a branch to deploy
+  pull_request:
+
+
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Bundle
+        run: deno bundle SynonymGroup.ts build/synonym-group.js
+
+      - uses: actions/checkout@v2
+        with:
+          submodules: true  
+          fetch-depth: 0  
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          # Set an destination subdirectory for deployment.
+          destination_dir: ./
+          # Set an external repository (owner/repo).
+          commit_message: "commited by action runner"
