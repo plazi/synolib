@@ -238,13 +238,22 @@ export type SyncJustifiedSynonym = {
   loading: boolean;
 };
 
-type SparqlEndpoint = {
-  // deno-lint-ignore no-explicit-any
-  getSparqlResultSet: (
+export class SparqlEndpoint {
+  constructor(private sparqlEnpointUri: string) {
+  }
+  async getSparqlResultSet(
     query: string,
-    fetchOptions?: any,
-  ) => Promise<SparqlJson>;
-};
+    fetchOptions: { headers?: Record<string, string> } = {},
+  ) {
+    fetchOptions.headers = fetchOptions.headers || {};
+    fetchOptions.headers["Accept"] = "application/sparql-results+json";
+    const response = await fetch(
+      this.sparqlEnpointUri + "?query=" + encodeURIComponent(query),
+      fetchOptions,
+    );
+    return await response.json();
+  }
+}
 
 type SparqlJson = {
   head: {
