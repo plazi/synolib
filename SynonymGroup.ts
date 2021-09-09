@@ -212,8 +212,6 @@ type Treatments = {
   dpr: TreatmentSet;
 };
 
-
-
 export type JustifiedSynonym = {
   taxonConceptUri: string;
   taxonNameUri: string;
@@ -221,7 +219,6 @@ export type JustifiedSynonym = {
   treatments: Treatments;
   loading: boolean;
 };
-
 
 export class SparqlEndpoint {
   constructor(private sparqlEnpointUri: string) {
@@ -457,7 +454,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         return foundGroups.reduce((a, b) => a.concat(b), []);
       }
 
-      function getTreatments(uri: string, treatments: Treatments): Promise<void> {
+      function getTreatments(
+        uri: string,
+        treatments: Treatments,
+      ): Promise<void> {
         const treat = "http://plazi.org/vocab/treatment#";
         const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
