@@ -44,21 +44,21 @@
       (async () => {
         for await (const treatment of synonym.treatments.aug) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment}`
+          treatElem.innerHTML = `${treatment.url}`
           treatListElem.appendChild(treatElem)
         }
       })();
       (async () => {
         for await (const treatment of synonym.treatments.def) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment}`
+          treatElem.innerHTML = `${treatment.url}`
           treatListElem.appendChild(treatElem)
         }
       })();
       (async () => {
         for await (const treatment of synonym.treatments.dpr) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment}`
+          treatElem.innerHTML = `${treatment.url}`
           treatListElem.appendChild(treatElem)
         }
       })();
