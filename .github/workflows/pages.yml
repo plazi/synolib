@@ -20,18 +20,12 @@ jobs:
         with:
           deno-version: v1.x
 
-      - uses: actions/checkout@v2
-        with:
-          submodules: true  
-          fetch-depth: 0  
-
       - name: prepare
         run: mkdir build
         
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
 
-    
       - name: Deploy to GitHub Pages
         uses: Cecilapp/GitHub-Pages-deploy@v3
         if: github.ref == 'refs/heads/main'
