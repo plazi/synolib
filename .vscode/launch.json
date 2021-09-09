@@ -11,6 +11,7 @@
       "program": "main.ts",
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "deno",
+      "args": ["Sadayoshia acroporae"],
       "runtimeArgs": [
         "run",
         "--unstable",
