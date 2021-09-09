@@ -31,15 +31,11 @@ jobs:
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
 
-
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+    
+      - name: Deploy to GitHub Pages
+        uses: Cecilapp/GitHub-Pages-deploy@v3
         if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          publish_branch: gh-pages
-          # Set an destination subdirectory for deployment.
-          destination_dir: ./
-          # Set an external repository (owner/repo).
-          commit_message: "commited by action runner"
+          build_dir: ./
