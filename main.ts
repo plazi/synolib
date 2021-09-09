@@ -20,18 +20,18 @@ for await (const synonym of synoGroup) {
     }
   })();
   (async () => {
-    for await (const treatment of synonym.treatments.aug) {
-      console.log(Colors.gray(` - Found augmenting treatment for ${synonym.taxonConceptUri}: ${treatment}`));
+    for await (const treatment of synonym.treatments!.aug) {
+      console.log(Colors.gray(` - Found augmenting treatment for ${synonym.taxonConceptUri}: ${treatment.url}`));
     }
   })();
-  /*(async () => {
+  (async () => {
     for await (const treatment of synonym.treatments.def) {
-      console.log(Colors.gray(` - Found defining treatment for ${synonym.taxonConceptUri}: ${treatment}`));
+      console.log(Colors.gray(` - Found defining treatment for ${synonym.taxonConceptUri}: ${treatment.url}`));
     }
   })();
   (async () => {
     for await (const treatment of synonym.treatments.dpr) {
-      console.log(Colors.gray(` - Found deprecating treatment for ${synonym.taxonConceptUri}: ${treatment}`));
+      console.log(Colors.gray(` - Found deprecating treatment for ${synonym.taxonConceptUri}: ${treatment.url}`));
     }
-  })();*/
+  })();
 }
