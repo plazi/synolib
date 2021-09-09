@@ -20,7 +20,7 @@ jobs:
         with:
           deno-version: v1.x
 
-      - mame: prepare
+      - name: prepare
         run: mkdir build
         
       - name: Bundle
