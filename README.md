@@ -11,6 +11,6 @@ For a simple command line example using the library see: `main.ts`.
 
 ## building
 
-We have an old school Makefile.
+Only for in-browser usage the code needs to be bundled
 
-    make
+    deno bundle SynonymGroup.ts synonym-group.js

@@ -26,7 +26,10 @@ jobs:
           persist-credentials: false 
 
       - name: prepare
-        run: mkdir build
+        run: |
+          mkdir build
+          cp index.html build/
+        
         
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
