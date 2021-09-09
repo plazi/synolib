@@ -212,12 +212,7 @@ type Treatments = {
   dpr: TreatmentSet;
 };
 
-// internally unused — possibly useful for external wrappers
-export type SyncTreatments = {
-  def: Treatment[];
-  aug: Treatment[];
-  dpr: Treatment[];
-};
+
 
 export type JustifiedSynonym = {
   taxonConceptUri: string;
@@ -227,14 +222,6 @@ export type JustifiedSynonym = {
   loading: boolean;
 };
 
-// internally unused — possibly useful for external wrappers
-export type SyncJustifiedSynonym = {
-  taxonConceptUri: string;
-  taxonNameUri: string;
-  justifications: anySyncJustification[];
-  treatments: SyncTreatments;
-  loading: boolean;
-};
 
 export class SparqlEndpoint {
   constructor(private sparqlEnpointUri: string) {
