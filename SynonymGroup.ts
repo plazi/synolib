@@ -71,7 +71,7 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
   }
 
   finish() {
-    console.info("%cJustificationSet finished", "color: #69F0AE;");
+    //console.info("%cJustificationSet finished", "color: #69F0AE;");
     this.isFinished = true;
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
@@ -159,7 +159,6 @@ class TreatmentSet implements AsyncIterable<Treatment> {
 
   add(value: Treatment) {
     if (this.contents.findIndex((c) => c.url === value.url) === -1) {
-      console.log("added!");
       this.contents.push(value);
       this.monitor.dispatchEvent(new CustomEvent("updated"));
     }
@@ -167,7 +166,7 @@ class TreatmentSet implements AsyncIterable<Treatment> {
   }
 
   finish() {
-    console.info("%cTreatmentSet finished", "color: #B9F6CA;");
+    //console.info("%cTreatmentSet finished", "color: #B9F6CA;");
     this.isFinished = true;
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
@@ -178,23 +177,22 @@ class TreatmentSet implements AsyncIterable<Treatment> {
       next: () => {
         return new Promise<IteratorResult<Treatment>>((resolve, reject) => {
           const _ = () => {
-            console.log(
+            /*console.log(
               this.isFinished,
               this.isAborted,
               returnedSoFar,
               "<",
               this.contents.length,
-            );
+            );*/
             if (this.isAborted) {
               reject(new Error("TreatmentSet has been aborted"));
             } else if (returnedSoFar < this.contents.length) {
               resolve({ value: this.contents[returnedSoFar++] });
             } else if (this.isFinished) {
-              console.info("%cTreatmentSet finished 22", "color: #B9F6CA;");
+              //console.info("%cTreatmentSet finished 22", "color: #B9F6CA;");
               resolve({ done: true, value: true });
             } else {
               const listener = () => {
-                console.log("listener!");
                 this.monitor.removeEventListener("updated", listener);
                 _();
               };
@@ -281,7 +279,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 
     const resolver = (value: JustifiedSynonym | true) => {
       if (value === true) {
-        console.info("%cSynogroup finished", "color: #00E676;");
+        //console.info("%cSynogroup finished", "color: #00E676;");
         this.isFinished = true;
       }
       this.monitor.dispatchEvent(new CustomEvent("updated"));
