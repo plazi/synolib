@@ -33,6 +33,9 @@ jobs:
         
       - name: Bundle
         run: deno bundle SynonymGroup.ts build/synonym-group.js
+        
+      - name: copy ts
+        run: cp SynonymGroup.ts build/
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@4.1.5
