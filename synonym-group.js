@@ -169,8 +169,8 @@ class TreatmentSet {
 }
 class SparqlEndpoint1 {
     sparqlEnpointUri;
-    constructor(sparqlEnpointUri){
-        this.sparqlEnpointUri = sparqlEnpointUri;
+    constructor(sparqlEnpointUri1){
+        this.sparqlEnpointUri = sparqlEnpointUri1;
     }
     async getSparqlResultSet(query, fetchOptions = {
     }) {
@@ -196,8 +196,8 @@ class SynonymGroup {
             this.monitor.dispatchEvent(new CustomEvent("updated"));
         };
         const build = async ()=>{
-            function getStartingPoints(taxonName1) {
-                const [genus, species, subspecies] = taxonName1.split(" ");
+            function getStartingPoints(taxonName) {
+                const [genus, species, subspecies] = taxonName.split(" ");
                 const query = `PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
     PREFIX treat: <http://plazi.org/vocab/treatment#>
     SELECT DISTINCT ?tn ?tc WHERE {
