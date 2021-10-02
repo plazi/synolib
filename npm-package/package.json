@@ -1,0 +1,23 @@
+{
+  "name": "@factsmission/synogroup",
+  "version": "1.0.5",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "make-package": "deno bundle ../SynonymGroup.ts index.js && ./node_modules/typescript/bin/tsc && mv SynonymGroup.d.ts index.d.ts",
+    "publish-package": "npm run make-package && npm publish --access public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/factsmission/synogroup.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/factsmission/synogroup/issues"
+  },
+  "homepage": "https://github.com/factsmission/synogroup#readme",
+  "devDependencies": {
+    "typescript": "^4.4.2"
+  }
+}

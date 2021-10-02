@@ -1,1 +1,5 @@
 synonym-group.js
+
+npm-package/node_modules
+npm-package/index.js
+npm-package/index.d.ts
