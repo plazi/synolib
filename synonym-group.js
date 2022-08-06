@@ -1,4 +1,8 @@
-class JustificationSet1 {
+// deno-fmt-ignore-file
+// deno-lint-ignore-file
+// This code was bundled using `deno bundle` and it's not recommended to edit it manually
+
+class JustificationSet {
     monitor = new EventTarget();
     contents = [];
     isFinished = false;
@@ -6,8 +10,7 @@ class JustificationSet1 {
     entries = Array.from(this.contents.values()).map((v)=>[
             v,
             v
-        ]
-    ).values;
+        ]).values;
     constructor(iterable){
         if (iterable) {
             for (const el of iterable){
@@ -34,8 +37,7 @@ class JustificationSet1 {
         });
     }
     add(value) {
-        if (this.contents.findIndex((c)=>c.toString() === value.toString()
-        ) === -1) {
+        if (this.contents.findIndex((c)=>c.toString() === value.toString()) === -1) {
             this.contents.push(value);
             this.monitor.dispatchEvent(new CustomEvent("updated"));
         }
@@ -61,8 +63,7 @@ class JustificationSet1 {
     }
     [Symbol.toStringTag] = "";
     [Symbol.asyncIterator]() {
-        this.monitor.addEventListener("updated", ()=>console.log("ARA")
-        );
+        this.monitor.addEventListener("updated", ()=>console.log("ARA"));
         let returnedSoFar = 0;
         return {
             next: ()=>{
@@ -99,9 +100,9 @@ class TreatmentSet {
     contents = [];
     isFinished = false;
     isAborted = false;
-    constructor(iterable1){
-        if (iterable1) {
-            for (const el of iterable1){
+    constructor(iterable){
+        if (iterable) {
+            for (const el of iterable){
                 this.add(el);
             }
         }
@@ -125,8 +126,7 @@ class TreatmentSet {
         });
     }
     add(value) {
-        if (this.contents.findIndex((c)=>c.url === value.url
-        ) === -1) {
+        if (this.contents.findIndex((c)=>c.url === value.url) === -1) {
             this.contents.push(value);
             this.monitor.dispatchEvent(new CustomEvent("updated"));
         }
@@ -167,19 +167,17 @@ class TreatmentSet {
         };
     }
 }
-class SparqlEndpoint1 {
-    sparqlEnpointUri;
-    constructor(sparqlEnpointUri1){
-        this.sparqlEnpointUri = sparqlEnpointUri1;
+class SparqlEndpoint {
+    constructor(sparqlEnpointUri){
+        this.sparqlEnpointUri = sparqlEnpointUri;
     }
-    async getSparqlResultSet(query, fetchOptions = {
-    }) {
-        fetchOptions.headers = fetchOptions.headers || {
-        };
+    async getSparqlResultSet(query, fetchOptions = {}) {
+        fetchOptions.headers = fetchOptions.headers || {};
         fetchOptions.headers["Accept"] = "application/sparql-results+json";
         const response = await fetch(this.sparqlEnpointUri + "?query=" + encodeURIComponent(query), fetchOptions);
         return await response.json();
     }
+    sparqlEnpointUri;
 }
 class SynonymGroup {
     justifiedArray = [];
@@ -212,7 +210,7 @@ class SynonymGroup {
                         return {
                             taxonConceptUri: t.tc.value,
                             taxonNameUri: t.tn.value,
-                            justifications: new JustificationSet1([
+                            justifications: new JustificationSet([
                                 `matches "${genus}${species ? " " + species : ""}${subspecies ? " " + subspecies : ""}"`, 
                             ]),
                             treatments: {
@@ -222,8 +220,7 @@ class SynonymGroup {
                             },
                             loading: true
                         };
-                    })
-                );
+                    }));
             }
             const synonymFinders = [
                 (taxon)=>{
@@ -239,15 +236,13 @@ class SynonymGroup {
                         return Promise.resolve([]);
                     }
                     expandedTaxonNames.add(taxon.taxonNameUri);
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
-                        ).map((t)=>{
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: taxon.taxonNameUri,
-                                justifications: new JustificationSet1([
+                                justifications: new JustificationSet([
                                     {
-                                        toString: ()=>`${t.tc.value} has taxon name ${taxon.taxonNameUri}`
-                                        ,
+                                        toString: ()=>`${t.tc.value} has taxon name ${taxon.taxonNameUri}`,
                                         precedingSynonym: taxon
                                     }
                                 ]),
@@ -258,8 +253,7 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        })
-                    );
+                        }));
                 },
                 (taxon)=>{
                     const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -277,20 +271,19 @@ class SynonymGroup {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
-                        ).map((t)=>{
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
-                                justifications: new JustificationSet1([
+                                justifications: new JustificationSet([
                                     {
-                                        toString: ()=>`${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${t.treat.value}`
-                                        ,
+                                        toString: ()=>`${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${t.treat.value}`,
                                         precedingSynonym: taxon,
                                         treatment: {
                                             url: t.treat.value,
                                             creators: t.creators.value,
-                                            date: t.date ? parseInt(t.date.value, 10) : undefined
+                                            date: t.date ? parseInt(t.date.value, 10) : undefined,
+                                            materialCitations: getMaterialCitations(t.treat.value)
                                         }
                                     }
                                 ]),
@@ -301,8 +294,7 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        })
-                    );
+                        }));
                 },
                 (taxon)=>{
                     const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -320,20 +312,19 @@ class SynonymGroup {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc
-                        ).map((t)=>{
+                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
-                                justifications: new JustificationSet1([
+                                justifications: new JustificationSet([
                                     {
-                                        toString: ()=>`${t.tc.value} deprecated by ${taxon.taxonConceptUri} according to ${t.treat.value}`
-                                        ,
+                                        toString: ()=>`${t.tc.value} deprecated by ${taxon.taxonConceptUri} according to ${t.treat.value}`,
                                         precedingSynonym: taxon,
                                         treatment: {
                                             url: t.treat.value,
                                             creators: t.creators.value,
-                                            date: t.date ? parseInt(t.date.value, 10) : undefined
+                                            date: t.date ? parseInt(t.date.value, 10) : undefined,
+                                            materialCitations: getMaterialCitations(t.treat.value)
                                         }
                                     }
                                 ]),
@@ -344,21 +335,19 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        })
-                    );
+                        }));
                 }, 
             ];
             async function lookUpRound(taxon) {
-                const foundGroupsP = synonymFinders.map((finder)=>finder(taxon)
-                );
+                const foundGroupsP = synonymFinders.map((finder)=>finder(taxon));
                 const foundGroups = await Promise.all(foundGroupsP);
-                return foundGroups.reduce((a, b)=>a.concat(b)
-                , []);
+                return foundGroups.reduce((a, b)=>a.concat(b), []);
             }
             function getTreatments(uri, treatments) {
                 const treat = "http://plazi.org/vocab/treatment#";
                 const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
     SELECT DISTINCT ?treat ?how ?date (group_concat(DISTINCT ?c;separator="; ") as ?creators)
     WHERE {
       ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates) <${uri}> ;
@@ -376,7 +365,8 @@ class SynonymGroup {
                         const treatment = {
                             url: t.treat.value,
                             date: parseInt(t.date?.value, 10),
-                            creators: t.creators.value
+                            creators: t.creators.value,
+                            materialCitations: getMaterialCitations(t.treat.value)
                         };
                         switch(t.how.value){
                             case treat + "definesTaxonConcept":
@@ -390,6 +380,54 @@ class SynonymGroup {
                                 break;
                         }
                     });
+                });
+            }
+            function getMaterialCitations(uri) {
+                const query = `
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+    SELECT DISTINCT *
+    WHERE {
+      <${uri}> dwc:basisOfRecord ?mc .
+      ?mc dwc:catalogNumber ?catalogNumber .
+      OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
+      OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
+      OPTIONAL { ?mc dwc:countryCode ?countryCode . }
+      OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
+      OPTIONAL { ?mc dwc:municipality ?municipality . }
+      OPTIONAL { ?mc dwc:county ?county . }
+      OPTIONAL { ?mc dwc:locality ?locality . }
+      OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
+      OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
+      OPTIONAL { ?mc dwc:eventDate ?eventDate . }
+      OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
+      OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
+      OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
+      OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+    }`;
+                return sparqlEndpoint.getSparqlResultSet(query).then((json)=>{
+                    const resultArray = [];
+                    json.results.bindings.forEach((t)=>{
+                        if (!t.mc || !t.catalogNumber) return;
+                        const result = {
+                            "catalogNumber": t.catalogNumber.value,
+                            "collectionCode": t.collectionCode?.value || undefined,
+                            "typeStatus": t.typeStatus?.value || undefined,
+                            "countryCode": t.countryCode?.value || undefined,
+                            "stateProvince": t.stateProvince?.value || undefined,
+                            "municipality": t.municipality?.value || undefined,
+                            "county": t.county?.value || undefined,
+                            "locality": t.locality?.value || undefined,
+                            "verbatimLocality": t.verbatimLocality?.value || undefined,
+                            "recordedBy": t.recordedBy?.value || undefined,
+                            "eventDate": t.eventDate?.value || undefined,
+                            "samplingProtocol": t.samplingProtocol?.value || undefined,
+                            "decimalLatitude": t.decimalLatitude?.value || undefined,
+                            "decimalLongitude": t.decimalLongitude?.value || undefined,
+                            "verbatimElevation": t.verbatimElevation?.value || undefined
+                        };
+                        resultArray.push(result);
+                    });
+                    return resultArray;
                 });
             }
             const finish = (justsyn)=>{
@@ -430,8 +468,7 @@ class SynonymGroup {
                         });
                         expandedTaxonConcepts.push(j.taxonConceptUri);
                         return true;
-                    })
-                );
+                    }));
                 justifiedSynsToExpand = [];
                 await Promise.allSettled(promises);
             }
@@ -473,6 +510,6 @@ class SynonymGroup {
         };
     }
 }
+export { JustificationSet as JustificationSet };
+export { SparqlEndpoint as SparqlEndpoint };
 export { SynonymGroup as default };
-export { JustificationSet1 as JustificationSet };
-export { SparqlEndpoint1 as SparqlEndpoint };

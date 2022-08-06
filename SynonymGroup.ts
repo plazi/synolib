@@ -3,8 +3,27 @@ interface Justification {
   precedingSynonym?: JustifiedSynonym; // eslint-disable-line no-use-before-define
 }
 
+export type MaterialCitation = {
+  "catalogNumber": string;
+  "collectionCode"?: string;
+  "typeStatus"?: string;
+  "countryCode"?: string;
+  "stateProvince"?: string;
+  "municipality"?: string;
+  "county"?: string;
+  "locality"?: string;
+  "verbatimLocality"?: string;
+  "recordedBy"?: string;
+  "eventDate"?: string;
+  "samplingProtocol"?: string;
+  "decimalLatitude"?: string;
+  "decimalLongitude"?: string;
+  "verbatimElevation"?: string;
+}
+
 export type Treatment = {
   url: string;
+  materialCitations: Promise<MaterialCitation[]>;
   date?: number;
   creators?: string;
 };
@@ -385,6 +404,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                     url: t.treat.value,
                     creators: t.creators.value,
                     date: t.date ? parseInt(t.date.value, 10) : undefined,
+                    materialCitations: getMaterialCitations(t.treat.value),
                   },
                 }]),
                 treatments: {
@@ -430,6 +450,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                     url: t.treat.value,
                     creators: t.creators.value,
                     date: t.date ? parseInt(t.date.value, 10) : undefined,
+                    materialCitations: getMaterialCitations(t.treat.value),
                   },
                 }]),
                 treatments: {
@@ -461,6 +482,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         const treat = "http://plazi.org/vocab/treatment#";
         const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
     SELECT DISTINCT ?treat ?how ?date (group_concat(DISTINCT ?c;separator="; ") as ?creators)
     WHERE {
       ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates) <${uri}> ;
@@ -477,10 +499,11 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
           (json: SparqlJson) => {
             json.results.bindings.forEach((t) => {
               if (!t.treat) return;
-              const treatment = {
+              const treatment: Treatment = {
                 url: t.treat.value,
                 date: parseInt(t.date?.value, 10),
                 creators: t.creators.value,
+                materialCitations: getMaterialCitations(t.treat.value)
               };
               switch (t.how.value) {
                 case treat + "definesTaxonConcept":
@@ -496,6 +519,56 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
             });
           },
         );
+      }
+
+      function getMaterialCitations(uri: string): Promise<MaterialCitation[]> {
+        const query = `
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+    SELECT DISTINCT *
+    WHERE {
+      <${uri}> dwc:basisOfRecord ?mc .
+      ?mc dwc:catalogNumber ?catalogNumber .
+      OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
+      OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
+      OPTIONAL { ?mc dwc:countryCode ?countryCode . }
+      OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
+      OPTIONAL { ?mc dwc:municipality ?municipality . }
+      OPTIONAL { ?mc dwc:county ?county . }
+      OPTIONAL { ?mc dwc:locality ?locality . }
+      OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
+      OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
+      OPTIONAL { ?mc dwc:eventDate ?eventDate . }
+      OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
+      OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
+      OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
+      OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+    }`;
+        return sparqlEndpoint.getSparqlResultSet(query).then(
+          (json: SparqlJson) => {
+            const resultArray: MaterialCitation[] = []
+            json.results.bindings.forEach((t) => {
+              if (!t.mc || !t.catalogNumber) return;
+              const result = {
+                "catalogNumber": t.catalogNumber.value,
+                "collectionCode": t.collectionCode?.value || undefined,
+                "typeStatus": t.typeStatus?.value || undefined,
+                "countryCode": t.countryCode?.value || undefined,
+                "stateProvince": t.stateProvince?.value || undefined,
+                "municipality": t.municipality?.value || undefined,
+                "county": t.county?.value || undefined,
+                "locality": t.locality?.value || undefined,
+                "verbatimLocality": t.verbatimLocality?.value || undefined,
+                "recordedBy": t.recordedBy?.value || undefined,
+                "eventDate": t.eventDate?.value || undefined,
+                "samplingProtocol": t.samplingProtocol?.value || undefined,
+                "decimalLatitude": t.decimalLatitude?.value || undefined,
+                "decimalLongitude": t.decimalLongitude?.value || undefined,
+                "verbatimElevation": t.verbatimElevation?.value || undefined,
+              }
+              resultArray.push(result)
+            })
+            return resultArray;
+          })
       }
 
       const finish = (justsyn: JustifiedSynonym) => {
