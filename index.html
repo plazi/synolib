@@ -19,7 +19,7 @@
     import SynoGroup, { SparqlEndpoint } from "./synonym-group.js";
 
     const sparqlEndpoint = new SparqlEndpoint("https://treatment.ld.plazi.org/sparql")
-    const taxonName = "Sadayoshia acroporae";
+    const taxonName = "Artema atlanta";
     const synoGroup = new SynoGroup(sparqlEndpoint, taxonName);
     const root = document.getElementById("root")
     root.innerHTML = `<h1>Synonym Group For ${taxonName}</h1>`;
@@ -44,22 +44,31 @@
       (async () => {
         for await (const treatment of synonym.treatments.aug) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment.url}`
+          treatElem.innerHTML = `Aug. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
+          if ((await treatment.materialCitations).length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          }
         }
       })();
       (async () => {
         for await (const treatment of synonym.treatments.def) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment.url}`
+          treatElem.innerHTML = `Def. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
+          if ((await treatment.materialCitations).length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          }
         }
       })();
       (async () => {
         for await (const treatment of synonym.treatments.dpr) {
           const treatElem = document.createElement("li");
-          treatElem.innerHTML = `${treatment.url}`
+          treatElem.innerHTML = `Dpr. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
+          if ((await treatment.materialCitations).length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          }
         }
       })();
     }
