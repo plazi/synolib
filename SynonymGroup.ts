@@ -19,6 +19,9 @@ export type MaterialCitation = {
   "decimalLatitude"?: string;
   "decimalLongitude"?: string;
   "verbatimElevation"?: string;
+  "gbifOccurrenceId"?: string;
+  "gbifSpecimenId"?: string;
+  "httpUri"?: string;
 }
 
 export type Treatment = {
@@ -524,6 +527,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
       function getMaterialCitations(uri: string): Promise<MaterialCitation[]> {
         const query = `
     PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+    PREFIX trt: <http://plazi.org/vocab/treatment#>
     SELECT DISTINCT *
     WHERE {
       <${uri}> dwc:basisOfRecord ?mc .
@@ -542,6 +546,9 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
       OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
       OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
       OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+      OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
+      OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
+      OPTIONAL { ?mc trt:httpUri ?httpUri . }
     }`;
         return sparqlEndpoint.getSparqlResultSet(query).then(
           (json: SparqlJson) => {
@@ -564,6 +571,9 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 "decimalLatitude": t.decimalLatitude?.value || undefined,
                 "decimalLongitude": t.decimalLongitude?.value || undefined,
                 "verbatimElevation": t.verbatimElevation?.value || undefined,
+                "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
+                "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
+                "httpUri": t.httpUri?.value || undefined,
               }
               resultArray.push(result)
             })

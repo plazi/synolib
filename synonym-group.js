@@ -168,6 +168,7 @@ class TreatmentSet {
     }
 }
 class SparqlEndpoint {
+    sparqlEnpointUri;
     constructor(sparqlEnpointUri){
         this.sparqlEnpointUri = sparqlEnpointUri;
     }
@@ -177,7 +178,6 @@ class SparqlEndpoint {
         const response = await fetch(this.sparqlEnpointUri + "?query=" + encodeURIComponent(query), fetchOptions);
         return await response.json();
     }
-    sparqlEnpointUri;
 }
 class SynonymGroup {
     justifiedArray = [];
@@ -211,7 +211,7 @@ class SynonymGroup {
                             taxonConceptUri: t.tc.value,
                             taxonNameUri: t.tn.value,
                             justifications: new JustificationSet([
-                                `matches "${genus}${species ? " " + species : ""}${subspecies ? " " + subspecies : ""}"`, 
+                                `matches "${genus}${species ? " " + species : ""}${subspecies ? " " + subspecies : ""}"`
                             ]),
                             treatments: {
                                 def: new TreatmentSet(),
@@ -336,7 +336,7 @@ class SynonymGroup {
                                 loading: true
                             };
                         }));
-                }, 
+                }
             ];
             async function lookUpRound(taxon) {
                 const foundGroupsP = synonymFinders.map((finder)=>finder(taxon));
@@ -385,6 +385,7 @@ class SynonymGroup {
             function getMaterialCitations(uri) {
                 const query = `
     PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+    PREFIX trt: <http://plazi.org/vocab/treatment#>
     SELECT DISTINCT *
     WHERE {
       <${uri}> dwc:basisOfRecord ?mc .
@@ -403,6 +404,9 @@ class SynonymGroup {
       OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
       OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
       OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+      OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
+      OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
+      OPTIONAL { ?mc trt:httpUri ?httpUri . }
     }`;
                 return sparqlEndpoint.getSparqlResultSet(query).then((json)=>{
                     const resultArray = [];
@@ -423,7 +427,10 @@ class SynonymGroup {
                             "samplingProtocol": t.samplingProtocol?.value || undefined,
                             "decimalLatitude": t.decimalLatitude?.value || undefined,
                             "decimalLongitude": t.decimalLongitude?.value || undefined,
-                            "verbatimElevation": t.verbatimElevation?.value || undefined
+                            "verbatimElevation": t.verbatimElevation?.value || undefined,
+                            "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
+                            "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
+                            "httpUri": t.httpUri?.value || undefined
                         };
                         resultArray.push(result);
                     });
