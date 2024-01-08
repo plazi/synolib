@@ -504,7 +504,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               if (!t.treat) return;
               const treatment: Treatment = {
                 url: t.treat.value,
-                date: parseInt(t.date?.value, 10),
+                date: t.date ? parseInt(t.date.value, 10) : undefined,
                 creators: t.creators.value,
                 materialCitations: getMaterialCitations(t.treat.value)
               };
