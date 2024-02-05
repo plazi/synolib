@@ -22,7 +22,7 @@ export type MaterialCitation = {
   "gbifOccurrenceId"?: string;
   "gbifSpecimenId"?: string;
   "httpUri"?: string;
-}
+};
 
 export type Treatment = {
   url: string;
@@ -37,7 +37,7 @@ interface TreatmentJustification extends Justification {
 
 type LexicalJustification = Justification;
 
-export type anyJustification = (TreatmentJustification | LexicalJustification);
+export type anyJustification = TreatmentJustification | LexicalJustification;
 
 export type anySyncJustification = {
   toString: () => string;
@@ -539,7 +539,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 url: t.treat.value,
                 date: t.date ? parseInt(t.date.value, 10) : undefined,
                 creators: t.creators.value,
-                materialCitations: getMaterialCitations(t.treat.value)
+                materialCitations: getMaterialCitations(t.treat.value),
               };
               switch (t.how.value) {
                 case treat + "definesTaxonConcept":
@@ -585,7 +585,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }`;
         return sparqlEndpoint.getSparqlResultSet(query).then(
           (json: SparqlJson) => {
-            const resultArray: MaterialCitation[] = []
+            const resultArray: MaterialCitation[] = [];
             json.results.bindings.forEach((t) => {
               if (!t.mc || !t.catalogNumber) return;
               const result = {
@@ -607,11 +607,12 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
                 "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
                 "httpUri": t.httpUri?.value || undefined,
-              }
-              resultArray.push(result)
-            })
+              };
+              resultArray.push(result);
+            });
             return resultArray;
-          })
+          },
+        );
       }
 
       const finish = (justsyn: JustifiedSynonym) => {
