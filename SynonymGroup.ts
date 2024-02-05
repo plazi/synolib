@@ -22,7 +22,7 @@ export type MaterialCitation = {
   "gbifOccurrenceId"?: string;
   "gbifSpecimenId"?: string;
   "httpUri"?: string;
-}
+};
 
 export type Treatment = {
   url: string;
@@ -37,7 +37,7 @@ interface TreatmentJustification extends Justification {
 
 type LexicalJustification = Justification;
 
-export type anyJustification = (TreatmentJustification | LexicalJustification);
+export type anyJustification = TreatmentJustification | LexicalJustification;
 
 export type anySyncJustification = {
   toString: () => string;
@@ -271,15 +271,18 @@ export class SparqlEndpoint {
         }
         return await response.json();
       } catch (error) {
-        if (error instanceof Error && error.message.endsWith("502")) {
-          if (retryCount < 5) {
-            ++retryCount;
-            console.warn(
-              `!! Fetch Error: 502 Bad Gateway. Retrying in ${retryCount * 50}ms (${retryCount})`,
-            );
-            await sleep(retryCount * 50);
-            return await sendRequest();
-          }
+        if (
+          error instanceof Error &&
+          retryCount < 5 /* && error.message.endsWith("502") */
+        ) {
+          ++retryCount;
+          console.warn(
+            `!! Fetch Error: 502 Bad Gateway. Retrying in ${
+              retryCount * 50
+            }ms (${retryCount})`,
+          );
+          await sleep(retryCount * 50);
+          return await sendRequest();
         }
         console.warn("!! Fetch Error:", query, "\n---\n", error);
         return {}; // as not to crash code expecting parsed json
@@ -536,7 +539,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 url: t.treat.value,
                 date: t.date ? parseInt(t.date.value, 10) : undefined,
                 creators: t.creators.value,
-                materialCitations: getMaterialCitations(t.treat.value)
+                materialCitations: getMaterialCitations(t.treat.value),
               };
               switch (t.how.value) {
                 case treat + "definesTaxonConcept":
@@ -582,7 +585,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }`;
         return sparqlEndpoint.getSparqlResultSet(query).then(
           (json: SparqlJson) => {
-            const resultArray: MaterialCitation[] = []
+            const resultArray: MaterialCitation[] = [];
             json.results.bindings.forEach((t) => {
               if (!t.mc || !t.catalogNumber) return;
               const result = {
@@ -604,11 +607,12 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
                 "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
                 "httpUri": t.httpUri?.value || undefined,
-              }
-              resultArray.push(result)
-            })
+              };
+              resultArray.push(result);
+            });
             return resultArray;
-          })
+          },
+        );
       }
 
       const finish = (justsyn: JustifiedSynonym) => {

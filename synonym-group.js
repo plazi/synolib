@@ -190,13 +190,11 @@ class SparqlEndpoint {
                 }
                 return await response.json();
             } catch (error) {
-                if (error instanceof Error && error.message.endsWith("502")) {
-                    if (retryCount < 5) {
-                        ++retryCount;
-                        console.warn(`!! Fetch Error: 502 Bad Gateway. Retrying in ${retryCount * 50}ms (${retryCount})`);
-                        await sleep(retryCount * 50);
-                        return await sendRequest();
-                    }
+                if (error instanceof Error && retryCount < 5) {
+                    ++retryCount;
+                    console.warn(`!! Fetch Error: 502 Bad Gateway. Retrying in ${retryCount * 50}ms (${retryCount})`);
+                    await sleep(retryCount * 50);
+                    return await sendRequest();
                 }
                 console.warn("!! Fetch Error:", query, "\n---\n", error);
                 return {};
