@@ -192,7 +192,7 @@ class SparqlEndpoint {
             } catch (error) {
                 if (error instanceof Error && retryCount < 5) {
                     ++retryCount;
-                    console.warn(`!! Fetch Error: 502 Bad Gateway. Retrying in ${retryCount * 50}ms (${retryCount})`);
+                    console.warn(`!! Fetch Error. Retrying in ${retryCount * 50}ms (${retryCount})`);
                     await sleep(retryCount * 50);
                     return await sendRequest();
                 }

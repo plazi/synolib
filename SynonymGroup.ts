@@ -277,7 +277,7 @@ export class SparqlEndpoint {
         ) {
           ++retryCount;
           console.warn(
-            `!! Fetch Error: 502 Bad Gateway. Retrying in ${
+            `!! Fetch Error. Retrying in ${
               retryCount * 50
             }ms (${retryCount})`,
           );
