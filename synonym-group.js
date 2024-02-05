@@ -167,6 +167,12 @@ class TreatmentSet {
         };
     }
 }
+async function sleep(ms) {
+    const p = new Promise((resolve)=>{
+        setTimeout(resolve, ms);
+    });
+    return await p;
+}
 class SparqlEndpoint {
     sparqlEnpointUri;
     constructor(sparqlEnpointUri){
@@ -175,8 +181,28 @@ class SparqlEndpoint {
     async getSparqlResultSet(query, fetchOptions = {}) {
         fetchOptions.headers = fetchOptions.headers || {};
         fetchOptions.headers["Accept"] = "application/sparql-results+json";
-        const response = await fetch(this.sparqlEnpointUri + "?query=" + encodeURIComponent(query), fetchOptions);
-        return await response.json();
+        let retryCount = 0;
+        const sendRequest = async ()=>{
+            try {
+                const response = await fetch(this.sparqlEnpointUri + "?query=" + encodeURIComponent(query), fetchOptions);
+                if (!response.ok) {
+                    throw new Error("Response not ok. Status " + response.status);
+                }
+                return await response.json();
+            } catch (error) {
+                if (error instanceof Error && error.message.endsWith("502")) {
+                    if (retryCount < 5) {
+                        ++retryCount;
+                        console.warn(`!! Fetch Error: 502 Bad Gateway. Retrying in ${retryCount * 50}ms (${retryCount})`);
+                        await sleep(retryCount * 50);
+                        return await sendRequest();
+                    }
+                }
+                console.warn("!! Fetch Error:", query, "\n---\n", error);
+                return {};
+            }
+        };
+        return await sendRequest();
     }
 }
 class SynonymGroup {
