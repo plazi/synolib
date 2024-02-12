@@ -254,10 +254,11 @@ export class SparqlEndpoint {
   }
   async getSparqlResultSet(
     query: string,
-    fetchOptions: { headers?: Record<string, string> } = {},
+    fetchOptions: RequestInit = {},
   ) {
     fetchOptions.headers = fetchOptions.headers || {};
-    fetchOptions.headers["Accept"] = "application/sparql-results+json";
+    (fetchOptions.headers as Record<string, string>)["Accept"] =
+      "application/sparql-results+json";
     let retryCount = 0;
     // deno-lint-ignore no-explicit-any
     const sendRequest = async (): Promise<any> => {
@@ -271,15 +272,16 @@ export class SparqlEndpoint {
         }
         return await response.json();
       } catch (error) {
-        if (
+        if (error instanceof DOMException) {
+          // i.e. signal is aborted
+          throw error;
+        } else if (
           error instanceof Error &&
           retryCount < 5 /* && error.message.endsWith("502") */
         ) {
           ++retryCount;
           console.warn(
-            `!! Fetch Error. Retrying in ${
-              retryCount * 50
-            }ms (${retryCount})`,
+            `!! Fetch Error. Retrying in ${retryCount * 50}ms (${retryCount})`,
           );
           await sleep(retryCount * 50);
           return await sendRequest();
@@ -307,6 +309,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   isFinished = false;
   isAborted = false;
 
+  private controller = new AbortController();
+
   constructor(
     sparqlEndpoint: SparqlEndpoint,
     taxonName: string,
@@ -324,10 +328,13 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
       this.monitor.dispatchEvent(new CustomEvent("updated"));
     };
 
+    const fetchInit = { signal: this.controller.signal };
+
     const build = async () => {
       function getStartingPoints(
         taxonName: string,
       ): Promise<JustifiedSynonym[]> {
+        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
         const [genus, species, subspecies] = taxonName.split(" ");
         // subspecies could also be variety
         // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
@@ -346,7 +353,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
           a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
     }`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
-        return sparqlEndpoint.getSparqlResultSet(query)
+        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+        return sparqlEndpoint.getSparqlResultSet(query, fetchInit)
           .then((json: SparqlJson) =>
             json.results.bindings.map((t) => {
               return {
@@ -364,8 +372,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 },
                 loading: true,
               };
-            })
-          );
+            }), (error) => {
+            console.warn("SPARQL Error: " + error);
+            return [];
+          });
       }
 
       const synonymFinders = [
@@ -385,7 +395,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
             return Promise.resolve([]);
           }
           expandedTaxonNames.add(taxon.taxonNameUri);
-          return sparqlEndpoint.getSparqlResultSet(query).then((
+          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
@@ -404,8 +415,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 },
                 loading: true,
               };
-            })
-          );
+            }), (error) => {
+            console.warn("SPARQL Error: " + error);
+            return [];
+          });
         },
         /** Get the Synonyms deprecating {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
@@ -425,7 +438,9 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?tc ?tn ?treat ?date`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
-          return sparqlEndpoint.getSparqlResultSet(query).then((
+
+          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
@@ -450,8 +465,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 },
                 loading: true,
               };
-            })
-          );
+            }), (error) => {
+            console.warn("SPARQL Error: " + error);
+            return [];
+          });
         },
         /** Get the Synonyms deprecated by {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
@@ -471,7 +488,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?tc ?tn ?treat ?date`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
-          return sparqlEndpoint.getSparqlResultSet(query).then((
+          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
@@ -496,8 +514,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
                 },
                 loading: true,
               };
-            })
-          );
+            }), (error) => {
+            console.warn("SPARQL Error: " + error);
+            return [];
+          });
         },
       ];
 
@@ -531,7 +551,9 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
     }
     GROUP BY ?treat ?how ?date`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getTreatments('${uri}')`)
-        return sparqlEndpoint.getSparqlResultSet(query).then(
+
+        if (fetchInit.signal.aborted) return new Promise((r) => r());
+        return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
           (json: SparqlJson) => {
             json.results.bindings.forEach((t) => {
               if (!t.treat) return;
@@ -554,6 +576,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               }
             });
           },
+          (error) => console.warn("SPARQL Error: " + error),
         );
       }
 
@@ -583,7 +606,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
       OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
       OPTIONAL { ?mc trt:httpUri ?httpUri . }
     }`;
-        return sparqlEndpoint.getSparqlResultSet(query).then(
+        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+        return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
           (json: SparqlJson) => {
             const resultArray: MaterialCitation[] = [];
             json.results.bindings.forEach((t) => {
@@ -611,6 +635,10 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               resultArray.push(result);
             });
             return resultArray;
+          },
+          (error) => {
+            console.warn("SPARQL Error: " + error);
+            return [];
           },
         );
       }
@@ -681,6 +709,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 
   abort() {
     this.isAborted = true;
+    this.controller.abort();
   }
 
   [Symbol.asyncIterator]() {

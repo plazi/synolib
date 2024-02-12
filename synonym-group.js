@@ -190,7 +190,9 @@ class SparqlEndpoint {
                 }
                 return await response.json();
             } catch (error) {
-                if (error instanceof Error && retryCount < 5) {
+                if (error instanceof DOMException) {
+                    throw error;
+                } else if (error instanceof Error && retryCount < 5) {
                     ++retryCount;
                     console.warn(`!! Fetch Error. Retrying in ${retryCount * 50}ms (${retryCount})`);
                     await sleep(retryCount * 50);
@@ -208,6 +210,7 @@ class SynonymGroup {
     monitor = new EventTarget();
     isFinished = false;
     isAborted = false;
+    controller = new AbortController();
     constructor(sparqlEndpoint, taxonName, ignoreRank = false){
         const justifiedSynonyms = new Map();
         const expandedTaxonNames = new Set();
@@ -217,8 +220,12 @@ class SynonymGroup {
             }
             this.monitor.dispatchEvent(new CustomEvent("updated"));
         };
+        const fetchInit = {
+            signal: this.controller.signal
+        };
         const build = async ()=>{
             function getStartingPoints(taxonName) {
+                if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
                 const [genus, species, subspecies] = taxonName.split(" ");
                 const query = `PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
     PREFIX treat: <http://plazi.org/vocab/treatment#>
@@ -230,7 +237,8 @@ class SynonymGroup {
           ${ignoreRank || !!subspecies ? "" : `dwc:rank "${species ? "species" : "genus"}";`}
           a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
     }`;
-                return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.map((t)=>{
+                if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
+                return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>json.results.bindings.map((t)=>{
                         return {
                             taxonConceptUri: t.tc.value,
                             taxonNameUri: t.tn.value,
@@ -244,7 +252,10 @@ class SynonymGroup {
                             },
                             loading: true
                         };
-                    }));
+                    }), (error)=>{
+                    console.warn("SPARQL Error: " + error);
+                    return [];
+                });
             }
             const synonymFinders = [
                 (taxon)=>{
@@ -260,7 +271,8 @@ class SynonymGroup {
                         return Promise.resolve([]);
                     }
                     expandedTaxonNames.add(taxon.taxonNameUri);
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
+                    if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
+                    return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: taxon.taxonNameUri,
@@ -277,7 +289,10 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        }));
+                        }), (error)=>{
+                        console.warn("SPARQL Error: " + error);
+                        return [];
+                    });
                 },
                 (taxon)=>{
                     const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -295,7 +310,8 @@ class SynonymGroup {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
+                    if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
+                    return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
@@ -318,7 +334,10 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        }));
+                        }), (error)=>{
+                        console.warn("SPARQL Error: " + error);
+                        return [];
+                    });
                 },
                 (taxon)=>{
                     const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -336,7 +355,8 @@ class SynonymGroup {
       }
     }
     GROUP BY ?tc ?tn ?treat ?date`;
-                    return sparqlEndpoint.getSparqlResultSet(query).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
+                    if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
+                    return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
                                 taxonNameUri: t.tn.value,
@@ -359,7 +379,10 @@ class SynonymGroup {
                                 },
                                 loading: true
                             };
-                        }));
+                        }), (error)=>{
+                        console.warn("SPARQL Error: " + error);
+                        return [];
+                    });
                 }
             ];
             async function lookUpRound(taxon) {
@@ -383,7 +406,8 @@ class SynonymGroup {
       }
     }
     GROUP BY ?treat ?how ?date`;
-                return sparqlEndpoint.getSparqlResultSet(query).then((json)=>{
+                if (fetchInit.signal.aborted) return new Promise((r)=>r());
+                return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>{
                     json.results.bindings.forEach((t)=>{
                         if (!t.treat) return;
                         const treatment = {
@@ -404,7 +428,7 @@ class SynonymGroup {
                                 break;
                         }
                     });
-                });
+                }, (error)=>console.warn("SPARQL Error: " + error));
             }
             function getMaterialCitations(uri) {
                 const query = `
@@ -432,7 +456,8 @@ class SynonymGroup {
       OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
       OPTIONAL { ?mc trt:httpUri ?httpUri . }
     }`;
-                return sparqlEndpoint.getSparqlResultSet(query).then((json)=>{
+                if (fetchInit.signal.aborted) return new Promise((r)=>r([]));
+                return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>{
                     const resultArray = [];
                     json.results.bindings.forEach((t)=>{
                         if (!t.mc || !t.catalogNumber) return;
@@ -459,6 +484,9 @@ class SynonymGroup {
                         resultArray.push(result);
                     });
                     return resultArray;
+                }, (error)=>{
+                    console.warn("SPARQL Error: " + error);
+                    return [];
                 });
             }
             const finish = (justsyn)=>{
@@ -509,6 +537,7 @@ class SynonymGroup {
     }
     abort() {
         this.isAborted = true;
+        this.controller.abort();
     }
     [Symbol.asyncIterator]() {
         let returnedSoFar = 0;
