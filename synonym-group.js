@@ -230,7 +230,7 @@ class SynonymGroup {
                 const query = `
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator="/") as ?authority) WHERE {
+SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?authority) WHERE {
   ?tc dwc:genus "${genus}";
       treat:hasTaxonName ?tn;
       ${species ? `dwc:species "${species}";` : ""}
@@ -267,7 +267,7 @@ GROUP BY ?tn ?tc`;
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tc (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+SELECT DISTINCT ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
 WHERE {
   ?tc treat:hasTaxonName <${taxon.taxonNameUri}> .
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
@@ -308,7 +308,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
 WHERE {
   ?treat treat:deprecates <${taxon.taxonConceptUri}> ;
         (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc ;
@@ -357,7 +357,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
 WHERE {
   ?treat (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
         treat:deprecates ?tc ;
