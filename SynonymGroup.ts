@@ -237,6 +237,7 @@ type Treatments = {
 export type JustifiedSynonym = {
   taxonConceptUri: string;
   taxonNameUri: string;
+  taxonConceptAuthority?: string;
   justifications: JustificationSet;
   treatments: Treatments;
   loading: boolean;
@@ -338,20 +339,23 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         const [genus, species, subspecies] = taxonName.split(" ");
         // subspecies could also be variety
         // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
-        const query = `PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-    PREFIX treat: <http://plazi.org/vocab/treatment#>
-    SELECT DISTINCT ?tn ?tc WHERE {
-      ?tc dwc:genus "${genus}";
-          treat:hasTaxonName ?tn;
-          ${species ? `dwc:species "${species}";` : ""}
-          ${subspecies ? `(dwc:subspecies|dwc:variety) "${subspecies}";` : ""}
-          ${
-          ignoreRank || !!subspecies
-            ? ""
-            : `dwc:rank "${species ? "species" : "genus"}";`
-        }
-          a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
-    }`;
+        const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator="/") as ?authority) WHERE {
+  ?tc dwc:genus "${genus}";
+      treat:hasTaxonName ?tn;
+      ${species ? `dwc:species "${species}";` : ""}
+      ${subspecies ? `(dwc:subspecies|dwc:variety) "${subspecies}";` : ""}
+      ${
+      ignoreRank || !!subspecies
+        ? ""
+        : `dwc:rank "${species ? "species" : "genus"}";`
+    }
+      a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+}
+GROUP BY ?tn ?tc`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
         if (fetchInit.signal.aborted) return new Promise((r) => r([]));
         return sparqlEndpoint.getSparqlResultSet(query, fetchInit)
@@ -360,6 +364,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: t.tn.value,
+                taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet([
                   `matches "${genus}${species ? " " + species : ""}${
                     subspecies ? " " + subspecies : ""
@@ -381,14 +386,17 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
       const synonymFinders = [
         /** Get the Synonyms having the same {taxon-name} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
-    PREFIX treat: <http://plazi.org/vocab/treatment#>
-    SELECT DISTINCT
-    ?tc
-    WHERE {
-      ?tc treat:hasTaxonName <${taxon.taxonNameUri}> .
-      FILTER (?tc != <${taxon.taxonConceptUri}>)
-    }`;
+          const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tc (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+WHERE {
+  ?tc treat:hasTaxonName <${taxon.taxonNameUri}> .
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+  FILTER (?tc != <${taxon.taxonConceptUri}>)
+}
+GROUP BY ?tc`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[0]( ${taxon.taxonConceptUri} )`)
           // Check wether we already expanded this taxon name horizontally - otherwise add
           if (expandedTaxonNames.has(taxon.taxonNameUri)) {
@@ -403,6 +411,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: taxon.taxonNameUri,
+                taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet([{
                   toString: () =>
                     `${t.tc.value} has taxon name ${taxon.taxonNameUri}`,
@@ -422,21 +431,24 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         },
         /** Get the Synonyms deprecating {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
-    PREFIX treat: <http://plazi.org/vocab/treatment#>
-    SELECT DISTINCT
-    ?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
-    WHERE {
-      ?treat treat:deprecates <${taxon.taxonConceptUri}> ;
-            (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc ;
-            dc:creator ?creator .
-      ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
-      OPTIONAL {
-        ?treat treat:publishedIn ?publ .
-        ?publ dc:date ?date .
-      }
-    }
-    GROUP BY ?tc ?tn ?treat ?date`;
+          const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT
+?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+WHERE {
+  ?treat treat:deprecates <${taxon.taxonConceptUri}> ;
+        (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc ;
+        dc:creator ?creator .
+  ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
+  OPTIONAL {
+    ?treat treat:publishedIn ?publ .
+    ?publ dc:date ?date .
+  }
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+}
+GROUP BY ?tc ?tn ?treat ?date`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
 
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
@@ -447,6 +459,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: t.tn.value,
+                taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet([{
                   toString: () =>
                     `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${t.treat.value}`,
@@ -472,21 +485,24 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         },
         /** Get the Synonyms deprecated by {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `PREFIX dc: <http://purl.org/dc/elements/1.1/>
-    PREFIX treat: <http://plazi.org/vocab/treatment#>
-    SELECT DISTINCT
-    ?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
-    WHERE {
-      ?treat (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
-            treat:deprecates ?tc ;
-            dc:creator ?creator .
-      ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
-      OPTIONAL {
-        ?treat treat:publishedIn ?publ .
-        ?publ dc:date ?date .
-      }
-    }
-    GROUP BY ?tc ?tn ?treat ?date`;
+          const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT
+?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator="/") as ?authority)
+WHERE {
+  ?treat (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
+        treat:deprecates ?tc ;
+        dc:creator ?creator .
+  ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
+  OPTIONAL {
+    ?treat treat:publishedIn ?publ .
+    ?publ dc:date ?date .
+  }
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+}
+GROUP BY ?tc ?tn ?treat ?date`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
@@ -496,6 +512,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: t.tn.value,
+                taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet([{
                   toString: () =>
                     `${t.tc.value} deprecated by ${taxon.taxonConceptUri} according to ${t.treat.value}`,
