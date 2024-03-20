@@ -21,7 +21,7 @@ export type MaterialCitation = {
   "verbatimElevation"?: string;
   "gbifOccurrenceId"?: string;
   "gbifSpecimenId"?: string;
-  "httpUri"?: string;
+  "httpUri"?: string[];
 };
 
 export type Treatment = {
@@ -348,39 +348,44 @@ SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?author
       ${species ? `dwc:species "${species}";` : ""}
       ${subspecies ? `(dwc:subspecies|dwc:variety) "${subspecies}";` : ""}
       ${
-      ignoreRank || !!subspecies
-        ? ""
-        : `dwc:rank "${species ? "species" : "genus"}";`
-    }
+          ignoreRank || !!subspecies
+            ? ""
+            : `dwc:rank "${species ? "species" : "genus"}";`
+        }
       a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
+  ?s ?p ?tc .
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
 }
 GROUP BY ?tn ?tc`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
         if (fetchInit.signal.aborted) return new Promise((r) => r([]));
         return sparqlEndpoint.getSparqlResultSet(query, fetchInit)
-          .then((json: SparqlJson) =>
-            json.results.bindings.map((t) => {
-              return {
-                taxonConceptUri: t.tc.value,
-                taxonNameUri: t.tn.value,
-                taxonConceptAuthority: t.authority?.value,
-                justifications: new JustificationSet([
-                  `matches "${genus}${species ? " " + species : ""}${
-                    subspecies ? " " + subspecies : ""
-                  }"`,
-                ]),
-                treatments: {
-                  def: new TreatmentSet(),
-                  aug: new TreatmentSet(),
-                  dpr: new TreatmentSet(),
-                },
-                loading: true,
-              };
-            }), (error) => {
-            console.warn("SPARQL Error: " + error);
-            return [];
-          });
+          .then(
+            (json: SparqlJson) =>
+              json.results.bindings.filter((t) => (t.tc && t.tn))
+                .map((t) => {
+                  return {
+                    taxonConceptUri: t.tc.value,
+                    taxonNameUri: t.tn.value,
+                    taxonConceptAuthority: t.authority?.value,
+                    justifications: new JustificationSet([
+                      `matches "${genus}${species ? " " + species : ""}${
+                        subspecies ? " " + subspecies : ""
+                      }"`,
+                    ]),
+                    treatments: {
+                      def: new TreatmentSet(),
+                      aug: new TreatmentSet(),
+                      dpr: new TreatmentSet(),
+                    },
+                    loading: true,
+                  };
+                }),
+            (error) => {
+              console.warn("SPARQL Error: " + error);
+              return [];
+            },
+          );
       }
 
       const synonymFinders = [
@@ -599,30 +604,31 @@ GROUP BY ?tc ?tn ?treat ?date`;
 
       function getMaterialCitations(uri: string): Promise<MaterialCitation[]> {
         const query = `
-    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-    PREFIX trt: <http://plazi.org/vocab/treatment#>
-    SELECT DISTINCT *
-    WHERE {
-      <${uri}> dwc:basisOfRecord ?mc .
-      ?mc dwc:catalogNumber ?catalogNumber .
-      OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
-      OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
-      OPTIONAL { ?mc dwc:countryCode ?countryCode . }
-      OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
-      OPTIONAL { ?mc dwc:municipality ?municipality . }
-      OPTIONAL { ?mc dwc:county ?county . }
-      OPTIONAL { ?mc dwc:locality ?locality . }
-      OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
-      OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
-      OPTIONAL { ?mc dwc:eventDate ?eventDate . }
-      OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
-      OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
-      OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
-      OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
-      OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
-      OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
-      OPTIONAL { ?mc trt:httpUri ?httpUri . }
-    }`;
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
+WHERE {
+  <${uri}> dwc:basisOfRecord ?mc .
+  ?mc dwc:catalogNumber ?catalogNumber .
+  OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
+  OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
+  OPTIONAL { ?mc dwc:countryCode ?countryCode . }
+  OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
+  OPTIONAL { ?mc dwc:municipality ?municipality . }
+  OPTIONAL { ?mc dwc:county ?county . }
+  OPTIONAL { ?mc dwc:locality ?locality . }
+  OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
+  OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
+  OPTIONAL { ?mc dwc:eventDate ?eventDate . }
+  OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
+  OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
+  OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
+  OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+  OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
+  OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
+  OPTIONAL { ?mc trt:httpUri ?httpUri . }
+}
+GROUP BY ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
         if (fetchInit.signal.aborted) return new Promise((r) => r([]));
         return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
           (json: SparqlJson) => {
@@ -647,7 +653,7 @@ GROUP BY ?tc ?tn ?treat ?date`;
                 "verbatimElevation": t.verbatimElevation?.value || undefined,
                 "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
                 "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
-                "httpUri": t.httpUri?.value || undefined,
+                "httpUri": t.httpUris?.value.split("|") || undefined,
               };
               resultArray.push(result);
             });
