@@ -38,6 +38,15 @@ try {
             }: ${treatment.url}`,
           ),
         );
+        treatment.materialCitations.then((mcs) => {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                mcs.map((mc) => mc.catalogNumber).join(", ")
+              }`,
+            ),
+          );
+        });
       }
     })();
     (async () => {
@@ -49,6 +58,15 @@ try {
             }: ${treatment.url}`,
           ),
         );
+        treatment.materialCitations.then((mcs) => {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                mcs.map((mc) => mc.catalogNumber).join(", ")
+              }`,
+            ),
+          );
+        });
       }
     })();
     (async () => {
@@ -60,6 +78,15 @@ try {
             }: ${treatment.url}`,
           ),
         );
+        treatment.materialCitations.then((mcs) => {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                mcs.map((mc) => mc.catalogNumber).join(", ")
+              }`,
+            ),
+          );
+        });
       }
     })();
   }
