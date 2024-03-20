@@ -233,6 +233,7 @@ type Treatments = {
   def: TreatmentSet;
   aug: TreatmentSet;
   dpr: TreatmentSet;
+  cite: TreatmentSet;
 };
 
 export type JustifiedSynonym = {
@@ -378,6 +379,7 @@ GROUP BY ?tn ?tc`;
                       def: new TreatmentSet(),
                       aug: new TreatmentSet(),
                       dpr: new TreatmentSet(),
+                      cite: new TreatmentSet(),
                     },
                     loading: true,
                   };
@@ -427,6 +429,7 @@ GROUP BY ?tc`;
                   def: new TreatmentSet(),
                   aug: new TreatmentSet(),
                   dpr: new TreatmentSet(),
+                  cite: new TreatmentSet(),
                 },
                 loading: true,
               };
@@ -481,7 +484,8 @@ GROUP BY ?tc ?tn ?treat ?date`;
                   def: new TreatmentSet(),
                   aug: new TreatmentSet(),
                   dpr: new TreatmentSet(),
-                },
+                  cite: new TreatmentSet(),
+                } as Treatments,
                 loading: true,
               };
             }), (error) => {
@@ -534,7 +538,8 @@ GROUP BY ?tc ?tn ?treat ?date`;
                   def: new TreatmentSet(),
                   aug: new TreatmentSet(),
                   dpr: new TreatmentSet(),
-                },
+                  cite: new TreatmentSet(),
+                } as Treatments,
                 loading: true,
               };
             }), (error) => {
@@ -562,9 +567,10 @@ GROUP BY ?tc ?tn ?treat ?date`;
         const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
     PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+    PREFIX cito: <http://purl.org/spar/cito/>
     SELECT DISTINCT ?treat ?how ?date ?title (group_concat(DISTINCT ?c;separator="; ") as ?creators)
     WHERE {
-      ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates) <${uri}> ;
+      ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates|cito:cites) <${uri}> ;
               ?how <${uri}> ;
               dc:creator ?c .
       OPTIONAL { ?treat dc:title ?title }
@@ -597,6 +603,9 @@ GROUP BY ?tc ?tn ?treat ?date`;
                   break;
                 case treat + "deprecates":
                   treatments.dpr.add(treatment);
+                  break;
+                case "http://purl.org/spar/cito/cites":
+                  treatments.cite.add(treatment);
                   break;
               }
             });
@@ -675,6 +684,7 @@ GROUP BY ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvi
           justsyn.treatments.def.finish();
           justsyn.treatments.aug.finish();
           justsyn.treatments.dpr.finish();
+          justsyn.treatments.cite.finish();
           justsyn.loading = false;
         });
       };

@@ -89,6 +89,26 @@ try {
         });
       }
     })();
+    (async () => {
+      for await (const treatment of synonym.treatments.cite) {
+        console.log(
+          Colors.gray(
+            ` - Found treatment citing ${
+              tcName(synonym)
+            }: ${treatment.url}`,
+          ),
+        );
+        treatment.materialCitations.then((mcs) => {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                mcs.map((mc) => mc.catalogNumber).join(", ")
+              }`,
+            ),
+          );
+        });
+      }
+    })();
   }
 } catch (error) {
   console.error(Colors.red(error + ""));
