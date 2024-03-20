@@ -412,17 +412,18 @@ GROUP BY ?tc ?tn ?treat ?date`;
                 const query = `PREFIX treat: <${treat}>
     PREFIX dc: <http://purl.org/dc/elements/1.1/>
     PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-    SELECT DISTINCT ?treat ?how ?date (group_concat(DISTINCT ?c;separator="; ") as ?creators)
+    SELECT DISTINCT ?treat ?how ?date ?title (group_concat(DISTINCT ?c;separator="; ") as ?creators)
     WHERE {
       ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates) <${uri}> ;
               ?how <${uri}> ;
               dc:creator ?c .
+      OPTIONAL { ?treat dc:title ?title }
       OPTIONAL {
         ?treat treat:publishedIn ?pub .
         ?pub dc:date ?date .
       }
     }
-    GROUP BY ?treat ?how ?date`;
+    GROUP BY ?treat ?how ?date ?title`;
                 if (fetchInit.signal.aborted) return new Promise((r)=>r());
                 return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((json)=>{
                     json.results.bindings.forEach((t)=>{
@@ -431,7 +432,8 @@ GROUP BY ?tc ?tn ?treat ?date`;
                             url: t.treat.value,
                             date: t.date ? parseInt(t.date.value, 10) : undefined,
                             creators: t.creators.value,
-                            materialCitations: getMaterialCitations(t.treat.value)
+                            materialCitations: getMaterialCitations(t.treat.value),
+                            title: t.title?.value
                         };
                         switch(t.how.value){
                             case treat + "definesTaxonConcept":
