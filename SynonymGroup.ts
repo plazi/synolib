@@ -189,6 +189,7 @@ export class SparqlEndpoint {
   async getSparqlResultSet(
     query: string,
     fetchOptions: RequestInit = {},
+    _reason = "",
   ) {
     fetchOptions.headers = fetchOptions.headers || {};
     (fetchOptions.headers as Record<string, string>)["Accept"] =
@@ -197,6 +198,7 @@ export class SparqlEndpoint {
     // deno-lint-ignore no-explicit-any
     const sendRequest = async (): Promise<any> => {
       try {
+        // console.info(`SPARQL ${_reason} (${retryCount + 1})`);
         const response = await fetch(
           this.sparqlEnpointUri + "?query=" + encodeURIComponent(query),
           fetchOptions,
@@ -306,7 +308,11 @@ GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryC
       if (fetchInit.signal.aborted) {
         return new Promise((r) => r({ materialCitations: [] }));
       }
-      return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
+      return sparqlEndpoint.getSparqlResultSet(
+        query,
+        fetchInit,
+        `Treatment Details for ${treatmentUri}`,
+      ).then(
         (json: SparqlJson) => {
           const result: TreatmentDetails = {
             creators: json.results.bindings[0]?.creators?.value,
@@ -399,7 +405,11 @@ WHERE {
 GROUP BY ?tn ?tc`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
         if (fetchInit.signal.aborted) return new Promise((r) => r([]));
-        return sparqlEndpoint.getSparqlResultSet(query, fetchInit)
+        return sparqlEndpoint.getSparqlResultSet(
+          query,
+          fetchInit,
+          "Starting Points",
+        )
           .then(
             (json: SparqlJson) =>
               json.results.bindings.filter((t) => (t.tc && t.tn))
@@ -462,7 +472,11 @@ GROUP BY ?tc`;
           }
           expandedTaxonNames.add(taxon.taxonName.uri);
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
-          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
+          return sparqlEndpoint.getSparqlResultSet(
+            query,
+            fetchInit,
+            `Same taxon name ${taxon.taxonConceptUri}`,
+          ).then((
             json: SparqlJson,
           ) => {
             taxon.taxonName.loading = false;
@@ -515,7 +529,11 @@ WHERE {
 GROUP BY ?tn ?tc`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
-          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
+          return sparqlEndpoint.getSparqlResultSet(
+            query,
+            fetchInit,
+            `Deprecating     ${taxon.taxonConceptUri}`,
+          ).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
@@ -585,7 +603,11 @@ WHERE {
 GROUP BY ?tn ?tc`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
-          return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
+          return sparqlEndpoint.getSparqlResultSet(
+            query,
+            fetchInit,
+            `Deprecated by   ${taxon.taxonConceptUri}`,
+          ).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
@@ -660,11 +682,15 @@ GROUP BY ?tn ?tc`;
         );
         resolver(justsyn);
       });
-      const expandedTaxonConcepts: string[] = [];
+      const expandedTaxonConcepts: Set<string> = new Set();
       while (justifiedSynsToExpand.length > 0) {
         const foundThisRound: string[] = [];
-        const promises = justifiedSynsToExpand.map((j) =>
-          lookUpRound(j).then((newSynonyms) => {
+        const promises = justifiedSynsToExpand.map((j) => {
+          if (expandedTaxonConcepts.has(j.taxonConceptUri)) {
+            return new Promise<boolean>((r) => r(false));
+          }
+          expandedTaxonConcepts.add(j.taxonConceptUri);
+          return lookUpRound(j).then((newSynonyms) => {
             newSynonyms.forEach((justsyn) => {
               // Check whether we know about this synonym already
               if (justifiedSynonyms.has(justsyn.taxonConceptUri)) {
@@ -685,15 +711,14 @@ GROUP BY ?tn ?tc`;
                 );
                 resolver(justsyn);
               }
-              if (!~expandedTaxonConcepts.indexOf(justsyn.taxonConceptUri)) {
+              if (!expandedTaxonConcepts.has(justsyn.taxonConceptUri)) {
                 justifiedSynsToExpand.push(justsyn);
                 foundThisRound.push(justsyn.taxonConceptUri);
               }
             });
-            expandedTaxonConcepts.push(j.taxonConceptUri);
             return true;
-          })
-        );
+          });
+        });
         justifiedSynsToExpand = [];
         await Promise.allSettled(promises);
       }
