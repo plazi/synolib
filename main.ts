@@ -1,7 +1,11 @@
 /** Command line tool that returns all information as it becomes available */
 
-import SynoGroup, { JustifiedSynonym, SparqlEndpoint } from "./SynonymGroup.ts";
-import * as Colors from "https://deno.land/std/fmt/colors.ts";
+import SynoGroup, {
+  JustifiedSynonym,
+  SparqlEndpoint,
+  TaxonName,
+} from "./SynonymGroup.ts";
+import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
 
 const sparqlEndpoint = new SparqlEndpoint(
   "https://treatment.ld.plazi.org/sparql",
@@ -19,96 +23,147 @@ try {
         ` * Found synonym: ${tcName(synonym)} <${synonym.taxonConceptUri}>`,
       ),
     );
+    console.log(
+      Colors.blue(`   ... with taxon name: ${tnName(synonym.taxonName)} <${synonym.taxonName.uri}>`),
+    );
+    for (const treatment of synonym.taxonName.treatments.aug) {
+      console.log(
+        Colors.gray(
+          ` - Found treatment for ${
+            tnName(synonym.taxonName)
+          }: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
+              }`,
+            ),
+          );
+        }
+      });
+    }
+    for (const treatment of synonym.taxonName.treatments.cite) {
+      console.log(
+        Colors.gray(
+          ` - Found treatment citing ${
+            tnName(synonym.taxonName)
+          }: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
+          console.log(
+            Colors.gray(
+              `   - Found MCS for ${treatment.url}: ${
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
+              }`,
+            ),
+          );
+        }
+      });
+    }
 
-    (async () => {
-      for await (const justification of synonym.justifications) {
-        console.log(
-          Colors.magenta(
-            ` - Found justification for ${tcName(synonym)}: ${justification}`,
-          ),
-        );
-      }
-    })();
-    (async () => {
-      for await (const treatment of synonym.treatments!.aug) {
-        console.log(
-          Colors.gray(
-            ` - Found augmenting treatment for ${
-              tcName(synonym)
-            }: ${treatment.url}`,
-          ),
-        );
-        treatment.materialCitations.then((mcs) => {
+    for await (const justification of synonym.justifications) {
+      console.log(
+        Colors.magenta(
+          ` - Found justification for ${tcName(synonym)}: ${justification}`,
+        ),
+      );
+    }
+    for (const treatment of synonym.treatments!.aug) {
+      console.log(
+        Colors.gray(
+          ` - Found augmenting treatment for ${
+            tcName(synonym)
+          }: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
           console.log(
             Colors.gray(
               `   - Found MCS for ${treatment.url}: ${
-                mcs.map((mc) => mc.catalogNumber).join(", ")
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
               }`,
             ),
           );
-        });
-      }
-    })();
-    (async () => {
-      for await (const treatment of synonym.treatments.def) {
-        console.log(
-          Colors.gray(
-            ` - Found defining treatment for ${
-              tcName(synonym)
-            }: ${treatment.url}`,
-          ),
-        );
-        treatment.materialCitations.then((mcs) => {
+        }
+      });
+    }
+    for (const treatment of synonym.treatments.def) {
+      console.log(
+        Colors.gray(
+          ` - Found defining treatment for ${
+            tcName(synonym)
+          }: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
           console.log(
             Colors.gray(
               `   - Found MCS for ${treatment.url}: ${
-                mcs.map((mc) => mc.catalogNumber).join(", ")
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
               }`,
             ),
           );
-        });
-      }
-    })();
-    (async () => {
-      for await (const treatment of synonym.treatments.dpr) {
-        console.log(
-          Colors.gray(
-            ` - Found deprecating treatment for ${
-              tcName(synonym)
-            }: ${treatment.url}`,
-          ),
-        );
-        treatment.materialCitations.then((mcs) => {
+        }
+      });
+    }
+    for (const treatment of synonym.treatments.dpr) {
+      console.log(
+        Colors.gray(
+          ` - Found deprecating treatment for ${
+            tcName(synonym)
+          }: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
           console.log(
             Colors.gray(
               `   - Found MCS for ${treatment.url}: ${
-                mcs.map((mc) => mc.catalogNumber).join(", ")
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
               }`,
             ),
           );
-        });
-      }
-    })();
-    (async () => {
-      for await (const treatment of synonym.treatments.cite) {
-        console.log(
-          Colors.gray(
-            ` - Found treatment citing ${
-              tcName(synonym)
-            }: ${treatment.url}`,
-          ),
-        );
-        treatment.materialCitations.then((mcs) => {
+        }
+      });
+    }
+    for (const treatment of synonym.treatments.cite) {
+      console.log(
+        Colors.gray(
+          ` - Found treatment citing ${tcName(synonym)}: ${treatment.url}`,
+        ),
+      );
+      treatment.details.then((details) => {
+        if (details.materialCitations.length) {
           console.log(
             Colors.gray(
               `   - Found MCS for ${treatment.url}: ${
-                mcs.map((mc) => mc.catalogNumber).join(", ")
+                details.materialCitations.map((mc) => mc.catalogNumber).join(
+                  ", ",
+                )
               }`,
             ),
           );
-        });
-      }
-    })();
+        }
+      });
+    }
   }
 } catch (error) {
   console.error(Colors.red(error + ""));
@@ -116,7 +171,7 @@ try {
 
 function tcName(synonym: JustifiedSynonym) {
   if (synonym.taxonConceptAuthority) {
-    const name = synonym.taxonNameUri.replace(
+    const name = synonym.taxonName.uri.replace(
       "http://taxon-name.plazi.org/id/",
       "",
     );
@@ -127,4 +182,12 @@ function tcName(synonym: JustifiedSynonym) {
     "",
   );
   return suffix.replaceAll("_", " ");
+}
+
+function tnName(taxonName: TaxonName) {
+  const name = taxonName.uri.replace(
+    "http://taxon-name.plazi.org/id/",
+    "",
+  );
+  return name.replaceAll("_", " ");
 }

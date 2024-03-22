@@ -30,6 +30,7 @@ type TreatmentDetails = {
   creators?: string;
   title?: string;
 };
+
 export type Treatment = {
   url: string;
   details: Promise<TreatmentDetails>;
@@ -120,7 +121,7 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
 
   [Symbol.toStringTag] = "";
   [Symbol.asyncIterator]() {
-    this.monitor.addEventListener("updated", () => console.log("ARA"));
+    // this.monitor.addEventListener("updated", () => console.log("ARA"));
     let returnedSoFar = 0;
     return {
       next: () => {
@@ -157,9 +158,18 @@ type Treatments = {
   cite: Set<Treatment>;
 };
 
+export type TaxonName = {
+  uri: string;
+  treatments: {
+    aug: Set<Treatment>;
+    cite: Set<Treatment>;
+  };
+  loading: boolean;
+};
+
 export type JustifiedSynonym = {
   taxonConceptUri: string;
-  taxonNameUri: string;
+  taxonName: TaxonName;
   taxonConceptAuthority?: string;
   justifications: JustificationSet;
   treatments: Treatments;
@@ -233,7 +243,9 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   isFinished = false;
   isAborted = false;
 
-  private treatments: Map<string, Treatment> = new Map();
+  // Maps from url to object
+  treatments: Map<string, Treatment> = new Map();
+  taxonNames: Map<string, TaxonName> = new Map();
 
   private controller = new AbortController();
 
@@ -338,23 +350,28 @@ GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryC
 
     const makeTreatmentSet = (urls?: string[]): Set<Treatment> => {
       if (!urls) return new Set<Treatment>();
-      return new Set<Treatment>(urls.map((url) => {
-        if (!this.treatments.has(url)) {
-          this.treatments.set(url, { url, details: getTreatmentDetails(url) });
-        }
-        return this.treatments.get(url) as Treatment;
-      }));
+      return new Set<Treatment>(
+        urls.filter((url) => !!url).map((url) => {
+          if (!this.treatments.has(url)) {
+            this.treatments.set(url, {
+              url,
+              details: getTreatmentDetails(url),
+            });
+          }
+          return this.treatments.get(url) as Treatment;
+        }),
+      );
     };
 
     const build = async () => {
-      function getStartingPoints(
+      const getStartingPoints = (
         taxonName: string,
-      ): Promise<JustifiedSynonym[]> {
+      ): Promise<JustifiedSynonym[]> => {
         if (fetchInit.signal.aborted) return new Promise((r) => r([]));
         const [genus, species, subspecies] = taxonName.split(" ");
         // subspecies could also be variety
         // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
-          const query = `PREFIX cito: <http://purl.org/spar/cito/>
+        const query = `PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
@@ -387,9 +404,19 @@ GROUP BY ?tn ?tc`;
             (json: SparqlJson) =>
               json.results.bindings.filter((t) => (t.tc && t.tn))
                 .map((t) => {
+                  if (!this.taxonNames.has(t.tn.value)) {
+                    this.taxonNames.set(t.tn.value, {
+                      uri: t.tn.value,
+                      loading: true,
+                      treatments: {
+                        aug: makeTreatmentSet(t.trtns?.value.split("|")),
+                        cite: makeTreatmentSet(t.citetns?.value.split("|")),
+                      },
+                    });
+                  }
                   return {
                     taxonConceptUri: t.tc.value,
-                    taxonNameUri: t.tn.value,
+                    taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
                     taxonConceptAuthority: t.authority?.value,
                     justifications: new JustificationSet([
                       `${t.tc.value} matches "${taxonName}"`,
@@ -408,7 +435,7 @@ GROUP BY ?tn ?tc`;
               return [];
             },
           );
-      }
+      };
 
       const synonymFinders = [
         /** Get the Synonyms having the same {taxon-name} */
@@ -418,49 +445,49 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites)
 WHERE {
-  ?tc treat:hasTaxonName <${taxon.taxonNameUri}> .
-  ?tc treat:hasTaxonName ?tn .
+  ?tc treat:hasTaxonName <${taxon.taxonName.uri}> .
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
   OPTIONAL { ?dpr treat:deprecates ?tc . }
   OPTIONAL { ?cite cito:cites ?tc . }
-  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
-  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
 GROUP BY ?tc`;
-          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[0]( ${taxon.taxonConceptUri} )`)
           // Check wether we already expanded this taxon name horizontally - otherwise add
-          if (expandedTaxonNames.has(taxon.taxonNameUri)) {
+          if (expandedTaxonNames.has(taxon.taxonName.uri)) {
             return Promise.resolve([]);
           }
-          expandedTaxonNames.add(taxon.taxonNameUri);
+          expandedTaxonNames.add(taxon.taxonName.uri);
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
-          ) =>
-            json.results.bindings.filter((t) => t.tc).map((t) => {
-              return {
-                taxonConceptUri: t.tc.value,
-                taxonNameUri: taxon.taxonNameUri,
-                taxonConceptAuthority: t.authority?.value,
-                justifications: new JustificationSet([{
-                  toString: () =>
-                    `${t.tc.value} has taxon name ${taxon.taxonNameUri}`,
-                  precedingSynonym: taxon,
-                }]),
-                treatments: {
-                  def: makeTreatmentSet(t.defs?.value.split("|")),
-                  aug: makeTreatmentSet(t.augs?.value.split("|")),
-                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
-                  cite: makeTreatmentSet(t.cites?.value.split("|")),
-                },
-                loading: true,
-              };
-            }), (error) => {
+          ) => {
+            taxon.taxonName.loading = false;
+            return json.results.bindings.filter((t) => t.tc).map(
+              (t): JustifiedSynonym => {
+                return {
+                  taxonConceptUri: t.tc.value,
+                  taxonName: taxon.taxonName,
+                  taxonConceptAuthority: t.authority?.value,
+                  justifications: new JustificationSet([{
+                    toString: () =>
+                      `${t.tc.value} has taxon name ${taxon.taxonName.uri}`,
+                    precedingSynonym: taxon,
+                  }]),
+                  treatments: {
+                    def: makeTreatmentSet(t.defs?.value.split("|")),
+                    aug: makeTreatmentSet(t.augs?.value.split("|")),
+                    dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                    cite: makeTreatmentSet(t.cites?.value.split("|")),
+                  },
+                  loading: true,
+                };
+              },
+            );
+          }, (error) => {
             console.warn("SPARQL Error: " + error);
             return [];
           });
@@ -486,16 +513,25 @@ WHERE {
   OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
 GROUP BY ?tn ?tc`;
-          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
+              if (!this.taxonNames.has(t.tn.value)) {
+                this.taxonNames.set(t.tn.value, {
+                  uri: t.tn.value,
+                  loading: true,
+                  treatments: {
+                    aug: makeTreatmentSet(t.trtns?.value.split("|")),
+                    cite: makeTreatmentSet(t.citetns?.value.split("|")),
+                  },
+                });
+              }
               return {
                 taxonConceptUri: t.tc.value,
-                taxonNameUri: t.tn.value,
+                taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
                 taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
@@ -547,16 +583,25 @@ WHERE {
   OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
 GROUP BY ?tn ?tc`;
-          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
+              if (!this.taxonNames.has(t.tn.value)) {
+                this.taxonNames.set(t.tn.value, {
+                  uri: t.tn.value,
+                  loading: true,
+                  treatments: {
+                    aug: makeTreatmentSet(t.trtns?.value.split("|")),
+                    cite: makeTreatmentSet(t.citetns?.value.split("|")),
+                  },
+                });
+              }
               return {
                 taxonConceptUri: t.tc.value,
-                taxonNameUri: t.tn.value,
+                taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
                 taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
