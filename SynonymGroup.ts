@@ -1,7 +1,4 @@
-interface Justification {
-  toString: () => string;
-  precedingSynonym?: JustifiedSynonym; // eslint-disable-line no-use-before-define
-}
+import { JustificationSet } from "./JustificationSet.ts";
 
 export type MaterialCitation = {
   "catalogNumber": string;
@@ -24,7 +21,7 @@ export type MaterialCitation = {
   "httpUri"?: string[];
 };
 
-type TreatmentDetails = {
+export type TreatmentDetails = {
   materialCitations: MaterialCitation[];
   date?: number;
   creators?: string;
@@ -36,128 +33,6 @@ export type Treatment = {
   details: Promise<TreatmentDetails>;
 };
 
-interface TreatmentJustification extends Justification {
-  treatment: Treatment;
-}
-
-type LexicalJustification = Justification;
-
-export type anyJustification = TreatmentJustification | LexicalJustification;
-
-export type anySyncJustification = {
-  toString: () => string;
-  precedingSynonym?: JustifiedSynonym; // eslint-disable-line no-use-before-define
-  treatment?: Treatment;
-};
-
-export class JustificationSet implements AsyncIterable<anyJustification> {
-  private monitor = new EventTarget();
-  contents: anyJustification[] = [];
-  isFinished = false;
-  isAborted = false;
-  entries = ((Array.from(this.contents.values()).map((v) => [v, v])) as [
-    anyJustification,
-    anyJustification,
-  ][]).values;
-
-  constructor(iterable?: Iterable<anyJustification>) {
-    if (iterable) {
-      for (const el of iterable) {
-        this.add(el);
-      }
-    }
-    return this;
-  }
-
-  get size() {
-    return new Promise<number>((resolve, reject) => {
-      if (this.isAborted) {
-        reject(new Error("JustificationSet has been aborted"));
-      } else if (this.isFinished) {
-        resolve(this.contents.length);
-      } else {
-        const listener = () => {
-          if (this.isFinished) {
-            this.monitor.removeEventListener("updated", listener);
-            resolve(this.contents.length);
-          }
-        };
-        this.monitor.addEventListener("updated", listener);
-      }
-    });
-  }
-
-  add(value: anyJustification) {
-    if (
-      this.contents.findIndex((c) => c.toString() === value.toString()) === -1
-    ) {
-      this.contents.push(value);
-      this.monitor.dispatchEvent(new CustomEvent("updated"));
-    }
-    return this;
-  }
-
-  finish() {
-    //console.info("%cJustificationSet finished", "color: #69F0AE;");
-    this.isFinished = true;
-    this.monitor.dispatchEvent(new CustomEvent("updated"));
-  }
-
-  forEachCurrent(cb: (val: anyJustification) => void) {
-    this.contents.forEach(cb);
-  }
-
-  first() {
-    return new Promise<anyJustification>((resolve) => {
-      if (this.contents[0]) {
-        resolve(this.contents[0]);
-      } else {
-        this.monitor.addEventListener("update", () => {
-          resolve(this.contents[0]);
-        });
-      }
-    });
-  }
-
-  [Symbol.toStringTag] = "";
-  [Symbol.asyncIterator]() {
-    // this.monitor.addEventListener("updated", () => console.log("ARA"));
-    let returnedSoFar = 0;
-    return {
-      next: () => {
-        return new Promise<IteratorResult<anyJustification>>(
-          (resolve, reject) => {
-            const _ = () => {
-              if (this.isAborted) {
-                reject(new Error("JustificationSet has been aborted"));
-              } else if (returnedSoFar < this.contents.length) {
-                resolve({ value: this.contents[returnedSoFar++] });
-              } else if (this.isFinished) {
-                resolve({ done: true, value: true });
-              } else {
-                const listener = () => {
-                  console.log("ahgfd");
-                  this.monitor.removeEventListener("updated", listener);
-                  _();
-                };
-                this.monitor.addEventListener("updated", listener);
-              }
-            };
-            _();
-          },
-        );
-      },
-    };
-  }
-}
-
-type Treatments = {
-  def: Set<Treatment>;
-  aug: Set<Treatment>;
-  dpr: Set<Treatment>;
-  cite: Set<Treatment>;
-};
-
 export type TaxonName = {
   uri: string;
   treatments: {
@@ -167,6 +42,12 @@ export type TaxonName = {
   loading: boolean;
 };
 
+type Treatments = {
+  def: Set<Treatment>;
+  aug: Set<Treatment>;
+  dpr: Set<Treatment>;
+  cite: Set<Treatment>;
+};
 export type JustifiedSynonym = {
   taxonConceptUri: string;
   taxonName: TaxonName;
@@ -183,6 +64,15 @@ async function sleep(ms: number): Promise<void> {
   return await p;
 }
 
+type SparqlJson = {
+  head: {
+    vars: string[];
+  };
+  results: {
+    bindings: { [key: string]: { type: string; value: string } }[];
+  };
+};
+
 export class SparqlEndpoint {
   constructor(private sparqlEnpointUri: string) {
   }
@@ -195,8 +85,7 @@ export class SparqlEndpoint {
     (fetchOptions.headers as Record<string, string>)["Accept"] =
       "application/sparql-results+json";
     let retryCount = 0;
-    // deno-lint-ignore no-explicit-any
-    const sendRequest = async (): Promise<any> => {
+    const sendRequest = async (): Promise<SparqlJson> => {
       try {
         // console.info(`SPARQL ${_reason} (${retryCount + 1})`);
         const response = await fetch(
@@ -210,7 +99,7 @@ export class SparqlEndpoint {
       } catch (error) {
         if (error instanceof DOMException) {
           // i.e. signal is aborted
-          throw error;
+          return new Promise<SparqlJson>((_, reject) => reject(error));
         } else if (
           error instanceof Error &&
           retryCount < 5 /* && error.message.endsWith("502") */
@@ -223,21 +112,12 @@ export class SparqlEndpoint {
           return await sendRequest();
         }
         console.warn("!! Fetch Error:", query, "\n---\n", error);
-        return {}; // as not to crash code expecting parsed json
+        return new Promise<SparqlJson>((_, reject) => reject(error));
       }
     };
     return await sendRequest();
   }
 }
-
-type SparqlJson = {
-  head: {
-    vars: string[];
-  };
-  results: {
-    bindings: { [key: string]: { type: string; value: string } }[];
-  };
-};
 
 export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   justifiedArray: JustifiedSynonym[] = [];
@@ -313,7 +193,7 @@ GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryC
         fetchInit,
         `Treatment Details for ${treatmentUri}`,
       ).then(
-        (json: SparqlJson) => {
+        (json) => {
           const result: TreatmentDetails = {
             creators: json.results.bindings[0]?.creators?.value,
             date: json.results.bindings[0]?.date?.value
