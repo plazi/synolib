@@ -24,12 +24,15 @@ export type MaterialCitation = {
   "httpUri"?: string[];
 };
 
-export type Treatment = {
-  url: string;
-  materialCitations: Promise<MaterialCitation[]>;
+type TreatmentDetails = {
+  materialCitations: MaterialCitation[];
   date?: number;
   creators?: string;
   title?: string;
+};
+export type Treatment = {
+  url: string;
+  details: Promise<TreatmentDetails>;
 };
 
 interface TreatmentJustification extends Justification {
@@ -147,93 +150,11 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
   }
 }
 
-class TreatmentSet implements AsyncIterable<Treatment> {
-  private monitor = new EventTarget();
-  contents: Treatment[] = [];
-  isFinished = false;
-  isAborted = false;
-
-  constructor(iterable?: Iterable<Treatment>) {
-    if (iterable) {
-      for (const el of iterable) {
-        this.add(el);
-      }
-    }
-    return this;
-  }
-
-  get size() {
-    return new Promise<number>((resolve, reject) => {
-      if (this.isAborted) {
-        reject(new Error("JustificationSet has been aborted"));
-      } else if (this.isFinished) {
-        resolve(this.contents.length);
-      } else {
-        const listener = () => {
-          if (this.isFinished) {
-            this.monitor.removeEventListener("updated", listener);
-            resolve(this.contents.length);
-          }
-        };
-        this.monitor.addEventListener("updated", listener);
-      }
-    });
-  }
-
-  add(value: Treatment) {
-    if (this.contents.findIndex((c) => c.url === value.url) === -1) {
-      this.contents.push(value);
-      this.monitor.dispatchEvent(new CustomEvent("updated"));
-    }
-    return this;
-  }
-
-  finish() {
-    //console.info("%cTreatmentSet finished", "color: #B9F6CA;");
-    this.isFinished = true;
-    this.monitor.dispatchEvent(new CustomEvent("updated"));
-  }
-
-  [Symbol.asyncIterator]() {
-    let returnedSoFar = 0;
-    return {
-      next: () => {
-        return new Promise<IteratorResult<Treatment>>((resolve, reject) => {
-          const _ = () => {
-            /*console.log(
-              this.isFinished,
-              this.isAborted,
-              returnedSoFar,
-              "<",
-              this.contents.length,
-            );*/
-            if (this.isAborted) {
-              reject(new Error("TreatmentSet has been aborted"));
-            } else if (returnedSoFar < this.contents.length) {
-              resolve({ value: this.contents[returnedSoFar++] });
-            } else if (this.isFinished) {
-              //console.info("%cTreatmentSet finished 22", "color: #B9F6CA;");
-              resolve({ done: true, value: true });
-            } else {
-              const listener = () => {
-                this.monitor.removeEventListener("updated", listener);
-                _();
-              };
-              this.monitor.addEventListener("updated", listener);
-            }
-          };
-          _();
-        });
-      },
-    };
-  }
-}
-
 type Treatments = {
-  def: TreatmentSet;
-  aug: TreatmentSet;
-  dpr: TreatmentSet;
-  cite: TreatmentSet;
+  def: Set<Treatment>;
+  aug: Set<Treatment>;
+  dpr: Set<Treatment>;
+  cite: Set<Treatment>;
 };
 
 export type JustifiedSynonym = {
@@ -312,6 +233,8 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   isFinished = false;
   isAborted = false;
 
+  private treatments: Map<string, Treatment> = new Map();
+
   private controller = new AbortController();
 
   constructor(
@@ -333,6 +256,96 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 
     const fetchInit = { signal: this.controller.signal };
 
+    function getTreatmentDetails(
+      treatmentUri: string,
+    ): Promise<TreatmentDetails> {
+      const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
+WHERE {
+<${treatmentUri}> dc:creator ?creator .
+OPTIONAL { <${treatmentUri}> trt:publishedIn/dc:date ?date . }
+OPTIONAL { <${treatmentUri}> dc:title ?title }
+OPTIONAL {
+  <${treatmentUri}> dwc:basisOfRecord ?mc .
+  ?mc dwc:catalogNumber ?catalogNumber .
+  OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
+  OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
+  OPTIONAL { ?mc dwc:countryCode ?countryCode . }
+  OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
+  OPTIONAL { ?mc dwc:municipality ?municipality . }
+  OPTIONAL { ?mc dwc:county ?county . }
+  OPTIONAL { ?mc dwc:locality ?locality . }
+  OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
+  OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
+  OPTIONAL { ?mc dwc:eventDate ?eventDate . }
+  OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
+  OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
+  OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
+  OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+  OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
+  OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
+  OPTIONAL { ?mc trt:httpUri ?httpUri . }
+}
+}
+GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
+      if (fetchInit.signal.aborted) {
+        return new Promise((r) => r({ materialCitations: [] }));
+      }
+      return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
+        (json: SparqlJson) => {
+          const result: TreatmentDetails = {
+            creators: json.results.bindings[0]?.creators?.value,
+            date: json.results.bindings[0]?.date?.value
+              ? parseInt(json.results.bindings[0].date.value, 10)
+              : undefined,
+            materialCitations: [],
+          };
+          json.results.bindings.forEach((t) => {
+            if (!t.mc || !t.catalogNumber) return;
+            const mc = {
+              "catalogNumber": t.catalogNumber.value,
+              "collectionCode": t.collectionCode?.value || undefined,
+              "typeStatus": t.typeStatus?.value || undefined,
+              "countryCode": t.countryCode?.value || undefined,
+              "stateProvince": t.stateProvince?.value || undefined,
+              "municipality": t.municipality?.value || undefined,
+              "county": t.county?.value || undefined,
+              "locality": t.locality?.value || undefined,
+              "verbatimLocality": t.verbatimLocality?.value || undefined,
+              "recordedBy": t.recordedBy?.value || undefined,
+              "eventDate": t.eventDate?.value || undefined,
+              "samplingProtocol": t.samplingProtocol?.value || undefined,
+              "decimalLatitude": t.decimalLatitude?.value || undefined,
+              "decimalLongitude": t.decimalLongitude?.value || undefined,
+              "verbatimElevation": t.verbatimElevation?.value || undefined,
+              "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
+              "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
+              "httpUri": t.httpUris?.value.split("|") || undefined,
+            };
+            result.materialCitations.push(mc);
+          });
+          return result;
+        },
+        (error) => {
+          console.warn("SPARQL Error: " + error);
+          return { materialCitations: [] };
+        },
+      );
+    }
+
+    const makeTreatmentSet = (urls?: string[]): Set<Treatment> => {
+      if (!urls) return new Set<Treatment>();
+      return new Set<Treatment>(urls.map((url) => {
+        if (!this.treatments.has(url)) {
+          this.treatments.set(url, { url, details: getTreatmentDetails(url) });
+        }
+        return this.treatments.get(url) as Treatment;
+      }));
+    };
+
     const build = async () => {
       function getStartingPoints(
         taxonName: string,
@@ -341,10 +354,13 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
         const [genus, species, subspecies] = taxonName.split(" ");
         // subspecies could also be variety
         // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
-        const query = `
+          const query = `PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?authority) WHERE {
+SELECT DISTINCT
+  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+WHERE {
   ?tc dwc:genus "${genus}";
       treat:hasTaxonName ?tn;
       ${species ? `dwc:species "${species}";` : ""}
@@ -355,8 +371,13 @@ SELECT DISTINCT ?tn ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?author
             : `dwc:rank "${species ? "species" : "genus"}";`
         }
       a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
-  ?s ?p ?tc .
-  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
 GROUP BY ?tn ?tc`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
@@ -371,15 +392,13 @@ GROUP BY ?tn ?tc`;
                     taxonNameUri: t.tn.value,
                     taxonConceptAuthority: t.authority?.value,
                     justifications: new JustificationSet([
-                      `matches "${genus}${species ? " " + species : ""}${
-                        subspecies ? " " + subspecies : ""
-                      }"`,
+                      `${t.tc.value} matches "${taxonName}"`,
                     ]),
                     treatments: {
-                      def: new TreatmentSet(),
-                      aug: new TreatmentSet(),
-                      dpr: new TreatmentSet(),
-                      cite: new TreatmentSet(),
+                      def: makeTreatmentSet(t.defs?.value.split("|")),
+                      aug: makeTreatmentSet(t.augs?.value.split("|")),
+                      dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                      cite: makeTreatmentSet(t.cites?.value.split("|")),
                     },
                     loading: true,
                   };
@@ -394,17 +413,25 @@ GROUP BY ?tn ?tc`;
       const synonymFinders = [
         /** Get the Synonyms having the same {taxon-name} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `
+          const query = `PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tc (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
+SELECT DISTINCT
+  ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?tc treat:hasTaxonName <${taxon.taxonNameUri}> .
-  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
-  FILTER (?tc != <${taxon.taxonConceptUri}>)
+  ?tc treat:hasTaxonName ?tn .
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
 GROUP BY ?tc`;
+          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[0]( ${taxon.taxonConceptUri} )`)
           // Check wether we already expanded this taxon name horizontally - otherwise add
           if (expandedTaxonNames.has(taxon.taxonNameUri)) {
@@ -426,10 +453,10 @@ GROUP BY ?tc`;
                   precedingSynonym: taxon,
                 }]),
                 treatments: {
-                  def: new TreatmentSet(),
-                  aug: new TreatmentSet(),
-                  dpr: new TreatmentSet(),
-                  cite: new TreatmentSet(),
+                  def: makeTreatmentSet(t.defs?.value.split("|")),
+                  aug: makeTreatmentSet(t.augs?.value.split("|")),
+                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                  cite: makeTreatmentSet(t.cites?.value.split("|")),
                 },
                 loading: true,
               };
@@ -440,26 +467,27 @@ GROUP BY ?tc`;
         },
         /** Get the Synonyms deprecating {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `
+          const query = `PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
+  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
-  ?treat treat:deprecates <${taxon.taxonConceptUri}> ;
-        (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc ;
-        dc:creator ?creator .
+  ?justification treat:deprecates <${taxon.taxonConceptUri}> ;
+                 (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc .
   ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
-  OPTIONAL {
-    ?treat treat:publishedIn ?publ .
-    ?publ dc:date ?date .
-  }
-  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
-GROUP BY ?tc ?tn ?treat ?date`;
+GROUP BY ?tn ?tc`;
+          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
-
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
             json: SparqlJson,
@@ -469,22 +497,27 @@ GROUP BY ?tc ?tn ?treat ?date`;
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: t.tn.value,
                 taxonConceptAuthority: t.authority?.value,
-                justifications: new JustificationSet([{
-                  toString: () =>
-                    `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${t.treat.value}`,
-                  precedingSynonym: taxon,
-                  treatment: {
-                    url: t.treat.value,
-                    creators: t.creators.value,
-                    date: t.date ? parseInt(t.date.value, 10) : undefined,
-                    materialCitations: getMaterialCitations(t.treat.value),
-                  },
-                }]),
+                justifications: new JustificationSet(
+                  t.justs?.value.split("|").map((url) => {
+                    if (!this.treatments.has(url)) {
+                      this.treatments.set(url, {
+                        url,
+                        details: getTreatmentDetails(url),
+                      });
+                    }
+                    return {
+                      toString: () =>
+                        `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
+                      precedingSynonym: taxon,
+                      treatment: this.treatments.get(url),
+                    };
+                  }),
+                ),
                 treatments: {
-                  def: new TreatmentSet(),
-                  aug: new TreatmentSet(),
-                  dpr: new TreatmentSet(),
-                  cite: new TreatmentSet(),
+                  def: makeTreatmentSet(t.defs?.value.split("|")),
+                  aug: makeTreatmentSet(t.augs?.value.split("|")),
+                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                  cite: makeTreatmentSet(t.cites?.value.split("|")),
                 } as Treatments,
                 loading: true,
               };
@@ -495,24 +528,26 @@ GROUP BY ?tc ?tn ?treat ?date`;
         },
         /** Get the Synonyms deprecated by {taxon} */
         (taxon: JustifiedSynonym): Promise<JustifiedSynonym[]> => {
-          const query = `
+          const query = `PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-?tc ?tn ?treat ?date (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?auth;separator=" / ") as ?authority)
+  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
-  ?treat (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
-        treat:deprecates ?tc ;
-        dc:creator ?creator .
+  ?justification (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
+                 treat:deprecates ?tc .
   ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
-  OPTIONAL {
-    ?treat treat:publishedIn ?publ .
-    ?publ dc:date ?date .
-  }
-  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth }
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
-GROUP BY ?tc ?tn ?treat ?date`;
+GROUP BY ?tn ?tc`;
+          // TODO: handle trtns and citetns
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
           if (fetchInit.signal.aborted) return new Promise((r) => r([]));
           return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then((
@@ -523,22 +558,27 @@ GROUP BY ?tc ?tn ?treat ?date`;
                 taxonConceptUri: t.tc.value,
                 taxonNameUri: t.tn.value,
                 taxonConceptAuthority: t.authority?.value,
-                justifications: new JustificationSet([{
-                  toString: () =>
-                    `${t.tc.value} deprecated by ${taxon.taxonConceptUri} according to ${t.treat.value}`,
-                  precedingSynonym: taxon,
-                  treatment: {
-                    url: t.treat.value,
-                    creators: t.creators.value,
-                    date: t.date ? parseInt(t.date.value, 10) : undefined,
-                    materialCitations: getMaterialCitations(t.treat.value),
-                  },
-                }]),
+                justifications: new JustificationSet(
+                  t.justs?.value.split("|").map((url) => {
+                    if (!this.treatments.has(url)) {
+                      this.treatments.set(url, {
+                        url,
+                        details: getTreatmentDetails(url),
+                      });
+                    }
+                    return {
+                      toString: () =>
+                        `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
+                      precedingSynonym: taxon,
+                      treatment: this.treatments.get(url),
+                    };
+                  }),
+                ),
                 treatments: {
-                  def: new TreatmentSet(),
-                  aug: new TreatmentSet(),
-                  dpr: new TreatmentSet(),
-                  cite: new TreatmentSet(),
+                  def: makeTreatmentSet(t.defs?.value.split("|")),
+                  aug: makeTreatmentSet(t.augs?.value.split("|")),
+                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                  cite: makeTreatmentSet(t.cites?.value.split("|")),
                 } as Treatments,
                 loading: true,
               };
@@ -559,140 +599,15 @@ GROUP BY ?tc ?tn ?treat ?date`;
         return foundGroups.reduce((a, b) => a.concat(b), []);
       }
 
-      function getTreatments(
-        uri: string,
-        treatments: Treatments,
-      ): Promise<void> {
-        const treat = "http://plazi.org/vocab/treatment#";
-        const query = `PREFIX treat: <${treat}>
-    PREFIX dc: <http://purl.org/dc/elements/1.1/>
-    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-    PREFIX cito: <http://purl.org/spar/cito/>
-    SELECT DISTINCT ?treat ?how ?date ?title (group_concat(DISTINCT ?c;separator="; ") as ?creators)
-    WHERE {
-      ?treat (treat:definesTaxonConcept|treat:augmentsTaxonConcept|treat:deprecates|cito:cites) <${uri}> ;
-              ?how <${uri}> ;
-              dc:creator ?c .
-      OPTIONAL { ?treat dc:title ?title }
-      OPTIONAL {
-        ?treat treat:publishedIn ?pub .
-        ?pub dc:date ?date .
-      }
-    }
-    GROUP BY ?treat ?how ?date ?title`;
-        // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getTreatments('${uri}')`)
-
-        if (fetchInit.signal.aborted) return new Promise((r) => r());
-        return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
-          (json: SparqlJson) => {
-            json.results.bindings.forEach((t) => {
-              if (!t.treat) return;
-              const treatment: Treatment = {
-                url: t.treat.value,
-                date: t.date ? parseInt(t.date.value, 10) : undefined,
-                creators: t.creators.value,
-                materialCitations: getMaterialCitations(t.treat.value),
-                title: t.title?.value,
-              };
-              switch (t.how.value) {
-                case treat + "definesTaxonConcept":
-                  treatments.def.add(treatment);
-                  break;
-                case treat + "augmentsTaxonConcept":
-                  treatments.aug.add(treatment);
-                  break;
-                case treat + "deprecates":
-                  treatments.dpr.add(treatment);
-                  break;
-                case "http://purl.org/spar/cito/cites":
-                  treatments.cite.add(treatment);
-                  break;
-              }
-            });
-          },
-          (error) => console.warn("SPARQL Error: " + error),
-        );
-      }
-
-      function getMaterialCitations(uri: string): Promise<MaterialCitation[]> {
-        const query = `
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
-WHERE {
-  <${uri}> dwc:basisOfRecord ?mc .
-  ?mc dwc:catalogNumber ?catalogNumber .
-  OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
-  OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
-  OPTIONAL { ?mc dwc:countryCode ?countryCode . }
-  OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
-  OPTIONAL { ?mc dwc:municipality ?municipality . }
-  OPTIONAL { ?mc dwc:county ?county . }
-  OPTIONAL { ?mc dwc:locality ?locality . }
-  OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
-  OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
-  OPTIONAL { ?mc dwc:eventDate ?eventDate . }
-  OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
-  OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
-  OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
-  OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
-  OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
-  OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
-  OPTIONAL { ?mc trt:httpUri ?httpUri . }
-}
-GROUP BY ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
-        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
-        return sparqlEndpoint.getSparqlResultSet(query, fetchInit).then(
-          (json: SparqlJson) => {
-            const resultArray: MaterialCitation[] = [];
-            json.results.bindings.forEach((t) => {
-              if (!t.mc || !t.catalogNumber) return;
-              const result = {
-                "catalogNumber": t.catalogNumber.value,
-                "collectionCode": t.collectionCode?.value || undefined,
-                "typeStatus": t.typeStatus?.value || undefined,
-                "countryCode": t.countryCode?.value || undefined,
-                "stateProvince": t.stateProvince?.value || undefined,
-                "municipality": t.municipality?.value || undefined,
-                "county": t.county?.value || undefined,
-                "locality": t.locality?.value || undefined,
-                "verbatimLocality": t.verbatimLocality?.value || undefined,
-                "recordedBy": t.recordedBy?.value || undefined,
-                "eventDate": t.eventDate?.value || undefined,
-                "samplingProtocol": t.samplingProtocol?.value || undefined,
-                "decimalLatitude": t.decimalLatitude?.value || undefined,
-                "decimalLongitude": t.decimalLongitude?.value || undefined,
-                "verbatimElevation": t.verbatimElevation?.value || undefined,
-                "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
-                "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
-                "httpUri": t.httpUris?.value.split("|") || undefined,
-              };
-              resultArray.push(result);
-            });
-            return resultArray;
-          },
-          (error) => {
-            console.warn("SPARQL Error: " + error);
-            return [];
-          },
-        );
-      }
-
       const finish = (justsyn: JustifiedSynonym) => {
         justsyn.justifications.finish();
-        getTreatments(justsyn.taxonConceptUri, justsyn.treatments).then(() => {
-          justsyn.treatments.def.finish();
-          justsyn.treatments.aug.finish();
-          justsyn.treatments.dpr.finish();
-          justsyn.treatments.cite.finish();
-          justsyn.loading = false;
-        });
+        justsyn.loading = false;
       };
 
       let justifiedSynsToExpand: JustifiedSynonym[] = await getStartingPoints(
         taxonName,
       );
-      await justifiedSynsToExpand.forEach((justsyn) => {
+      justifiedSynsToExpand.forEach((justsyn) => {
         finish(justsyn);
         justifiedSynonyms.set(
           justsyn.taxonConceptUri,
@@ -703,7 +618,7 @@ GROUP BY ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvi
       const expandedTaxonConcepts: string[] = [];
       while (justifiedSynsToExpand.length > 0) {
         const foundThisRound: string[] = [];
-        const promises = justifiedSynsToExpand.map((j, index) =>
+        const promises = justifiedSynsToExpand.map((j) =>
           lookUpRound(j).then((newSynonyms) => {
             newSynonyms.forEach((justsyn) => {
               // Check whether we know about this synonym already
