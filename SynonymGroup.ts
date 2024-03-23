@@ -37,7 +37,6 @@ interface TreatmentJustification extends Justification {
 }
 
 type LexicalJustification = Justification;
-
 export type anyJustification = TreatmentJustification | LexicalJustification;
 
 export type anySyncJustification = {
