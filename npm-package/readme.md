@@ -13,6 +13,8 @@ cd npm
 npm publish
 ```
 
+(use `npm publish --tag beta` for pre-releases)
+
 ## Prerequisites
 
 1. Deno
