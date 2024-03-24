@@ -8,7 +8,6 @@ await build({
   outDir: "./npm",
   test: false,
   scriptModule: false,
-  // declaration: "separate",
   shims: {
     // see JS docs for overview and more options
     deno: true,
@@ -18,7 +17,7 @@ await build({
       "ESNext",
       "DOM",
       "DOM.Iterable",
-      "ScriptHost",
+      "ScriptHost"
     ],
     target: "Latest",
   },
@@ -26,17 +25,21 @@ await build({
     "name": "@factsmission/synogroup",
     "version": Deno.args[0],
     "description": "",
+    "main": "index.js",
     "repository": {
       "type": "git",
-      "url": "git+https://github.com/factsmission/synogroup.git",
+      "url": "git+https://github.com/factsmission/synogroup.git"
     },
     "scripts": {},
     "author": "",
     "license": "MIT",
     "bugs": {
-      "url": "https://github.com/factsmission/synogroup/issues",
+      "url": "https://github.com/factsmission/synogroup/issues"
     },
     "homepage": "https://github.com/factsmission/synogroup#readme",
+    "devDependencies": {
+      "typescript": "^4.4.2"
+    }
   },
   postBuild() {
     // steps to run after building and before running the tests
