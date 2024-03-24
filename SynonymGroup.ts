@@ -1,4 +1,5 @@
 import { JustificationSet } from "./JustificationSet.ts";
+export type { JustificationSet, anyJustification } from "./JustificationSet.ts";
 
 export type MaterialCitation = {
   "catalogNumber": string;
