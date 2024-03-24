@@ -30,7 +30,6 @@ await build({
       "type": "git",
       "url": "git+https://github.com/factsmission/synogroup.git"
     },
-    "scripts": {},
     "author": "",
     "license": "MIT",
     "bugs": {
