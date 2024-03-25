@@ -19,6 +19,33 @@
         "--allow-all"
       ],
       "attachSimplePort": 9229
+    },
+    {
+      "name": "Create bundle",
+      "request": "launch",
+      "type": "pwa-node",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "bundle",
+        "SynonymGroup.ts",
+        "synonym-group.js"
+      ],
+      "attachSimplePort": 9229
+    },
+    {
+      "name": "Start Webserver",
+      "request": "launch",
+      "type": "pwa-node",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "run",
+        "-A",
+        "https://deno.land/std@0.220.1/http/file_server.ts"
+      ],
+      "attachSimplePort": 9229
     }
+
   ]
 }
