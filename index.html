@@ -42,32 +42,32 @@
         }
       })();
       (async () => {
-        for await (const treatment of synonym.treatments.aug) {
+        for (const treatment of synonym.treatments.aug) {
           const treatElem = document.createElement("li");
           treatElem.innerHTML = `Aug. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
-          if ((await treatment.materialCitations).length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          if ((await treatment.details).materialCitations?.length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
           }
         }
       })();
       (async () => {
-        for await (const treatment of synonym.treatments.def) {
+        for (const treatment of synonym.treatments.def) {
           const treatElem = document.createElement("li");
           treatElem.innerHTML = `Def. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
-          if ((await treatment.materialCitations).length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          if ((await treatment.details).materialCitations.length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
           }
         }
       })();
       (async () => {
-        for await (const treatment of synonym.treatments.dpr) {
+        for (const treatment of synonym.treatments.dpr) {
           const treatElem = document.createElement("li");
           treatElem.innerHTML = `Dpr. by: ${treatment.url}`
           treatListElem.appendChild(treatElem)
-          if ((await treatment.materialCitations).length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.materialCitations).map(mc => mc.catalogNumber).join(", "))
+          if ((await treatment.details).materialCitations.length > 0) {
+            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
           }
         }
       })();
