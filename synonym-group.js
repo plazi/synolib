@@ -117,9 +117,9 @@ class SparqlEndpoint {
                 }
                 return await response.json();
             } catch (error) {
-                if (error instanceof DOMException) {
+                if (fetchOptions.signal?.aborted) {
                     throw error;
-                } else if (error instanceof Error && retryCount < 5) {
+                } else if (retryCount < 5) {
                     ++retryCount;
                     console.warn(`!! Fetch Error. Retrying in ${retryCount * 50}ms (${retryCount})`);
                     await sleep(retryCount * 50);
