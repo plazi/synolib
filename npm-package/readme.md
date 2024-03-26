@@ -13,6 +13,8 @@ npm version patch # or ensure that the version number differs from the last publ
 npm run publish-package # generates and publishes npm package
 ```
 
+**Note that the generated types are currently slightly broken, manually remove `import`s from `index.d.ts` before publishing**
+
 ## Testing (-ish)
 
 ```bash

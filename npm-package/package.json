@@ -1,10 +1,10 @@
 {
   "name": "@factsmission/synogroup",
-  "version": "1.1.0",
+  "version": "2.0.0-beta1",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "make-package": "deno bundle ../SynonymGroup.ts index.js && ./node_modules/typescript/bin/tsc && mv SynonymGroup.d.ts index.d.ts",
+    "make-package": "deno bundle ../SynonymGroup.ts index.js && ./node_modules/typescript/bin/tsc && mv JustificationSet.d.ts index.d.ts && cat SynonymGroup.d.ts >> index.d.ts && rm SynonymGroup.d.ts",
     "publish-package": "npm run make-package && npm publish --access public"
   },
   "repository": {
@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/factsmission/synogroup#readme",
   "devDependencies": {
-    "typescript": "^4.4.2"
+    "typescript": "^4.9.5"
   }
 }

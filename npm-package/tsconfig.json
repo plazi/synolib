@@ -1,8 +1,12 @@
 {
-  "include": ["../SynonymGroup.ts"],
+  "include": [
+    "../SynonymGroup.ts",
+    "../JustificationSet.ts"
+  ],
   "compilerOptions": {
     "declaration": true,
     "emitDeclarationOnly": true,
+    "removeComments": false,
     "outDir": ".",
     "lib": [
       "esnext",

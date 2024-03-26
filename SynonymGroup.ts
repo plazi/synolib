@@ -1,3 +1,4 @@
+// @ts-ignore: Import unneccesary for typings, will collate .d.ts files
 import { JustificationSet } from "./JustificationSet.ts";
 
 export type MaterialCitation = {
