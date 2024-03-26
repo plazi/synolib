@@ -99,7 +99,7 @@ export class SparqlEndpoint {
       } catch (error) {
         if (error instanceof DOMException) {
           // i.e. signal is aborted
-          return new Promise<SparqlJson>((_, reject) => reject(error));
+          throw error;
         } else if (
           error instanceof Error &&
           retryCount < 5 /* && error.message.endsWith("502") */
@@ -112,7 +112,7 @@ export class SparqlEndpoint {
           return await sendRequest();
         }
         console.warn("!! Fetch Error:", query, "\n---\n", error);
-        return new Promise<SparqlJson>((_, reject) => reject(error));
+        throw error;
       }
     };
     return await sendRequest();
