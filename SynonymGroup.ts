@@ -102,12 +102,10 @@ export class SparqlEndpoint {
       } catch (error) {
         if (fetchOptions.signal?.aborted) {
           throw error;
-        } else if (retryCount < 5) {
-          ++retryCount;
-          console.warn(
-            `!! Fetch Error. Retrying in ${retryCount * 50}ms (${retryCount})`,
-          );
-          await sleep(retryCount * 50);
+        } else if (retryCount < 10) {
+          const wait = 50 * (1 << retryCount++);
+          console.warn(`!! Fetch Error. Retrying in ${wait}ms (${retryCount})`);
+          await sleep(wait);
           return await sendRequest();
         }
         console.warn("!! Fetch Error:", query, "\n---\n", error);
