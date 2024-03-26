@@ -154,7 +154,27 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId ?title (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
+SELECT DISTINCT
+  ?date ?title ?mc
+  (group_concat(DISTINCT ?catalogNumber;separator=" / ") as ?catalogNumbers)
+  (group_concat(DISTINCT ?collectionCode;separator=" / ") as ?collectionCodes)
+  (group_concat(DISTINCT ?typeStatus;separator=" / ") as ?typeStatuss)
+  (group_concat(DISTINCT ?countryCode;separator=" / ") as ?countryCodes)
+  (group_concat(DISTINCT ?stateProvince;separator=" / ") as ?stateProvinces)
+  (group_concat(DISTINCT ?municipality;separator=" / ") as ?municipalitys)
+  (group_concat(DISTINCT ?county;separator=" / ") as ?countys)
+  (group_concat(DISTINCT ?locality;separator=" / ") as ?localitys)
+  (group_concat(DISTINCT ?verbatimLocality;separator=" / ") as ?verbatimLocalitys)
+  (group_concat(DISTINCT ?recordedBy;separator=" / ") as ?recordedBys)
+  (group_concat(DISTINCT ?eventDate;separator=" / ") as ?eventDates)
+  (group_concat(DISTINCT ?samplingProtocol;separator=" / ") as ?samplingProtocols)
+  (group_concat(DISTINCT ?decimalLatitude;separator=" / ") as ?decimalLatitudes)
+  (group_concat(DISTINCT ?decimalLongitude;separator=" / ") as ?decimalLongitudes)
+  (group_concat(DISTINCT ?verbatimElevation;separator=" / ") as ?verbatimElevations)
+  (group_concat(DISTINCT ?gbifOccurrenceId;separator=" / ") as ?gbifOccurrenceIds)
+  (group_concat(DISTINCT ?gbifSpecimenId;separator=" / ") as ?gbifSpecimenIds)
+  (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
+  (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
 WHERE {
 <${treatmentUri}> dc:creator ?creator .
 OPTIONAL { <${treatmentUri}> trt:publishedIn/dc:date ?date . }
@@ -181,7 +201,7 @@ OPTIONAL {
   OPTIONAL { ?mc trt:httpUri ?httpUri . }
 }
 }
-GROUP BY ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId ?title`;
+GROUP BY ?date ?title ?mc`;
       if (fetchInit.signal.aborted) {
         return Promise.resolve({ materialCitations: [] });
       }
@@ -202,24 +222,24 @@ GROUP BY ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stat
           json.results.bindings.forEach((t) => {
             if (!t.mc || !t.catalogNumber) return;
             const mc = {
-              "catalogNumber": t.catalogNumber.value,
-              "collectionCode": t.collectionCode?.value || undefined,
-              "typeStatus": t.typeStatus?.value || undefined,
-              "countryCode": t.countryCode?.value || undefined,
-              "stateProvince": t.stateProvince?.value || undefined,
-              "municipality": t.municipality?.value || undefined,
-              "county": t.county?.value || undefined,
-              "locality": t.locality?.value || undefined,
-              "verbatimLocality": t.verbatimLocality?.value || undefined,
-              "recordedBy": t.recordedBy?.value || undefined,
-              "eventDate": t.eventDate?.value || undefined,
-              "samplingProtocol": t.samplingProtocol?.value || undefined,
-              "decimalLatitude": t.decimalLatitude?.value || undefined,
-              "decimalLongitude": t.decimalLongitude?.value || undefined,
-              "verbatimElevation": t.verbatimElevation?.value || undefined,
-              "gbifOccurrenceId": t.gbifOccurrenceId?.value || undefined,
-              "gbifSpecimenId": t.gbifSpecimenId?.value || undefined,
-              "httpUri": t.httpUris?.value.split("|") || undefined,
+              "catalogNumber": t.catalogNumbers.value,
+              "collectionCode": t.collectionCodes?.value,
+              "typeStatus": t.typeStatuss?.value,
+              "countryCode": t.countryCodes?.value,
+              "stateProvince": t.stateProvinces?.value,
+              "municipality": t.municipalitys?.value,
+              "county": t.countys?.value,
+              "locality": t.localitys?.value,
+              "verbatimLocality": t.verbatimLocalitys?.value,
+              "recordedBy": t.recordedBys?.value,
+              "eventDate": t.eventDates?.value,
+              "samplingProtocol": t.samplingProtocols?.value,
+              "decimalLatitude": t.decimalLatitudes?.value,
+              "decimalLongitude": t.decimalLongitudes?.value,
+              "verbatimElevation": t.verbatimElevations?.value,
+              "gbifOccurrenceId": t.gbifOccurrenceIds?.value,
+              "gbifSpecimenId": t.gbifSpecimenIds?.value,
+              "httpUri": t.httpUris?.value.split("|"),
             };
             result.materialCitations.push(mc);
           });
