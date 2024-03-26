@@ -70,7 +70,9 @@ type SparqlJson = {
     vars: string[];
   };
   results: {
-    bindings: { [key: string]: { type: string; value: string } }[];
+    bindings: {
+      [key: string]: { type: string; value: string; "xml:lang"?: string };
+    }[];
   };
 };
 
@@ -158,7 +160,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
+SELECT DISTINCT ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId (group_concat(DISTINCT ?creator;separator="; ") as ?creators) (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
 WHERE {
 <${treatmentUri}> dc:creator ?creator .
 OPTIONAL { <${treatmentUri}> trt:publishedIn/dc:date ?date . }
@@ -185,7 +187,7 @@ OPTIONAL {
   OPTIONAL { ?mc trt:httpUri ?httpUri . }
 }
 }
-GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
+GROUP BY ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
       if (fetchInit.signal.aborted) {
         return Promise.resolve({ materialCitations: [] });
       }
