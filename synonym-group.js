@@ -219,25 +219,26 @@ GROUP BY ?date ?title ?mc`;
                 };
                 json.results.bindings.forEach((t)=>{
                     if (!t.mc || !t.catalogNumbers?.value) return;
+                    const httpUri = t.httpUris?.value?.split("|");
                     const mc = {
                         "catalogNumber": t.catalogNumbers.value,
-                        "collectionCode": t.collectionCodes?.value,
-                        "typeStatus": t.typeStatuss?.value,
-                        "countryCode": t.countryCodes?.value,
-                        "stateProvince": t.stateProvinces?.value,
-                        "municipality": t.municipalitys?.value,
-                        "county": t.countys?.value,
-                        "locality": t.localitys?.value,
-                        "verbatimLocality": t.verbatimLocalitys?.value,
-                        "recordedBy": t.recordedBys?.value,
-                        "eventDate": t.eventDates?.value,
-                        "samplingProtocol": t.samplingProtocols?.value,
-                        "decimalLatitude": t.decimalLatitudes?.value,
-                        "decimalLongitude": t.decimalLongitudes?.value,
-                        "verbatimElevation": t.verbatimElevations?.value,
-                        "gbifOccurrenceId": t.gbifOccurrenceIds?.value,
-                        "gbifSpecimenId": t.gbifSpecimenIds?.value,
-                        "httpUri": t.httpUris?.value.split("|")
+                        "collectionCode": t.collectionCodes?.value || undefined,
+                        "typeStatus": t.typeStatuss?.value || undefined,
+                        "countryCode": t.countryCodes?.value || undefined,
+                        "stateProvince": t.stateProvinces?.value || undefined,
+                        "municipality": t.municipalitys?.value || undefined,
+                        "county": t.countys?.value || undefined,
+                        "locality": t.localitys?.value || undefined,
+                        "verbatimLocality": t.verbatimLocalitys?.value || undefined,
+                        "recordedBy": t.recordedBys?.value || undefined,
+                        "eventDate": t.eventDates?.value || undefined,
+                        "samplingProtocol": t.samplingProtocols?.value || undefined,
+                        "decimalLatitude": t.decimalLatitudes?.value || undefined,
+                        "decimalLongitude": t.decimalLongitudes?.value || undefined,
+                        "verbatimElevation": t.verbatimElevations?.value || undefined,
+                        "gbifOccurrenceId": t.gbifOccurrenceIds?.value || undefined,
+                        "gbifSpecimenId": t.gbifSpecimenIds?.value || undefined,
+                        httpUri: httpUri?.length ? httpUri : undefined
                     };
                     result.materialCitations.push(mc);
                 });
