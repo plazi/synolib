@@ -220,7 +220,7 @@ GROUP BY ?date ?title ?mc`;
             materialCitations: [],
           };
           json.results.bindings.forEach((t) => {
-            if (!t.mc || !t.catalogNumber) return;
+            if (!t.mc || !t.catalogNumbers?.value) return;
             const mc = {
               "catalogNumber": t.catalogNumbers.value,
               "collectionCode": t.collectionCodes?.value,
