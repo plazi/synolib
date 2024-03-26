@@ -186,7 +186,7 @@ OPTIONAL {
 }
 GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryCode ?stateProvince ?municipality ?county ?locality ?verbatimLocality ?recordedBy ?eventDate ?samplingProtocol ?decimalLatitude ?decimalLongitude ?verbatimElevation ?gbifOccurrenceId ?gbifSpecimenId`;
       if (fetchInit.signal.aborted) {
-        return new Promise((r) => r({ materialCitations: [] }));
+        return Promise.resolve({ materialCitations: [] });
       }
       return sparqlEndpoint.getSparqlResultSet(
         query,
@@ -253,7 +253,7 @@ GROUP BY ?creator ?date ?mc ?catalogNumber ?collectionCode ?typeStatus ?countryC
       const getStartingPoints = (
         taxonName: string,
       ): Promise<JustifiedSynonym[]> => {
-        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+        if (fetchInit.signal.aborted) return Promise.resolve([]);
         const [genus, species, subspecies] = taxonName.split(" ");
         // subspecies could also be variety
         // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
@@ -284,7 +284,7 @@ WHERE {
 }
 GROUP BY ?tn ?tc`;
         // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
-        if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+        if (fetchInit.signal.aborted) return Promise.resolve([]);
         return sparqlEndpoint.getSparqlResultSet(
           query,
           fetchInit,
@@ -351,7 +351,7 @@ GROUP BY ?tc`;
             return Promise.resolve([]);
           }
           expandedTaxonNames.add(taxon.taxonName.uri);
-          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          if (fetchInit.signal.aborted) return Promise.resolve([]);
           return sparqlEndpoint.getSparqlResultSet(
             query,
             fetchInit,
@@ -408,7 +408,7 @@ WHERE {
 }
 GROUP BY ?tn ?tc`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[1]( ${taxon.taxonConceptUri} )`)
-          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          if (fetchInit.signal.aborted) return Promise.resolve([]);
           return sparqlEndpoint.getSparqlResultSet(
             query,
             fetchInit,
@@ -482,7 +482,7 @@ WHERE {
 }
 GROUP BY ?tn ?tc`;
           // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `synonymFinder[2]( ${taxon.taxonConceptUri} )`)
-          if (fetchInit.signal.aborted) return new Promise((r) => r([]));
+          if (fetchInit.signal.aborted) return Promise.resolve([]);
           return sparqlEndpoint.getSparqlResultSet(
             query,
             fetchInit,
@@ -565,12 +565,11 @@ GROUP BY ?tn ?tc`;
       const expandedTaxonConcepts: Set<string> = new Set();
       while (justifiedSynsToExpand.length > 0) {
         const foundThisRound: string[] = [];
-        const promises = justifiedSynsToExpand.map((j) => {
-          if (expandedTaxonConcepts.has(j.taxonConceptUri)) {
-            return new Promise<boolean>((r) => r(false));
-          }
-          expandedTaxonConcepts.add(j.taxonConceptUri);
-          return lookUpRound(j).then((newSynonyms) => {
+        const promises = justifiedSynsToExpand.map(
+          async (j): Promise<boolean> => {
+            if (expandedTaxonConcepts.has(j.taxonConceptUri)) return false;
+            expandedTaxonConcepts.add(j.taxonConceptUri);
+            const newSynonyms = await lookUpRound(j);
             newSynonyms.forEach((justsyn) => {
               // Check whether we know about this synonym already
               if (justifiedSynonyms.has(justsyn.taxonConceptUri)) {
@@ -597,8 +596,8 @@ GROUP BY ?tn ?tc`;
               }
             });
             return true;
-          });
-        });
+          },
+        );
         justifiedSynsToExpand = [];
         await Promise.allSettled(promises);
       }
