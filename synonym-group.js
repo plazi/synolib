@@ -262,6 +262,29 @@ GROUP BY ?date ?title ?mc`;
                 return this.treatments.get(url);
             }));
         };
+        async function getVernacular(uri) {
+            const result = {};
+            const query = `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
+            const bindings = (await sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
+            for (const b of bindings){
+                if (b.n["xml:lang"] && b.n.value) result[b.n["xml:lang"]] = b.n.value;
+            }
+            return result;
+        }
+        const makeTaxonName = (uri, aug, cite)=>{
+            if (!this.taxonNames.has(uri)) {
+                this.taxonNames.set(uri, {
+                    uri,
+                    loading: true,
+                    vernacularNames: getVernacular(uri),
+                    treatments: {
+                        aug: makeTreatmentSet(aug),
+                        cite: makeTreatmentSet(cite)
+                    }
+                });
+            }
+            return this.taxonNames.get(uri);
+        };
         const build = async ()=>{
             const getStartingPoints = (taxonName)=>{
                 if (fetchInit.signal.aborted) return Promise.resolve([]);
@@ -290,19 +313,9 @@ WHERE {
 GROUP BY ?tn ?tc`;
                 if (fetchInit.signal.aborted) return Promise.resolve([]);
                 return sparqlEndpoint.getSparqlResultSet(query, fetchInit, "Starting Points").then((json)=>json.results.bindings.filter((t)=>t.tc && t.tn).map((t)=>{
-                        if (!this.taxonNames.has(t.tn.value)) {
-                            this.taxonNames.set(t.tn.value, {
-                                uri: t.tn.value,
-                                loading: true,
-                                treatments: {
-                                    aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                                    cite: makeTreatmentSet(t.citetns?.value.split("|"))
-                                }
-                            });
-                        }
                         return {
                             taxonConceptUri: t.tc.value,
-                            taxonName: this.taxonNames.get(t.tn.value),
+                            taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                             taxonConceptAuthority: t.authority?.value,
                             justifications: new JustificationSet([
                                 `${t.tc.value} matches "${taxonName}"`
@@ -391,19 +404,9 @@ WHERE {
 GROUP BY ?tn ?tc`;
                     if (fetchInit.signal.aborted) return Promise.resolve([]);
                     return sparqlEndpoint.getSparqlResultSet(query, fetchInit, `Deprecating     ${taxon.taxonConceptUri}`).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
-                            if (!this.taxonNames.has(t.tn.value)) {
-                                this.taxonNames.set(t.tn.value, {
-                                    uri: t.tn.value,
-                                    loading: true,
-                                    treatments: {
-                                        aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                                        cite: makeTreatmentSet(t.citetns?.value.split("|"))
-                                    }
-                                });
-                            }
                             return {
                                 taxonConceptUri: t.tc.value,
-                                taxonName: this.taxonNames.get(t.tn.value),
+                                taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                                 taxonConceptAuthority: t.authority?.value,
                                 justifications: new JustificationSet(t.justs?.value.split("|").map((url)=>{
                                     if (!this.treatments.has(url)) {
@@ -453,19 +456,9 @@ WHERE {
 GROUP BY ?tn ?tc`;
                     if (fetchInit.signal.aborted) return Promise.resolve([]);
                     return sparqlEndpoint.getSparqlResultSet(query, fetchInit, `Deprecated by   ${taxon.taxonConceptUri}`).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
-                            if (!this.taxonNames.has(t.tn.value)) {
-                                this.taxonNames.set(t.tn.value, {
-                                    uri: t.tn.value,
-                                    loading: true,
-                                    treatments: {
-                                        aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                                        cite: makeTreatmentSet(t.citetns?.value.split("|"))
-                                    }
-                                });
-                            }
                             return {
                                 taxonConceptUri: t.tc.value,
-                                taxonName: this.taxonNames.get(t.tn.value),
+                                taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                                 taxonConceptAuthority: t.authority?.value,
                                 justifications: new JustificationSet(t.justs?.value.split("|").map((url)=>{
                                     if (!this.treatments.has(url)) {
