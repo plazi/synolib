@@ -10,10 +10,14 @@ This folder contains all the neccesary tools to generate and publish a NPM packa
 # (from within this folder)
 npm install # install tsc for the declaration file
 npm version patch # or ensure that the version number differs from the last published version otherwise
-npm run publish-package # generates and publishes npm package
+# npm run publish-package # generates and publishes npm package
+npm run make-package
+```
+**Note that the generated types are currently slightly broken, manually remove `import`s from `index.d.ts` before publishing**
+```bash
+npm publish --access public
 ```
 
-**Note that the generated types are currently slightly broken, manually remove `import`s from `index.d.ts` before publishing**
 
 ## Testing (-ish)
 
