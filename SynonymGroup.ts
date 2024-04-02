@@ -40,6 +40,7 @@ export type TaxonName = {
     aug: Set<Treatment>;
     cite: Set<Treatment>;
   };
+  vernacularNames: Promise<Record<string, string>>;
   loading: boolean;
 };
 
@@ -268,6 +269,35 @@ GROUP BY ?date ?title ?mc`;
       );
     };
 
+    async function getVernacular(
+      uri: string,
+    ): Promise<Record<string, string>> {
+      const result: Record<string, string> = {};
+      const query =
+        `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
+      const bindings =
+        (await sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
+      for (const b of bindings) {
+        if (b.n["xml:lang"] && b.n.value) result[b.n["xml:lang"]] = b.n.value;
+      }
+      return result;
+    }
+
+    const makeTaxonName = (uri: string, aug?: string[], cite?: string[]) => {
+      if (!this.taxonNames.has(uri)) {
+        this.taxonNames.set(uri, {
+          uri,
+          loading: true,
+          vernacularNames: getVernacular(uri),
+          treatments: {
+            aug: makeTreatmentSet(aug),
+            cite: makeTreatmentSet(cite),
+          },
+        });
+      }
+      return this.taxonNames.get(uri) as TaxonName;
+    };
+
     const build = async () => {
       const getStartingPoints = (
         taxonName: string,
@@ -313,19 +343,13 @@ GROUP BY ?tn ?tc`;
             (json: SparqlJson) =>
               json.results.bindings.filter((t) => (t.tc && t.tn))
                 .map((t) => {
-                  if (!this.taxonNames.has(t.tn.value)) {
-                    this.taxonNames.set(t.tn.value, {
-                      uri: t.tn.value,
-                      loading: true,
-                      treatments: {
-                        aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                        cite: makeTreatmentSet(t.citetns?.value.split("|")),
-                      },
-                    });
-                  }
                   return {
                     taxonConceptUri: t.tc.value,
-                    taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
+                    taxonName: makeTaxonName(
+                      t.tn.value,
+                      t.trtns?.value.split("|"),
+                      t.citetns?.value.split("|"),
+                    ),
                     taxonConceptAuthority: t.authority?.value,
                     justifications: new JustificationSet([
                       `${t.tc.value} matches "${taxonName}"`,
@@ -436,19 +460,13 @@ GROUP BY ?tn ?tc`;
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
-              if (!this.taxonNames.has(t.tn.value)) {
-                this.taxonNames.set(t.tn.value, {
-                  uri: t.tn.value,
-                  loading: true,
-                  treatments: {
-                    aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                    cite: makeTreatmentSet(t.citetns?.value.split("|")),
-                  },
-                });
-              }
               return {
                 taxonConceptUri: t.tc.value,
-                taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
+                taxonName: makeTaxonName(
+                  t.tn.value,
+                  t.trtns?.value.split("|"),
+                  t.citetns?.value.split("|"),
+                ),
                 taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
@@ -510,19 +528,13 @@ GROUP BY ?tn ?tc`;
             json: SparqlJson,
           ) =>
             json.results.bindings.filter((t) => t.tc).map((t) => {
-              if (!this.taxonNames.has(t.tn.value)) {
-                this.taxonNames.set(t.tn.value, {
-                  uri: t.tn.value,
-                  loading: true,
-                  treatments: {
-                    aug: makeTreatmentSet(t.trtns?.value.split("|")),
-                    cite: makeTreatmentSet(t.citetns?.value.split("|")),
-                  },
-                });
-              }
               return {
                 taxonConceptUri: t.tc.value,
-                taxonName: this.taxonNames.get(t.tn.value) as TaxonName,
+                taxonName: makeTaxonName(
+                  t.tn.value,
+                  t.trtns?.value.split("|"),
+                  t.citetns?.value.split("|"),
+                ),
                 taxonConceptAuthority: t.authority?.value,
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
