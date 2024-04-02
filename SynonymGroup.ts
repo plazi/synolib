@@ -22,8 +22,14 @@ export type MaterialCitation = {
   "httpUri"?: string[];
 };
 
+export type FigureCitation = {
+  url: string;
+  description?: string;
+};
+
 export type TreatmentDetails = {
   materialCitations: MaterialCitation[];
+  figureCitations: FigureCitation[];
   date?: number;
   creators?: string;
   title?: string;
@@ -148,7 +154,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 
     const fetchInit = { signal: this.controller.signal };
 
-    function getTreatmentDetails(
+    async function getTreatmentDetails(
       treatmentUri: string,
     ): Promise<TreatmentDetails> {
       const query = `
@@ -204,26 +210,18 @@ OPTIONAL {
 }
 GROUP BY ?date ?title ?mc`;
       if (fetchInit.signal.aborted) {
-        return Promise.resolve({ materialCitations: [] });
+        return { materialCitations: [], figureCitations: [] };
       }
-      return sparqlEndpoint.getSparqlResultSet(
-        query,
-        fetchInit,
-        `Treatment Details for ${treatmentUri}`,
-      ).then(
-        (json) => {
-          const result: TreatmentDetails = {
-            creators: json.results.bindings[0]?.creators?.value,
-            date: json.results.bindings[0]?.date?.value
-              ? parseInt(json.results.bindings[0].date.value, 10)
-              : undefined,
-            title: json.results.bindings[0]?.title?.value,
-            materialCitations: [],
-          };
-          json.results.bindings.forEach((t) => {
-            if (!t.mc || !t.catalogNumbers?.value) return;
+      try {
+        const json = await sparqlEndpoint.getSparqlResultSet(
+          query,
+          fetchInit,
+          `Treatment Details for ${treatmentUri}`,
+        );
+        const materialCitations: MaterialCitation[] = json.results.bindings
+          .filter((t) => t.mc && t.catalogNumbers?.value).map((t) => {
             const httpUri = t.httpUris?.value?.split("|");
-            const mc = {
+            return {
               "catalogNumber": t.catalogNumbers.value,
               "collectionCode": t.collectionCodes?.value || undefined,
               "typeStatus": t.typeStatuss?.value || undefined,
@@ -243,15 +241,39 @@ GROUP BY ?date ?title ?mc`;
               "gbifSpecimenId": t.gbifSpecimenIds?.value || undefined,
               httpUri: httpUri?.length ? httpUri : undefined,
             };
-            result.materialCitations.push(mc);
           });
-          return result;
-        },
-        (error) => {
-          console.warn("SPARQL Error: " + error);
-          return { materialCitations: [] };
-        },
-      );
+        const figureQuery = `PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX fabio: <http://purl.org/spar/fabio/>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+SELECT DISTINCT ?url ?description WHERE {
+  <${treatmentUri}> cito:cites ?cites .
+  ?cites a fabio:Figure ;
+    fabio:hasRepresentation ?url .
+  OPTIONAL { ?cites dc:description ?description . }
+} `;
+        const figures = (await sparqlEndpoint.getSparqlResultSet(
+          figureQuery,
+          fetchInit,
+          `Figures for ${treatmentUri}`,
+        )).results.bindings;
+        const figureCitations = figures.filter((f) => f.url?.value).map(
+          (f) => {
+            return { url: f.url.value, description: f.description?.value };
+          },
+        );
+        return {
+          creators: json.results.bindings[0]?.creators?.value,
+          date: json.results.bindings[0]?.date?.value
+            ? parseInt(json.results.bindings[0].date.value, 10)
+            : undefined,
+          title: json.results.bindings[0]?.title?.value,
+          materialCitations,
+          figureCitations,
+        };
+      } catch (error) {
+        console.warn("SPARQL Error: " + error);
+        return { materialCitations: [], figureCitations: [] };
+      }
     }
 
     const makeTreatmentSet = (urls?: string[]): Set<Treatment> => {
