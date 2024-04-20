@@ -24,7 +24,11 @@ try {
       ),
     );
     console.log(
-      Colors.blue(`   ... with taxon name: ${tnName(synonym.taxonName)} <${synonym.taxonName.uri}>`),
+      Colors.blue(
+        `   ... with taxon name: ${
+          tnName(synonym.taxonName)
+        } <${synonym.taxonName.uri}>`,
+      ),
     );
     for (const treatment of synonym.taxonName.treatments.aug) {
       console.log(
@@ -171,7 +175,7 @@ try {
 
 function tcName(synonym: JustifiedSynonym) {
   if (synonym.taxonConceptAuthority) {
-    const name = synonym.taxonName.uri.replace(
+    const name = synonym.taxonName.displayName || synonym.taxonName.uri.replace(
       "http://taxon-name.plazi.org/id/",
       "",
     );
@@ -185,9 +189,9 @@ function tcName(synonym: JustifiedSynonym) {
 }
 
 function tnName(taxonName: TaxonName) {
-  const name = taxonName.uri.replace(
+  const name = taxonName.displayName || taxonName.uri.replace(
     "http://taxon-name.plazi.org/id/",
     "",
-  );
-  return name.replaceAll("_", " ");
+  ).replaceAll("_", " ");
+  return name
 }
