@@ -94,6 +94,7 @@ class JustificationSet {
         };
     }
 }
+export { JustificationSet as JustificationSet };
 async function sleep(ms) {
     const p = new Promise((resolve)=>{
         setTimeout(resolve, ms);
@@ -288,11 +289,12 @@ SELECT DISTINCT ?url ?description WHERE {
             }
             return result;
         }
-        const makeTaxonName = (uri, aug, cite)=>{
+        const makeTaxonName = (uri, name, aug, cite)=>{
             if (!this.taxonNames.has(uri)) {
                 this.taxonNames.set(uri, {
                     uri,
                     loading: true,
+                    displayName: name,
                     vernacularNames: getVernacular(uri),
                     treatments: {
                         aug: makeTreatmentSet(aug),
@@ -311,7 +313,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?tc dwc:genus "${genus}";
       treat:hasTaxonName ?tn;
@@ -319,6 +321,14 @@ WHERE {
       ${subspecies ? `(dwc:subspecies|dwc:variety) "${subspecies}";` : ""}
       ${ignoreRank || !!subspecies ? "" : `dwc:rank "${species ? "species" : "genus"}";`}
       a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
+  ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subSpecies ?subspecies . }
+    OPTIONAL { ?tn dwc:variety ?variety . }
+  }
+  BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
@@ -327,12 +337,12 @@ WHERE {
   OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
   OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
-GROUP BY ?tn ?tc`;
+GROUP BY ?tn ?name ?tc`;
                 if (fetchInit.signal.aborted) return Promise.resolve([]);
                 return sparqlEndpoint.getSparqlResultSet(query, fetchInit, "Starting Points").then((json)=>json.results.bindings.filter((t)=>t.tc && t.tn).map((t)=>{
                         return {
                             taxonConceptUri: t.tc.value,
-                            taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
+                            taxonName: makeTaxonName(t.tn.value, t.name?.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                             taxonConceptAuthority: t.authority?.value,
                             justifications: new JustificationSet([
                                 `${t.tc.value} matches "${taxonName}"`
@@ -405,11 +415,19 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?justification treat:deprecates <${taxon.taxonConceptUri}> ;
                  (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc .
   ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
+  ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subSpecies ?subspecies . }
+    OPTIONAL { ?tn dwc:variety ?variety . }
+  }
+  BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
@@ -418,12 +436,12 @@ WHERE {
   OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
   OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
-GROUP BY ?tn ?tc`;
+GROUP BY ?tn ?name ?tc`;
                     if (fetchInit.signal.aborted) return Promise.resolve([]);
                     return sparqlEndpoint.getSparqlResultSet(query, fetchInit, `Deprecating     ${taxon.taxonConceptUri}`).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
-                                taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
+                                taxonName: makeTaxonName(t.tn.value, t.name?.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                                 taxonConceptAuthority: t.authority?.value,
                                 justifications: new JustificationSet(t.justs?.value.split("|").map((url)=>{
                                     if (!this.treatments.has(url)) {
@@ -457,11 +475,19 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?justification (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
                  treat:deprecates ?tc .
   ?tc <http://plazi.org/vocab/treatment#hasTaxonName> ?tn .
+  ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subSpecies ?subspecies . }
+    OPTIONAL { ?tn dwc:variety ?variety . }
+  }
+  BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
@@ -470,12 +496,12 @@ WHERE {
   OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
   OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
 }
-GROUP BY ?tn ?tc`;
+GROUP BY ?tn ?name ?tc`;
                     if (fetchInit.signal.aborted) return Promise.resolve([]);
                     return sparqlEndpoint.getSparqlResultSet(query, fetchInit, `Deprecated by   ${taxon.taxonConceptUri}`).then((json)=>json.results.bindings.filter((t)=>t.tc).map((t)=>{
                             return {
                                 taxonConceptUri: t.tc.value,
-                                taxonName: makeTaxonName(t.tn.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
+                                taxonName: makeTaxonName(t.tn.value, t.name?.value, t.trtns?.value.split("|"), t.citetns?.value.split("|")),
                                 taxonConceptAuthority: t.authority?.value,
                                 justifications: new JustificationSet(t.justs?.value.split("|").map((url)=>{
                                     if (!this.treatments.has(url)) {
