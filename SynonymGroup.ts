@@ -1,5 +1,7 @@
 // @ts-ignore: Import unneccesary for typings, will collate .d.ts files
 import { JustificationSet } from "./JustificationSet.ts";
+// @ts-ignore: Import unneccesary for typings, will collate .d.ts files
+export * from "./JustificationSet.ts";
 
 export type MaterialCitation = {
   "catalogNumber": string;
@@ -40,15 +42,23 @@ export type Treatment = {
   details: Promise<TreatmentDetails>;
 };
 
+/**
+ * Describes a taxonomic name (http://filteredpush.org/ontologies/oa/dwcFP#TaxonName)
+ */
 export type TaxonName = {
   uri: string;
   treatments: {
     aug: Set<Treatment>;
     cite: Set<Treatment>;
   };
-  vernacularNames: Promise<Record<string, string>>;
+  vernacularNames: Promise<vernacularNames>;
   loading: boolean;
 };
+
+/**
+ * A map from language tags (IETF) to vernacular names.
+ */
+export type vernacularNames = Record<string, string>;
 
 type Treatments = {
   def: Set<Treatment>;
@@ -83,9 +93,25 @@ type SparqlJson = {
   };
 };
 
+/**
+ * Represents a remote sparql endpoint and provides a uniform way to run queries.
+ */
 export class SparqlEndpoint {
   constructor(private sparqlEnpointUri: string) {
   }
+
+  /**
+   * Run a query against the sparql endpoint
+   *
+   * It automatically retries up to 10 times on fetch errors, waiting 50ms on the first retry and doupling the wait each time.
+   * Retries are logged to the console (`console.warn`)
+   *
+   * @throws In case of non-ok response status codes or if fetch failed 10 times.
+   * @param query The sparql query to run against the endpoint
+   * @param fetchOptions Additional options for the `fetch` request
+   * @param _reason (Currently ignored, used internally for debugging purposes)
+   * @returns Results of the query
+   */
   async getSparqlResultSet(
     query: string,
     fetchOptions: RequestInit = {},
@@ -129,7 +155,7 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
   isFinished = false;
   isAborted = false;
 
-  // Maps from url to object
+  /** Maps from url to object */
   treatments: Map<string, Treatment> = new Map();
   taxonNames: Map<string, TaxonName> = new Map();
 
