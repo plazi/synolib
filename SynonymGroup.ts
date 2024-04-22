@@ -57,9 +57,9 @@ export type TaxonName = {
 };
 
 /**
- * A map from language tags (IETF) to vernacular names.
+ * A map from language tags (IETF) to an array of vernacular names.
  */
-export type vernacularNames = Record<string, string>;
+export type vernacularNames = Record<string, string[]>;
 
 type Treatments = {
   def: Set<Treatment>;
@@ -320,19 +320,32 @@ SELECT DISTINCT ?url ?description WHERE {
 
     async function getVernacular(
       uri: string,
-    ): Promise<Record<string, string>> {
-      const result: Record<string, string> = {};
+    ): Promise<Record<string, string[]>> {
+      const result: Record<string, string[]> = {};
       const query =
         `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
       const bindings =
         (await sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
       for (const b of bindings) {
-        if (b.n["xml:lang"] && b.n.value) result[b.n["xml:lang"]] = b.n.value;
+        if (b.n.value) {
+          if (b.n["xml:lang"]) {
+            if (!result[b.n["xml:lang"]]) result[b.n["xml:lang"]] = [];
+            result[b.n["xml:lang"]].push(b.n.value);
+          } else {
+            if (!result["??"]) result["??"] = [];
+            result["??"].push(b.n.value);
+          }
+        }
       }
       return result;
     }
 
-    const makeTaxonName = (uri: string, name: string, aug?: string[], cite?: string[]) => {
+    const makeTaxonName = (
+      uri: string,
+      name: string,
+      aug?: string[],
+      cite?: string[],
+    ) => {
       if (!this.taxonNames.has(uri)) {
         this.taxonNames.set(uri, {
           uri,
