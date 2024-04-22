@@ -30,6 +30,9 @@ try {
         } <${synonym.taxonName.uri}>`,
       ),
     );
+    synonym.taxonName.vernacularNames.then((v) =>
+      console.log(JSON.stringify(v))
+    );
     for (const treatment of synonym.taxonName.treatments.aug) {
       console.log(
         Colors.gray(
@@ -193,5 +196,5 @@ function tnName(taxonName: TaxonName) {
     "http://taxon-name.plazi.org/id/",
     "",
   ).replaceAll("_", " ");
-  return name
+  return name;
 }
