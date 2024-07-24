@@ -67,10 +67,19 @@ type Treatments = {
   dpr: Set<Treatment>;
   cite: Set<Treatment>;
 };
+
+/**
+ * Describes a taxon-concept and why it is considered a synonym by synolib
+ */
 export type JustifiedSynonym = {
   taxonConceptUri: string;
   taxonName: TaxonName;
   /** Human-readable authority */ taxonConceptAuthority?: string;
+  /**
+   * Catalogue of Life Taxon URIs
+   * @example `["https://www.catalogueoflife.org/data/taxon/TWFG"]`
+   */
+  colID: string[];
   justifications: JustificationSet;
   treatments: Treatments;
   loading: boolean;
@@ -374,7 +383,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?tc dwc:genus "${genus}";
       treat:hasTaxonName ?tn;
@@ -386,6 +395,7 @@ WHERE {
             : `dwc:rank "${species ? "species" : "genus"}";`
         }
       a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
   ?tn dwc:genus ?genus .
   OPTIONAL { ?tn dwc:subGenus ?subgenus . }
   OPTIONAL {
@@ -413,7 +423,7 @@ GROUP BY ?tn ?name ?tc`;
           .then(
             (json: SparqlJson) =>
               json.results.bindings.filter((t) => (t.tc && t.tn))
-                .map((t) => {
+                .map((t): JustifiedSynonym => {
                   return {
                     taxonConceptUri: t.tc.value,
                     taxonName: makeTaxonName(
@@ -423,6 +433,11 @@ GROUP BY ?tn ?name ?tc`;
                       t.citetns?.value.split("|"),
                     ),
                     taxonConceptAuthority: t.authority?.value,
+                    colID: t.colids?.value.split("|").filter((s) =>
+                      s.startsWith(
+                        "https://www.catalogueoflife.org/data/taxon/",
+                      )
+                    ),
                     justifications: new JustificationSet([
                       `${t.tc.value} matches "${taxonName}"`,
                     ]),
@@ -450,10 +465,11 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites)
 WHERE {
   ?tc treat:hasTaxonName <${taxon.taxonName.uri}> .
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
   OPTIONAL { ?dpr treat:deprecates ?tc . }
@@ -481,6 +497,9 @@ GROUP BY ?tc`;
                   taxonConceptUri: t.tc.value,
                   taxonName: taxon.taxonName,
                   taxonConceptAuthority: t.authority?.value,
+                  colID: t.colids?.value.split("|").filter((s) =>
+                    s.startsWith("https://www.catalogueoflife.org/data/taxon/")
+                  ),
                   justifications: new JustificationSet([{
                     toString: () =>
                       `${t.tc.value} has taxon name ${taxon.taxonName.uri}`,
@@ -508,7 +527,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?justification treat:deprecates <${taxon.taxonConceptUri}> ;
                  (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc .
@@ -522,6 +541,7 @@ WHERE {
   }
   BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
   OPTIONAL { ?dpr treat:deprecates ?tc . }
@@ -539,7 +559,7 @@ GROUP BY ?tn ?name ?tc`;
           ).then((
             json: SparqlJson,
           ) =>
-            json.results.bindings.filter((t) => t.tc).map((t) => {
+            json.results.bindings.filter((t) => t.tc).map((t): JustifiedSynonym => {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonName: makeTaxonName(
@@ -549,6 +569,9 @@ GROUP BY ?tn ?name ?tc`;
                   t.citetns?.value.split("|"),
                 ),
                 taxonConceptAuthority: t.authority?.value,
+                colID: t.colids?.value.split("|").filter((s) =>
+                  s.startsWith("https://www.catalogueoflife.org/data/taxon/")
+                ),
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
                     if (!this.treatments.has(url)) {
@@ -585,7 +608,7 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
-  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   ?justification (treat:augmentsTaxonConcept|treat:definesTaxonConcept) <${taxon.taxonConceptUri}> ;
                  treat:deprecates ?tc .
@@ -599,6 +622,7 @@ WHERE {
   }
   BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
   OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
   OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
   OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
   OPTIONAL { ?dpr treat:deprecates ?tc . }
@@ -616,7 +640,7 @@ GROUP BY ?tn ?name ?tc`;
           ).then((
             json: SparqlJson,
           ) =>
-            json.results.bindings.filter((t) => t.tc).map((t) => {
+            json.results.bindings.filter((t) => t.tc).map((t): JustifiedSynonym => {
               return {
                 taxonConceptUri: t.tc.value,
                 taxonName: makeTaxonName(
@@ -626,6 +650,9 @@ GROUP BY ?tn ?name ?tc`;
                   t.citetns?.value.split("|"),
                 ),
                 taxonConceptAuthority: t.authority?.value,
+                colID: t.colids?.value.split("|").filter((s) =>
+                  s.startsWith("https://www.catalogueoflife.org/data/taxon/")
+                ),
                 justifications: new JustificationSet(
                   t.justs?.value.split("|").map((url) => {
                     if (!this.treatments.has(url)) {
