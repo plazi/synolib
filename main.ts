@@ -38,9 +38,9 @@ try {
         } <${synonym.taxonName.uri}>`,
       ),
     );
-    synonym.taxonName.vernacularNames.then((v) =>
-      console.log(JSON.stringify(v))
-    );
+    synonym.taxonName.vernacularNames.then((v) => {
+      if (Object.getOwnPropertyNames(v).length) console.log(JSON.stringify(v));
+    });
     for (const treatment of synonym.taxonName.treatments.aug) {
       console.log(
         Colors.gray(
