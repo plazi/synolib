@@ -20,7 +20,15 @@ try {
   for await (const synonym of synoGroup) {
     console.log(
       Colors.red(
-        ` * Found synonym: ${tcName(synonym)} <${synonym.taxonConceptUri}>`,
+        ` * Found synonym: ${tcName(synonym)} <${synonym.taxonConceptUri}>${
+          synonym.colID.length
+            ? ` [CoL: ${
+              synonym.colID.map((id) =>
+                id.replace("https://www.catalogueoflife.org/data/taxon/", "")
+              ).join(", ")
+            }]`
+            : ""
+        }`,
       ),
     );
     console.log(
