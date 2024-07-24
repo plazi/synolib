@@ -171,6 +171,13 @@ export default class SynonymGroup implements AsyncIterable<JustifiedSynonym> {
 
   private controller = new AbortController();
 
+  /**
+   * Constructs a SynonymGroup
+   *
+   * @param sparqlEndpoint SPARQL-Endpoint to query
+   * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or a CoL taxon URI
+   * @param [ignoreRank=false] if taxonName is "Genus" of "Genus species", by default it will ony search for taxons of rank genus/species. If set to true, sub-taxa are also considered as staring points.
+   */
   constructor(
     sparqlEndpoint: SparqlEndpoint,
     taxonName: string,
@@ -375,9 +382,30 @@ SELECT DISTINCT ?url ?description WHERE {
         taxonName: string,
       ): Promise<JustifiedSynonym[]> => {
         if (fetchInit.signal.aborted) return Promise.resolve([]);
-        const [genus, species, subspecies] = taxonName.split(" ");
-        // subspecies could also be variety
-        // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
+        let taxonNameQuery = "";
+        if (taxonName.startsWith("http")) {
+          if (taxonName.includes("catalogueoflife.org")) {
+            taxonNameQuery =
+              `?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> <${taxonName}> .`;
+          } else {
+            taxonNameQuery = `BIND(<${taxonName}> as ?tc)`;
+          }
+        } else {
+          const [genus, species, subspecies] = taxonName.split(" ");
+          // subspecies could also be variety
+          // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
+          taxonNameQuery = `?tc dwc:genus "${genus}" .`;
+          if (species) taxonNameQuery += ` ?tc dwc:species "${species}" .`;
+          if (subspecies) {
+            taxonNameQuery +=
+              ` ?tc (dwc:subspecies|dwc:variety) "${subspecies}" .`;
+          }
+          if (!subspecies && !ignoreRank) {
+            taxonNameQuery += ` ?tc dwc:rank "${
+              species ? "species" : "genus"
+            }" .`;
+          }
+        }
         const query = `PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
@@ -385,15 +413,8 @@ PREFIX treat: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
   ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
-  ?tc dwc:genus "${genus}";
-      treat:hasTaxonName ?tn;
-      ${species ? `dwc:species "${species}";` : ""}
-      ${subspecies ? `(dwc:subspecies|dwc:variety) "${subspecies}";` : ""}
-      ${
-          ignoreRank || !!subspecies
-            ? ""
-            : `dwc:rank "${species ? "species" : "genus"}";`
-        }
+  ${taxonNameQuery}
+  ?tc treat:hasTaxonName ?tn ;
       a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
   OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
   ?tn dwc:genus ?genus .
