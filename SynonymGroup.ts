@@ -559,44 +559,46 @@ GROUP BY ?tn ?name ?tc`;
           ).then((
             json: SparqlJson,
           ) =>
-            json.results.bindings.filter((t) => t.tc).map((t): JustifiedSynonym => {
-              return {
-                taxonConceptUri: t.tc.value,
-                taxonName: makeTaxonName(
-                  t.tn.value,
-                  t.name?.value,
-                  t.trtns?.value.split("|"),
-                  t.citetns?.value.split("|"),
-                ),
-                taxonConceptAuthority: t.authority?.value,
-                colID: t.colids?.value.split("|").filter((s) =>
-                  s.startsWith("https://www.catalogueoflife.org/data/taxon/")
-                ),
-                justifications: new JustificationSet(
-                  t.justs?.value.split("|").map((url) => {
-                    if (!this.treatments.has(url)) {
-                      this.treatments.set(url, {
-                        url,
-                        details: getTreatmentDetails(url),
-                      });
-                    }
-                    return {
-                      toString: () =>
-                        `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
-                      precedingSynonym: taxon,
-                      treatment: this.treatments.get(url),
-                    };
-                  }),
-                ),
-                treatments: {
-                  def: makeTreatmentSet(t.defs?.value.split("|")),
-                  aug: makeTreatmentSet(t.augs?.value.split("|")),
-                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
-                  cite: makeTreatmentSet(t.cites?.value.split("|")),
-                } as Treatments,
-                loading: true,
-              };
-            }), (error) => {
+            json.results.bindings.filter((t) => t.tc).map(
+              (t): JustifiedSynonym => {
+                return {
+                  taxonConceptUri: t.tc.value,
+                  taxonName: makeTaxonName(
+                    t.tn.value,
+                    t.name?.value,
+                    t.trtns?.value.split("|"),
+                    t.citetns?.value.split("|"),
+                  ),
+                  taxonConceptAuthority: t.authority?.value,
+                  colID: t.colids?.value.split("|").filter((s) =>
+                    s.startsWith("https://www.catalogueoflife.org/data/taxon/")
+                  ),
+                  justifications: new JustificationSet(
+                    t.justs?.value.split("|").map((url) => {
+                      if (!this.treatments.has(url)) {
+                        this.treatments.set(url, {
+                          url,
+                          details: getTreatmentDetails(url),
+                        });
+                      }
+                      return {
+                        toString: () =>
+                          `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
+                        precedingSynonym: taxon,
+                        treatment: this.treatments.get(url),
+                      };
+                    }),
+                  ),
+                  treatments: {
+                    def: makeTreatmentSet(t.defs?.value.split("|")),
+                    aug: makeTreatmentSet(t.augs?.value.split("|")),
+                    dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                    cite: makeTreatmentSet(t.cites?.value.split("|")),
+                  } as Treatments,
+                  loading: true,
+                };
+              },
+            ), (error) => {
             console.warn("SPARQL Error: " + error);
             return [];
           });
@@ -640,44 +642,46 @@ GROUP BY ?tn ?name ?tc`;
           ).then((
             json: SparqlJson,
           ) =>
-            json.results.bindings.filter((t) => t.tc).map((t): JustifiedSynonym => {
-              return {
-                taxonConceptUri: t.tc.value,
-                taxonName: makeTaxonName(
-                  t.tn.value,
-                  t.name?.value,
-                  t.trtns?.value.split("|"),
-                  t.citetns?.value.split("|"),
-                ),
-                taxonConceptAuthority: t.authority?.value,
-                colID: t.colids?.value.split("|").filter((s) =>
-                  s.startsWith("https://www.catalogueoflife.org/data/taxon/")
-                ),
-                justifications: new JustificationSet(
-                  t.justs?.value.split("|").map((url) => {
-                    if (!this.treatments.has(url)) {
-                      this.treatments.set(url, {
-                        url,
-                        details: getTreatmentDetails(url),
-                      });
-                    }
-                    return {
-                      toString: () =>
-                        `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
-                      precedingSynonym: taxon,
-                      treatment: this.treatments.get(url),
-                    };
-                  }),
-                ),
-                treatments: {
-                  def: makeTreatmentSet(t.defs?.value.split("|")),
-                  aug: makeTreatmentSet(t.augs?.value.split("|")),
-                  dpr: makeTreatmentSet(t.dprs?.value.split("|")),
-                  cite: makeTreatmentSet(t.cites?.value.split("|")),
-                } as Treatments,
-                loading: true,
-              };
-            }), (error) => {
+            json.results.bindings.filter((t) => t.tc).map(
+              (t): JustifiedSynonym => {
+                return {
+                  taxonConceptUri: t.tc.value,
+                  taxonName: makeTaxonName(
+                    t.tn.value,
+                    t.name?.value,
+                    t.trtns?.value.split("|"),
+                    t.citetns?.value.split("|"),
+                  ),
+                  taxonConceptAuthority: t.authority?.value,
+                  colID: t.colids?.value.split("|").filter((s) =>
+                    s.startsWith("https://www.catalogueoflife.org/data/taxon/")
+                  ),
+                  justifications: new JustificationSet(
+                    t.justs?.value.split("|").map((url) => {
+                      if (!this.treatments.has(url)) {
+                        this.treatments.set(url, {
+                          url,
+                          details: getTreatmentDetails(url),
+                        });
+                      }
+                      return {
+                        toString: () =>
+                          `${t.tc.value} deprecates ${taxon.taxonConceptUri} according to ${url}`,
+                        precedingSynonym: taxon,
+                        treatment: this.treatments.get(url),
+                      };
+                    }),
+                  ),
+                  treatments: {
+                    def: makeTreatmentSet(t.defs?.value.split("|")),
+                    aug: makeTreatmentSet(t.augs?.value.split("|")),
+                    dpr: makeTreatmentSet(t.dprs?.value.split("|")),
+                    cite: makeTreatmentSet(t.cites?.value.split("|")),
+                  } as Treatments,
+                  loading: true,
+                };
+              },
+            ), (error) => {
             console.warn("SPARQL Error: " + error);
             return [];
           });
