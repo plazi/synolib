@@ -163,36 +163,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** Used internally to abort in-flight network requests when SynonymGroup is aborted */
   private controller = new AbortController();
 
-  /**
-   * Constructs a SynonymGroup
-   *
-   * @param sparqlEndpoint SPARQL-Endpoint to query
-   * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or a CoL taxon URI
-   * @param [ignoreRank=false] if taxonName is "Genus" or "Genus species", by default it will ony search for taxons of rank genus/species. If set to true, sub-taxa are also considered as staring points.
-   */
-  constructor(
-    private sparqlEndpoint: SparqlEndpoint,
-    taxonName: string,
-    ignoreRank = false,
-  ) {
-    /** Maps from taxonConceptUris to their synonyms */
-    const justifiedSynonyms: Map<string, number> = new Map();
-    const expandedTaxonNames: Set<string> = new Set();
-
-    const resolver = (value: JustifiedSynonym | true) => {
-      if (value === true) {
-        //console.info("%cSynogroup finished", "color: #00E676;");
-        this.isFinished = true;
-      }
-      this.monitor.dispatchEvent(new CustomEvent("updated"));
-    };
-
-    const fetchInit = { signal: this.controller.signal };
-
-    async function getTreatmentDetails(
-      treatmentUri: string,
-    ): Promise<TreatmentDetails> {
-      const query = `
+  private async getTreatmentDetails(
+    treatmentUri: string,
+    fetchInit: RequestInit,
+  ): Promise<TreatmentDetails> {
+    const query = `
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
@@ -218,98 +193,123 @@ SELECT DISTINCT
   (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
   (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
 WHERE {
-<${treatmentUri}> dc:creator ?creator .
-OPTIONAL { <${treatmentUri}> trt:publishedIn/dc:date ?date . }
-OPTIONAL { <${treatmentUri}> dc:title ?title }
-OPTIONAL {
-  <${treatmentUri}> dwc:basisOfRecord ?mc .
-  ?mc dwc:catalogNumber ?catalogNumber .
-  OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
-  OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
-  OPTIONAL { ?mc dwc:countryCode ?countryCode . }
-  OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
-  OPTIONAL { ?mc dwc:municipality ?municipality . }
-  OPTIONAL { ?mc dwc:county ?county . }
-  OPTIONAL { ?mc dwc:locality ?locality . }
-  OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
-  OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
-  OPTIONAL { ?mc dwc:eventDate ?eventDate . }
-  OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
-  OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
-  OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
-  OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
-  OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
-  OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
-  OPTIONAL { ?mc trt:httpUri ?httpUri . }
-}
+  BIND (<${treatmentUri}> as ?treatment)
+  ?treatment dc:creator ?creator .
+  OPTIONAL { ?treatment trt:publishedIn/dc:date ?date . }
+  OPTIONAL { ?treatment dc:title ?title }
+  OPTIONAL {
+    ?treatment dwc:basisOfRecord ?mc .
+    ?mc dwc:catalogNumber ?catalogNumber .
+    OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
+    OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
+    OPTIONAL { ?mc dwc:countryCode ?countryCode . }
+    OPTIONAL { ?mc dwc:stateProvince ?stateProvince . }
+    OPTIONAL { ?mc dwc:municipality ?municipality . }
+    OPTIONAL { ?mc dwc:county ?county . }
+    OPTIONAL { ?mc dwc:locality ?locality . }
+    OPTIONAL { ?mc dwc:verbatimLocality ?verbatimLocality . }
+    OPTIONAL { ?mc dwc:recordedBy ?recordedBy . }
+    OPTIONAL { ?mc dwc:eventDate ?eventDate . }
+    OPTIONAL { ?mc dwc:samplingProtocol ?samplingProtocol . }
+    OPTIONAL { ?mc dwc:decimalLatitude ?decimalLatitude . }
+    OPTIONAL { ?mc dwc:decimalLongitude ?decimalLongitude . }
+    OPTIONAL { ?mc dwc:verbatimElevation ?verbatimElevation . }
+    OPTIONAL { ?mc trt:gbifOccurrenceId ?gbifOccurrenceId . }
+    OPTIONAL { ?mc trt:gbifSpecimenId ?gbifSpecimenId . }
+    OPTIONAL { ?mc trt:httpUri ?httpUri . }
+  }
 }
 GROUP BY ?date ?title ?mc`;
-      if (fetchInit.signal.aborted) {
-        return { materialCitations: [], figureCitations: [] };
-      }
-      try {
-        const json = await sparqlEndpoint.getSparqlResultSet(
-          query,
-          fetchInit,
-          `Treatment Details for ${treatmentUri}`,
-        );
-        const materialCitations: MaterialCitation[] = json.results.bindings
-          .filter((t) => t.mc && t.catalogNumbers?.value).map((t) => {
-            const httpUri = t.httpUris?.value?.split("|");
-            return {
-              "catalogNumber": t.catalogNumbers.value,
-              "collectionCode": t.collectionCodes?.value || undefined,
-              "typeStatus": t.typeStatuss?.value || undefined,
-              "countryCode": t.countryCodes?.value || undefined,
-              "stateProvince": t.stateProvinces?.value || undefined,
-              "municipality": t.municipalitys?.value || undefined,
-              "county": t.countys?.value || undefined,
-              "locality": t.localitys?.value || undefined,
-              "verbatimLocality": t.verbatimLocalitys?.value || undefined,
-              "recordedBy": t.recordedBys?.value || undefined,
-              "eventDate": t.eventDates?.value || undefined,
-              "samplingProtocol": t.samplingProtocols?.value || undefined,
-              "decimalLatitude": t.decimalLatitudes?.value || undefined,
-              "decimalLongitude": t.decimalLongitudes?.value || undefined,
-              "verbatimElevation": t.verbatimElevations?.value || undefined,
-              "gbifOccurrenceId": t.gbifOccurrenceIds?.value || undefined,
-              "gbifSpecimenId": t.gbifSpecimenIds?.value || undefined,
-              httpUri: httpUri?.length ? httpUri : undefined,
-            };
-          });
-        const figureQuery = `PREFIX cito: <http://purl.org/spar/cito/>
+    if (fetchInit.signal?.aborted) {
+      return { materialCitations: [], figureCitations: [] };
+    }
+    try {
+      const json = await this.sparqlEndpoint.getSparqlResultSet(
+        query,
+        fetchInit,
+        `Treatment Details for ${treatmentUri}`,
+      );
+      const materialCitations: MaterialCitation[] = json.results.bindings
+        .filter((t) => t.mc && t.catalogNumbers?.value)
+        .map((t) => {
+          const httpUri = t.httpUris?.value?.split("|");
+          return {
+            "catalogNumber": t.catalogNumbers.value,
+            "collectionCode": t.collectionCodes?.value || undefined,
+            "typeStatus": t.typeStatuss?.value || undefined,
+            "countryCode": t.countryCodes?.value || undefined,
+            "stateProvince": t.stateProvinces?.value || undefined,
+            "municipality": t.municipalitys?.value || undefined,
+            "county": t.countys?.value || undefined,
+            "locality": t.localitys?.value || undefined,
+            "verbatimLocality": t.verbatimLocalitys?.value || undefined,
+            "recordedBy": t.recordedBys?.value || undefined,
+            "eventDate": t.eventDates?.value || undefined,
+            "samplingProtocol": t.samplingProtocols?.value || undefined,
+            "decimalLatitude": t.decimalLatitudes?.value || undefined,
+            "decimalLongitude": t.decimalLongitudes?.value || undefined,
+            "verbatimElevation": t.verbatimElevations?.value || undefined,
+            "gbifOccurrenceId": t.gbifOccurrenceIds?.value || undefined,
+            "gbifSpecimenId": t.gbifSpecimenIds?.value || undefined,
+            httpUri: httpUri?.length ? httpUri : undefined,
+          };
+        });
+      const figureQuery = `
+PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX fabio: <http://purl.org/spar/fabio/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 SELECT DISTINCT ?url ?description WHERE {
   <${treatmentUri}> cito:cites ?cites .
   ?cites a fabio:Figure ;
-    fabio:hasRepresentation ?url .
+  fabio:hasRepresentation ?url .
   OPTIONAL { ?cites dc:description ?description . }
 } `;
-        const figures = (await sparqlEndpoint.getSparqlResultSet(
-          figureQuery,
-          fetchInit,
-          `Figures for ${treatmentUri}`,
-        )).results.bindings;
-        const figureCitations = figures.filter((f) => f.url?.value).map(
-          (f) => {
-            return { url: f.url.value, description: f.description?.value };
-          },
-        );
-        return {
-          creators: json.results.bindings[0]?.creators?.value,
-          date: json.results.bindings[0]?.date?.value
-            ? parseInt(json.results.bindings[0].date.value, 10)
-            : undefined,
-          title: json.results.bindings[0]?.title?.value,
-          materialCitations,
-          figureCitations,
-        };
-      } catch (error) {
-        console.warn("SPARQL Error: " + error);
-        return { materialCitations: [], figureCitations: [] };
-      }
+      const figures = (await this.sparqlEndpoint.getSparqlResultSet(
+        figureQuery,
+        fetchInit,
+        `Figures for ${treatmentUri}`,
+      )).results.bindings;
+      const figureCitations = figures.filter((f) => f.url?.value).map(
+        (f) => {
+          return { url: f.url.value, description: f.description?.value };
+        },
+      );
+      return {
+        creators: json.results.bindings[0]?.creators?.value,
+        date: json.results.bindings[0]?.date?.value
+          ? parseInt(json.results.bindings[0].date.value, 10)
+          : undefined,
+        title: json.results.bindings[0]?.title?.value,
+        materialCitations,
+        figureCitations,
+      };
+    } catch (error) {
+      console.warn("SPARQL Error: " + error);
+      return { materialCitations: [], figureCitations: [] };
     }
+  }
+
+  /**
+   * Constructs a SynonymGroup
+   *
+   * @param sparqlEndpoint SPARQL-Endpoint to query
+   * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or a CoL taxon URI
+   * @param [ignoreRank=false] if taxonName is "Genus" or "Genus species", by default it will ony search for taxons of rank genus/species. If set to true, sub-taxa are also considered as staring points.
+   */
+  constructor(
+    private sparqlEndpoint: SparqlEndpoint,
+    taxonName: string,
+    ignoreRank = false,
+  ) {
+    const resolver = (value: Name | true) => {
+      if (value === true) {
+        //console.info("%cSynogroup finished", "color: #00E676;");
+        this.isFinished = true;
+      }
+      this.monitor.dispatchEvent(new CustomEvent("updated"));
+    };
+
+    const fetchInit = { signal: this.controller.signal };
 
     const makeTreatmentSet = (urls?: string[]): Set<Treatment> => {
       if (!urls) return new Set<Treatment>();
@@ -318,7 +318,7 @@ SELECT DISTINCT ?url ?description WHERE {
           if (!this.treatments.has(url)) {
             this.treatments.set(url, {
               url,
-              details: getTreatmentDetails(url),
+              details: this.getTreatmentDetails(url, fetchInit),
             });
           }
           return this.treatments.get(url) as Treatment;
