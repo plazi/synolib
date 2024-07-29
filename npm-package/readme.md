@@ -18,6 +18,8 @@ npm run make-package
 npm publish --access public
 ```
 
+Publish with `npm publish --access public --tag beta` for pre-releases
+
 
 ## Testing (-ish)
 
