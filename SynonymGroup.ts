@@ -18,7 +18,7 @@ export * from "./SparqlEndpoint.ts";
  */
 export type Name = {
   /** taxonomic kingdom */
-  kingdom: string;
+  // TODO kingdom: string;
   /** Human-readable name */
   displayName: string;
 
@@ -35,7 +35,7 @@ export type Name = {
   authorizedNames: AuthorizedName[];
 
   /** How this name was found */
-  justification: Promise<Set<string>>;
+  justification: JustificationSet;
 
   /** treatments directly associated with .taxonNameUri */
   treatments: {
@@ -286,6 +286,162 @@ SELECT DISTINCT ?url ?description WHERE {
     } catch (error) {
       console.warn("SPARQL Error: " + error);
       return { materialCitations: [], figureCitations: [] };
+    }
+  }
+
+  private async getVernacular(uri: string): Promise<vernacularNames> {
+    const result: vernacularNames = new Map();
+    const query =
+      `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
+    const bindings =
+      (await this.sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
+    for (const b of bindings) {
+      if (b.n.value) {
+        if (b.n["xml:lang"]) {
+          if (result.has(b.n["xml:lang"])) {
+            result.get(b.n["xml:lang"])!.push(b.n.value);
+          } else result.set(b.n["xml:lang"], [b.n.value]);
+        } else {
+          if (result.has("??")) result.get("??")!.push(b.n.value);
+          else result.set("??", [b.n.value]);
+        }
+      }
+    }
+    return result;
+  }
+
+  private makeName(
+    displayName: string,
+    justification: JustificationSet,
+    treatments: {
+      aug: Set<Treatment>;
+      cite: Set<Treatment>;
+    },
+    taxonNameURI?: string,
+  ): Name {
+    return {
+      displayName,
+      taxonNameURI,
+      vernacularNames: taxonNameURI
+        ? this.getVernacular(taxonNameURI)
+        : Promise.resolve(new Map()),
+      justification,
+      authorizedNames: [],
+      trees: Promise.reject(), // TODO
+      treatments,
+    };
+  }
+
+  private async getStartingPoints(
+    taxonName: string,
+    fetchInit: RequestInit,
+    ignoreRank: boolean,
+  ): Promise<Name[]> {
+    if (fetchInit.signal?.aborted) return Promise.resolve([]);
+    let taxonNameQuery = "";
+    if (taxonName.startsWith("http")) {
+      if (taxonName.includes("catalogueoflife.org")) {
+        taxonNameQuery =
+          `?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> <${taxonName}> .`;
+      } else if (taxonName.includes("taxon-name")) {
+        taxonNameQuery = `BIND(<${taxonName}> as ?tn)`;
+      } else {
+        taxonNameQuery = `BIND(<${taxonName}> as ?tc)`;
+      }
+    } else {
+      const [genus, species, subspecies] = taxonName.split(" ");
+      // subspecies could also be variety
+      // ignoreRank has no effect when there is a 'subspecies', as this is assumed to be the lowest rank & should thus not be able to return results in another rank
+      taxonNameQuery = `?tc dwc:genus "${genus}" .`;
+      if (species) taxonNameQuery += ` ?tc dwc:species "${species}" .`;
+      if (subspecies) {
+        taxonNameQuery += ` ?tc (dwc:subspecies|dwc:variety) "${subspecies}" .`;
+      }
+      if (!subspecies && !ignoreRank) {
+        taxonNameQuery += ` ?tc dwc:rank "${species ? "species" : "genus"}" .`;
+      }
+    }
+    const query = `
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT
+  ?tn ?name ?tc
+  (group_concat(DISTINCT ?auth; separator=" / ") as ?authority)
+  (group_concat(DISTINCT ?colid; separator="|") as ?colids)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trtn;separator="|") as ?trtns)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+WHERE {
+  ${taxonNameQuery}
+  ?tc treat:hasTaxonName ?tn ;
+    a <http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept>.
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
+  ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL {
+  ?tn dwc:species ?species .
+  OPTIONAL { ?tn dwc:subSpecies ?subspecies . }
+  OPTIONAL { ?tn dwc:variety ?variety . }
+  }
+  BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
+}
+GROUP BY ?tn ?name ?tc`;
+    // console.info('%cREQ', 'background: red; font-weight: bold; color: white;', `getStartingPoints('${taxonName}')`)
+
+    try {
+      const json = await this.sparqlEndpoint.getSparqlResultSet(
+        query,
+        fetchInit,
+        "Starting Points",
+      );
+
+      return json.results.bindings
+        .filter((t) => (t.tc && t.tn))
+        .map((t): Name => {
+          return {
+            taxonNameURI: t.tn.value,
+            justification: new JustificationSet([
+              `${t.tc.value} matches "${taxonName}"`,
+            ]),
+            displayName: t.name?.value || "// TODO Missing Name //",
+            vernacularNames: this.getVernacular(t.tn.value),
+            authorizedNames: [],
+            trees: Promise.reject(),
+
+            taxonConceptUri: t.tc.value,
+            taxonName: makeTaxonName(
+              t.tn.value,
+              t.name?.value,
+              t.trtns?.value.split("|"),
+              t.citetns?.value.split("|"),
+            ),
+            taxonConceptAuthority: t.authority?.value,
+            colID: t.colids?.value.split("|").filter((s) =>
+              s.startsWith(
+                "https://www.catalogueoflife.org/data/taxon/",
+              )
+            ),
+            treatments: {
+              aug: makeTreatmentSet(t.augs?.value.split("|")),
+              cite: makeTreatmentSet(t.cites?.value.split("|")),
+            },
+          } as Name;
+        });
+    } catch (error) {
+      console.warn("SPARQL Error: " + error);
+      return [];
     }
   }
 

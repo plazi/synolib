@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synolib 2 Rendering / Design Experiment</title>
+  <style>
+    .taxon {
+      border-radius: 16px;
+      background: #eee;
+      padding: 8px;
+      max-width: 80ch;
+      margin: 8px auto;
+    }
+
+    .taxon header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .taxon header h1,
+    .taxon header h2 {
+      flex: 1 0 min-content;
+      margin: 0;
+    }
+
+    .tree {
+      background: white;
+      border-radius: 8px;
+      float: right;
+    }
+
+    .authorized {
+      border-radius: 8px;
+      background: white;
+      padding: 8px;
+    }
+
+    .authorized+.authorized {
+      margin-top: 8px;
+    }
+
+    .authority {
+      color: gray;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="taxon">
+    <header>
+      <h1>Sadayoshia miyakei</h1>
+      <a href="#" class="tn">TN</a>
+      <abbr title="You searched for Sadayoshia miyakei">?</abbr>
+    </header>
+    <div class="tree">
+      <table>
+        <tr>
+          <th>Phylum</th>
+          <th>Class</th>
+          <th>Order</th>
+          <th>Family</th>
+        </tr>
+        <tr><!---->
+          <td> Arthropoda </td>
+          <td> Malacostraca </td>
+          <td> Decapoda </td>
+          <td> Munididae </td>
+        </tr>
+      </table>
+    </div>
+    <div>(vernacular names here)</div>
+    <div>(wikidata and GBIF buttons/links here)</div>
+    <ul>
+      <li>treatment</li>
+      <li>treatment</li>
+    </ul>
+    <div class="authorized">
+      <header>
+        <h2>
+          Sadayoshia miyakei
+          <span class="authority">Baba, 1969</span>
+        </h2>
+        <a href="#" class="tc">TC</a>
+        <a href="#" class="col">COL 123123</a>
+        <a href="#" class="col" title="this is linked in RDF, but CoL taxon differs in name or authority">(COL
+          ABC123)</a>
+      </header>
+      <ul>
+        <li>treatment</li>
+        <li>treatment</li>
+      </ul>
+    </div>
+    <div class="authorized">
+      <header>
+        <h2>
+          Sadayoshia miyakei
+          <span class="authority">Macpherson & Baba, 2010</span>
+        </h2>
+        <a href="#" class="tc">TC</a>
+        <a href="#" class="col">COL ABC123</a>
+      </header>
+      <ul>
+        <li>treatment</li>
+        <li>treatment</li>
+      </ul>
+    </div>
+  </section>
+</body>
+
+</html>

@@ -1,0 +1,62 @@
+## Finds all names deprecated by or deprecating ?prevTN
+## it is rather slow, probably makes sense to keep keep the tow directions separate
+## we musnt forget the realtaions involving treat:treatsTaxonName !
+
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX treat: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT
+  ?tn ?name ?tc (group_concat(DISTINCT ?auth; separator=" / ") as ?authority) (group_concat(DISTINCT ?colid; separator="|") as ?colids) (group_concat(DISTINCT ?justification; separator="|") as ?justs) (group_concat(DISTINCT ?aug;separator="|") as ?augs) (group_concat(DISTINCT ?def;separator="|") as ?defs) (group_concat(DISTINCT ?dpr;separator="|") as ?dprs) (group_concat(DISTINCT ?cite;separator="|") as ?cites) (group_concat(DISTINCT ?trtn;separator="|") as ?trtns) (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+WHERE {
+  # BIND (<http://taxon-name.plazi.org/id/Animalia/Tullgrenella_gertschi> as ?prevTN)
+  BIND (<http://taxon-name.plazi.org/id/Animalia/Sadayoshia_miyakei> as ?prevTN)
+  ?prevTC treat:hasTaxonName ?prevTN .
+  
+  {
+  	?justificationT treat:deprecates ?prevTC .
+    
+    ## Option A
+    #?justificationT (treat:treatsTaxonName|((treat:augmentsTaxonConcept|treat:definesTaxonConcept)/treat:hasTaxonName)) ?tn .
+    #OPTIONAL {
+    #  ?justificationT (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc .
+    #}
+    ## Option B
+    {
+    	?justificationT (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?tc .
+  		?tc treat:hasTaxonName ?tn .
+    } UNION {
+     	?justificationT treat:treatsTaxonName ?tn .
+    }
+    ## Options End
+    BIND(CONCAT("DPR<", STR(?justificationT), "><", STR(?prevTC), "><", STR(COALESCE(?tc, ?tn)), ">") as ?justification)
+  } UNION {
+  	?justificationT treat:deprecates ?tc .
+  	?tc treat:hasTaxonName ?tn .
+    ?justificationT (treat:augmentsTaxonConcept|treat:definesTaxonConcept) ?prevTC .
+    BIND(CONCAT("DPR<", STR(?justificationT), "><", STR(?tc), "><", STR(?prevTC), ">") as ?justification)
+  } UNION {
+  	?justificationT treat:deprecates ?tc .
+    ?justificationT treat:treatsTaxonName ?prevTN .
+    BIND(CONCAT("DPR<", STR(?justificationT), "><", STR(?tc), "><", STR(?prevTN), ">") as ?justification)
+  }
+  ## Important: BIND cannot be in a nested UNION for some reason.
+
+  ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subSpecies ?subspecies . }
+    OPTIONAL { ?tn dwc:variety ?variety . }
+  }
+  BIND(CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?subspecies), ""), COALESCE(CONCAT(" var. ", ?variety), "")) as ?name)
+  OPTIONAL { ?tc dwc:scientificNameAuthorship ?auth . }
+  OPTIONAL { ?tc <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?colid . }
+  OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr treat:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
+}
+GROUP BY ?tn ?name ?tc
