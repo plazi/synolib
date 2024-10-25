@@ -6,13 +6,14 @@ const sparqlEndpoint = new SparqlEndpoint(
 );
 const taxonName = Deno.args.length > 0
   ? Deno.args.join(" ")
-  : "https://www.catalogueoflife.org/data/taxon/3CP83";
+  : "https://www.catalogueoflife.org/data/taxon/4P523";
 const synoGroup = new SynonymGroup(sparqlEndpoint, taxonName);
 
 console.log(Colors.blue(`Synonym Group For ${taxonName}`));
 for await (const name of synoGroup) {
   console.log(
-    Colors.underline(name.displayName) +
+    "\n" +
+      Colors.underline(name.displayName) +
       colorizeIfPresent(name.taxonNameURI, "yellow"),
   );
   for (const trt of name.treatments.treats) {

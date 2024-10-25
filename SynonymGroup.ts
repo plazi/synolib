@@ -1,7 +1,9 @@
 import { JustificationSet, SparqlEndpoint } from "./mod.ts";
 
 enum NameStatus {
-  inProgress,
+  makingName,
+  madeName,
+  findingSynonyms,
   done,
 }
 
@@ -12,11 +14,6 @@ export class SynonymGroup implements AsyncIterable<Name> {
    * @readonly
    */
   isFinished = false;
-  /** Indicates whether the SynonymGroup has been aborted.
-   *
-   * @readonly
-   */
-  isAborted = false;
   /** Used internally to watch for new names found */
   private monitor = new EventTarget();
 
@@ -43,10 +40,21 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
 
-  /** contains TN, TC, CoL uris of synonyms whose `Name` we have not yet constructed */
-  private queue = new Set<string>();
+  // An URI of a name can have on of the following states:
+  // 1) we have found it as a synonym but have not gotten the details
+  //   -> in this.freshSynonymQueue
+  // 2) we have loaded the details and made a `Name` from it. All authorizedNames of the `Name` become at least 3).*
+  // 3) we are looking for the (treatment-linked-) synonyms of the name. When we get them, they all become at least 1).*
+  // 4) we are done with this URI.
+  // * if the name already has a higher state, it is not downgraded.
 
-  /** contains TN, TC, CoL uris of synonyms whose `Name` is being constructed or has been constructed. */
+  /** contains TN, TC, CoL uris of synonyms whose `Name` we have not yet constructed */
+  private freshSynonymQueue: string[] = [];
+
+  /** contains TN, TC, CoL uris of synonyms whose (treatment-linked-) synonyms we have not yet looked for */
+  private expandSynonymQueue: string[] = [];
+
+  /** contains TN, TC, CoL uris of synonyms which are in-flight somehow */
   private expanded = new Map<string, NameStatus>();
 
   /** Used internally to deduplicate treatments, maps from URI to Object */
@@ -66,17 +74,34 @@ export class SynonymGroup implements AsyncIterable<Name> {
   ) {
     this.sparqlEndpoint = sparqlEndpoint;
 
-    // TODO use queue
-    if (taxonName.startsWith("https://www.catalogueoflife.org")) {
-      this.getNameFromCol(taxonName).then((name) => {
-        this.pushName(name);
-        this.finish();
-      });
+    // TODO handle "Genus species"-style input
+
+    if (taxonName.startsWith("http")) {
+      this.freshSynonymQueue.push(taxonName);
     }
 
-    // TODO
+    this.driveQueue();
   }
 
+  private async driveQueue() {
+    while (
+      this.freshSynonymQueue.length > 0 || this.expandSynonymQueue.length > 0
+    ) {
+      if (this.freshSynonymQueue.length > 0) {
+        const taxonName = this.freshSynonymQueue.pop()!;
+        if (taxonName.startsWith("https://www.catalogueoflife.org")) {
+          await this.getNameFromCol(taxonName).then((name) => {
+            this.pushName(name);
+          });
+        }
+      }
+      // TODO handle expansion
+      console.log("Not expanding:", this.expandSynonymQueue.pop())
+    }
+    this.finish();
+  }
+
+  /** colUri must have been freshly popped from freshSynonymQueue */
   private async getNameFromCol(colUri: string): Promise<Name> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
@@ -141,6 +166,9 @@ GROUP BY ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
 LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
 
+    if (this.expanded.get(colUri)) throw "Called on previously expanded name";
+    this.expanded.set(colUri, NameStatus.makingName);
+
     if (this.controller.signal?.aborted) return Promise.reject();
 
     /// ?tn ?tc !rank !genus ?species ?infrasp !fullName !authority ?tcAuth
@@ -171,11 +199,22 @@ LIMIT 500`;
     const authorizedNames = [colName];
 
     const taxonNameURI = json.results.bindings[0].tn?.value;
+    if (taxonNameURI) {
+      this.expanded.set(taxonNameURI, NameStatus.madeName);
+      this.expandSynonymQueue.push(taxonNameURI);
+    }
 
     for (const t of json.results.bindings) {
       if (t.tc) {
         if (t.tcAuth?.value.split(" / ").includes(colName.authority)) {
-          // TODO tc is same as colName, get tretments and merge together
+          colName.authority = t.tcAuth?.value;
+          colName.taxonConceptURI = t.tc.value;
+          colName.treatments = {
+            def: this.makeTreatmentSet(t.defs?.value.split("|")),
+            aug: this.makeTreatmentSet(t.augs?.value.split("|")),
+            dpr: this.makeTreatmentSet(t.dprs?.value.split("|")),
+            cite: this.makeTreatmentSet(t.cites?.value.split("|")),
+          };
         } else if (t.tcAuth?.value) {
           authorizedNames.push({
             displayName,
@@ -188,27 +227,32 @@ LIMIT 500`;
               cite: this.makeTreatmentSet(t.cites?.value.split("|")),
             },
           });
-          // TODO get treatments
         }
+        this.expanded.set(t.tc.value, NameStatus.madeName);
+        this.expandSynonymQueue.push(t.tc.value);
       }
     }
 
-    // TODO treatments
-    // TODO handle queue/expandedNames/etc
+    // TODO: handle col-data "acceptedName" and stuff
+    this.expanded.set(colUri, NameStatus.done);
 
     return {
       displayName,
       taxonNameURI,
       authorizedNames,
-      justification: new JustificationSet("//TODO"),
+      justification: new JustificationSet(["//TODO"]),
       treatments: {
-        treats: this.makeTreatmentSet(json.results.bindings[0].tntreats?.value.split("|")),
-        cite: this.makeTreatmentSet(json.results.bindings[0].tncites?.value.split("|")),
+        treats: this.makeTreatmentSet(
+          json.results.bindings[0].tntreats?.value.split("|"),
+        ),
+        cite: this.makeTreatmentSet(
+          json.results.bindings[0].tncites?.value.split("|"),
+        ),
       },
     };
   }
 
-  private makeTreatmentSet (urls?: string[]): Set<Treatment> {
+  private makeTreatmentSet(urls?: string[]): Set<Treatment> {
     if (!urls) return new Set<Treatment>();
     return new Set<Treatment>(
       urls.filter((url) => !!url).map((url) => {
@@ -221,7 +265,7 @@ LIMIT 500`;
         return this.treatments.get(url) as Treatment;
       }),
     );
-  };
+  }
 
   private async getTreatmentDetails(
     treatmentUri: string,
@@ -356,7 +400,7 @@ SELECT DISTINCT ?url ?description WHERE {
         new Promise<IteratorResult<Name>>(
           (resolve, reject) => {
             const callback = () => {
-              if (this.isAborted) {
+              if (this.controller.signal.aborted) {
                 reject(new Error("SynyonymGroup has been aborted"));
               } else if (returnedSoFar < this.names.length) {
                 resolve({ value: this.names[returnedSoFar++] });
