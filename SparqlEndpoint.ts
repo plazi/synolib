@@ -12,7 +12,7 @@ export type SparqlJson = {
   };
   results: {
     bindings: {
-      [key: string]: { type: string; value: string; "xml:lang"?: string };
+      [key: string]: { type: string; value: string; "xml:lang"?: string } | undefined;
     }[];
   };
 };
