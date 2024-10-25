@@ -7,7 +7,7 @@ See `index.html` for an example of a webpage using the library. Go to
 [http://plazi.github.io/synolib/](http://plazi.github.io/synolib/) to open the example page in the browser
 and execute the script.
 
-For a simple command line example using the library see: `main.ts`.
+For a simple command line example using the library see: `example/cli.ts`.
 
 ## building
 

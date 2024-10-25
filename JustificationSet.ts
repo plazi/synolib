@@ -1,28 +1,33 @@
 // @ts-ignore: Import unneccesary for typings, will collate .d.ts files
-import type { JustifiedSynonym, Treatment } from "./SynonymGroup.ts";
+import type { JustifiedSynonym, Treatment } from "./mod.ts";
 
-interface Justification {
+/** //TODO */
+export type Justification = {
+  /** //TODO */
   toString: () => string;
+  /** //TODO */
+  treatment?: Treatment;
+  /** //TODO */
   precedingSynonym?: JustifiedSynonym; // eslint-disable-line no-use-before-define
 }
 
-interface TreatmentJustification extends Justification {
-  treatment: Treatment;
-}
-type LexicalJustification = Justification;
-export type anyJustification = TreatmentJustification | LexicalJustification;
-
-export class JustificationSet implements AsyncIterable<anyJustification> {
+/** //TODO */
+export class JustificationSet implements AsyncIterable<Justification> {
+  /** @internal */
   private monitor = new EventTarget();
-  contents: anyJustification[] = [];
+  /** @internal */
+  contents: Justification[] = [];
+  /** @internal */
   isFinished = false;
+  /** @internal */
   isAborted = false;
+  /** @internal */
   entries = ((Array.from(this.contents.values()).map((v) => [v, v])) as [
-    anyJustification,
-    anyJustification,
+    Justification,
+    Justification,
   ][]).values;
-
-  constructor(iterable?: Iterable<anyJustification>) {
+  /** @internal */
+  constructor(iterable?: Iterable<Justification>) {
     if (iterable) {
       for (const el of iterable) {
         this.add(el);
@@ -30,7 +35,7 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
     }
     return this;
   }
-
+  /** @internal */
   get size() {
     return new Promise<number>((resolve, reject) => {
       if (this.isAborted) {
@@ -49,7 +54,8 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
     });
   }
 
-  add(value: anyJustification) {
+  /** @internal */
+  add(value: Justification) {
     if (
       this.contents.findIndex((c) => c.toString() === value.toString()) === -1
     ) {
@@ -59,18 +65,21 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
     return this;
   }
 
-  finish() {
+  /** @internal */
+  finish(): void {
     //console.info("%cJustificationSet finished", "color: #69F0AE;");
     this.isFinished = true;
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
 
-  forEachCurrent(cb: (val: anyJustification) => void) {
+  /** @internal */
+  forEachCurrent(cb: (val: Justification) => void): void {
     this.contents.forEach(cb);
   }
 
-  first() {
-    return new Promise<anyJustification>((resolve) => {
+  /** @internal */
+  first(): Promise<Justification> {
+    return new Promise<Justification>((resolve) => {
       if (this.contents[0]) {
         resolve(this.contents[0]);
       } else {
@@ -81,13 +90,13 @@ export class JustificationSet implements AsyncIterable<anyJustification> {
     });
   }
 
-  [Symbol.toStringTag] = "";
-  [Symbol.asyncIterator]() {
+  /** //TODO */
+  [Symbol.asyncIterator](): AsyncIterator<Justification> {
     // this.monitor.addEventListener("updated", () => console.log("ARA"));
     let returnedSoFar = 0;
     return {
       next: () => {
-        return new Promise<IteratorResult<anyJustification>>(
+        return new Promise<IteratorResult<Justification>>(
           (resolve, reject) => {
             const _ = () => {
               if (this.isAborted) {
