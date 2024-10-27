@@ -6,7 +6,7 @@ const sparqlEndpoint = new SparqlEndpoint(
 );
 const taxonName = Deno.args.length > 0
   ? Deno.args.join(" ")
-  : "https://www.catalogueoflife.org/data/taxon/4P523";
+  : "https://www.catalogueoflife.org/data/taxon/3WD9M"; // "https://www.catalogueoflife.org/data/taxon/4P523";
 const synoGroup = new SynonymGroup(sparqlEndpoint, taxonName);
 
 const trtColor = {
@@ -17,6 +17,10 @@ const trtColor = {
 };
 
 console.log(Colors.blue(`Synonym Group For ${taxonName}`));
+
+let authorizedNamesCount = 0;
+const timeStart = performance.now();
+
 for await (const name of synoGroup) {
   console.log(
     "\n" +
@@ -28,6 +32,7 @@ for await (const name of synoGroup) {
 
   // TODO justification
   for (const authorizedName of name.authorizedNames) {
+    authorizedNamesCount++;
     console.log(
       "  " +
         Colors.underline(
@@ -52,6 +57,17 @@ for await (const name of synoGroup) {
     // TODO justification
   }
 }
+
+const timeEnd = performance.now();
+
+console.log(
+  "\n" +
+    Colors.bgYellow(
+      `Found ${synoGroup.names.length} names (${authorizedNamesCount} authorized names) and ${synoGroup.treatments.size} treatments. This took ${
+        timeEnd - timeStart
+      } milliseconds.`,
+    ),
+);
 
 function colorizeIfPresent(
   text: string | undefined,

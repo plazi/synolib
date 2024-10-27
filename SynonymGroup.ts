@@ -40,27 +40,17 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
 
-  // An URI of a name can have on of the following states:
-  // 1) we have found it as a synonym but have not gotten the details
-  //   -> in this.freshSynonymQueue
-  // 2) we have loaded the details and made a `Name` from it. All authorizedNames of the `Name` become at least 3).*
-  // 3) we are looking for the (treatment-linked-) synonyms of the name. When we get them, they all become at least 1).*
-  // 4) we are done with this URI.
-  // * if the name already has a higher state, it is not downgraded.
-
-  /** contains TN, TC, CoL uris of synonyms whose `Name` we have not yet constructed */
-  private freshSynonymQueue: string[] = [];
-
-  /** contains TN, TC, CoL uris of synonyms whose (treatment-linked-) synonyms we have not yet looked for */
-  // private expandSynonymQueue: string[] = [];
-
-  private runningPromises: Promise<any>[] = [];
-
-  /** contains TN, TC, CoL uris of synonyms which are in-flight somehow */
+  /** contains TN, TC, CoL uris of synonyms which are in-flight somehow or are done already */
   private expanded = new Set<string>(); // new Map<string, NameStatus>();
 
-  /** Used internally to deduplicate treatments, maps from URI to Object */
-  private treatments = new Map<string, Treatment>();
+  /**
+   * Used internally to deduplicate treatments, maps from URI to Object.
+   *
+   * Contains full list of treatments _if_ .isFinished and not .isAborted
+   *
+   * @readonly
+   */
+  treatments = new Map<string, Treatment>();
 
   /**
    * Constructs a SynonymGroup
@@ -196,7 +186,7 @@ LIMIT 500`;
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
       if (this.expanded.has(taxonNameURI)) {
-        console.log("Abbruch: already known", taxonNameURI);
+        // console.log("Abbruch: already known", taxonNameURI);
         return;
       }
       this.expanded.add(taxonNameURI); //, NameStatus.madeName);
@@ -205,7 +195,7 @@ LIMIT 500`;
     for (const t of json.results.bindings) {
       if (t.tc && t.tcAuth?.value) {
         if (this.expanded.has(t.tc.value)) {
-          console.log("Abbruch: already known", t.tc.value);
+          // console.log("Abbruch: already known", t.tc.value);
           return;
         }
         const def = this.makeTreatmentSet(t.defs?.value.split("|"));
@@ -346,7 +336,7 @@ LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
 
     if (this.expanded.has(tcUri)) {
-      console.log("Abbruch: already known", tcUri);
+      // console.log("Abbruch: already known", tcUri);
       return;
     }
 
@@ -384,7 +374,7 @@ LIMIT 500`;
 
     if (colName) {
       if (this.expanded.has(colName.colURI!)) {
-        console.log("Abbruch: already known", colName.colURI!);
+        // console.log("Abbruch: already known", colName.colURI!);
         return;
       }
       this.expanded.add(colName.colURI!);
@@ -395,7 +385,7 @@ LIMIT 500`;
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
       if (this.expanded.has(taxonNameURI)) {
-        console.log("Abbruch: already known", taxonNameURI);
+        // console.log("Abbruch: already known", taxonNameURI);
         return;
       }
       this.expanded.add(taxonNameURI); //, NameStatus.madeName);
@@ -404,7 +394,7 @@ LIMIT 500`;
     for (const t of json.results.bindings) {
       if (t.tc && t.tcAuth?.value) {
         if (this.expanded.has(t.tc.value)) {
-          console.log("Abbruch: already known", t.tc.value);
+          // console.log("Abbruch: already known", t.tc.value);
           return;
         }
         const def = this.makeTreatmentSet(t.defs?.value.split("|"));
@@ -490,7 +480,6 @@ LIMIT 500`;
             url,
             details,
           });
-          this.runningPromises.push(details);
         }
         return this.treatments.get(url) as Treatment;
       }),
