@@ -73,12 +73,13 @@ export class SynonymGroup implements AsyncIterable<Name> {
       await this.getNameFromCol(taxonName);
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
       await this.getNameFromTC(taxonName);
+    } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
+      await this.getNameFromTN(taxonName);
     } else {
       console.log("// TODO handle", taxonName);
     }
   }
 
-  /** colUri must have been freshly popped from freshSynonymQueue */
   private async getNameFromCol(colUri: string): Promise<void> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
@@ -142,8 +143,6 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
-
-    if (this.expanded.has(colUri)) throw "Called on previously expanded name";
 
     if (this.controller.signal?.aborted) return Promise.reject();
 
@@ -223,14 +222,87 @@ GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
 
-    if (this.expanded.has(tcUri)) {
-      // console.log("Abbruch: already known", tcUri);
-      return;
-    }
-
     if (this.controller.signal?.aborted) return Promise.reject();
 
     /// ?tn ?tc ?col !rank !genus ?species ?infrasp !name !authority ?tcAuth
+    const json = await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      { signal: this.controller.signal },
+      "Starting Points",
+    );
+
+    await this.handleName(json);
+  }
+
+  private async getNameFromTN(tnUri: string): Promise<void> {
+    // Note: this query assumes that there is no sub-species taxa with missing dwc:species
+    // Note: the handling assumes that at most one taxon-name matches this colTaxon
+    const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
+  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
+  BIND(<${tnUri}> as ?tn)
+  ?tn a dwcFP:TaxonName .
+  ?tn dwc:rank ?rank .
+  ?tn dwc:genus ?genus .
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+  }
+  
+  OPTIONAL {
+    ?col dwc:taxonRank ?rank .
+    ?col dwc:scientificNameAuthorship ?colAuth .
+    ?col dwc:scientificName ?fullName . # Note: contains authority
+    ?col dwc:genericName ?genus .
+
+    {
+      ?col dwc:specificEpithet ?species .
+      ?tn dwc:species ?species .
+      {
+        ?col dwc:infraspecificEpithet ?infrasp .
+        ?tn dwc:subspecies|dwc:variety ?infrasp .
+      } UNION {
+        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
+        FILTER NOT EXISTS { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+      }
+    } UNION {
+      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
+      FILTER NOT EXISTS { ?tn dwc:species ?species . }
+    }
+  }
+  
+  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
+  BIND(COALESCE(?colAuth, "") as ?authority)
+
+  OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
+
+  OPTIONAL {
+    ?tc trt:hasTaxonName ?tn ;
+        dwc:scientificNameAuthorship ?tcauth ;
+        a dwcFP:TaxonConcept .
+    OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
+    OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
+    OPTIONAL { ?dpr trt:deprecates ?tc . }
+    OPTIONAL { ?cite cito:cites ?tc . }
+  }
+}
+GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
+LIMIT 500`;
+    // For unclear reasons, the query breaks if the limit is removed.
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
