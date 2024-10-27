@@ -493,6 +493,9 @@ LIMIT 500`;
           json.results.bindings[0].tncites?.value.split("|"),
         ),
       },
+      vernacularNames: taxonNameURI
+        ? this.getVernacular(taxonNameURI)
+        : Promise.resolve(new Map()),
     };
     this.pushName(name);
 
@@ -524,6 +527,28 @@ LIMIT 500`;
         this.getName(n, { searchTerm: false, parent: name, treatment })
       ),
     );
+  }
+
+  /** @internal */
+  private async getVernacular(uri: string): Promise<vernacularNames> {
+    const result: vernacularNames = new Map();
+    const query =
+      `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
+    const bindings =
+      (await this.sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
+    for (const b of bindings) {
+      if (b.n?.value) {
+        if (b.n["xml:lang"]) {
+          if (result.has(b.n["xml:lang"])) {
+            result.get(b.n["xml:lang"])!.push(b.n.value);
+          } else result.set(b.n["xml:lang"], [b.n.value]);
+        } else {
+          if (result.has("??")) result.get("??")!.push(b.n.value);
+          else result.set("??", [b.n.value]);
+        }
+      }
+    }
+    return result;
   }
 
   /** @internal */
@@ -778,7 +803,7 @@ export type Name = {
   displayName: string;
 
   /** //TODO Promise? */
-  // vernacularNames: Promise<vernacularNames>;
+  vernacularNames: Promise<vernacularNames>;
   // /** Contains the family tree / upper taxons accorindg to CoL / treatmentbank.
   //  * //TODO Promise? */
   // trees: Promise<{
@@ -800,6 +825,11 @@ export type Name = {
     cite: Set<Treatment>;
   };
 };
+
+/**
+ * A map from language tags (IETF) to an array of vernacular names.
+ */
+export type vernacularNames = Map<string, string[]>;
 
 /** Why a given Name was found (ther migth be other possible justifications) */
 export type Justification = { searchTerm: true } | {

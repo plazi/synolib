@@ -33,6 +33,11 @@ for await (const name of synoGroup) {
       Colors.underline(name.displayName) +
       colorizeIfPresent(name.taxonNameURI, "yellow"),
   );
+  const vernacular = await name.vernacularNames;
+  if (vernacular.size > 0) {
+    console.log("    “" + [...vernacular.values()].join("”, “") + "”");
+  }
+
   await logJustification(name);
   for (const trt of name.treatments.treats) await logTreatment(trt, "aug");
   for (const trt of name.treatments.cite) await logTreatment(trt, "cite");
@@ -126,8 +131,8 @@ async function logTreatment(
 }
 
 async function logJustification(name: Name) {
-    const just = await justify(name);
-    console.log(Colors.dim(`    (This ${just})`));
+  const just = await justify(name);
+  console.log(Colors.dim(`    (This ${just})`));
 }
 
 async function justify(name: Name): Promise<string> {
