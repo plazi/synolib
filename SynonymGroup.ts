@@ -24,10 +24,21 @@ export class SynonymGroup implements AsyncIterable<Name> {
    * @readonly
    */
   names: Name[] = [];
+  /**
+   * Add a new Name to this.names.
+   * 
+   * Note: does not deduplicate on its own
+   * 
+   * @internal */
   private pushName(name: Name) {
     this.names.push(name);
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
+
+  /**
+   * Call when all synonyms are found
+   * 
+   * @internal */
   private finish() {
     this.isFinished = true;
     this.monitor.dispatchEvent(new CustomEvent("updated"));
@@ -66,6 +77,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     }
   }
 
+  /** @internal */
   private async getName(
     taxonName: string,
     justification: Justification,
@@ -83,6 +95,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     }
   }
 
+  /** @internal */
   private async getNameFromCol(
     colUri: string,
     justification: Justification,
@@ -162,6 +175,7 @@ LIMIT 500`;
     await this.handleName(json, justification);
   }
 
+  /** @internal */
   private async getNameFromTC(
     tcUri: string,
     justification: Justification,
@@ -243,6 +257,8 @@ LIMIT 500`;
     await this.handleName(json, justification);
   }
 
+
+  /** @internal */
   private async getNameFromTN(
     tnUri: string,
     justification: Justification,
@@ -324,6 +340,10 @@ LIMIT 500`;
     await this.handleName(json, justification);
   }
 
+  /**
+   * Note this makes some assumptions on which variables are present in the bindings
+   * 
+   * @internal */
   private async handleName(
     json: SparqlJson,
     justification: Justification,
@@ -464,6 +484,7 @@ LIMIT 500`;
     );
   }
 
+  /** @internal */
   private makeTreatmentSet(urls?: string[]): Set<Treatment> {
     if (!urls) return new Set<Treatment>();
     return new Set<Treatment>(
@@ -480,6 +501,7 @@ LIMIT 500`;
     );
   }
 
+  /** @internal */
   private async getTreatmentDetails(
     treatmentUri: string,
   ): Promise<TreatmentDetails> {
