@@ -2,7 +2,7 @@ import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
 import { Name, SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
 
 const HIDE_COL_ONLY_SYNONYMS = true;
-const START_WITH_SUBTAXA = true;
+const START_WITH_SUBTAXA = false;
 
 const sparqlEndpoint = new SparqlEndpoint(
   "https://treatment.ld.plazi.org/sparql",
@@ -93,7 +93,11 @@ console.log(
       } milliseconds.`,
     ),
 );
-console.log(`Ran ${sparqlEndpoint.queryCount} queries.`);
+// console.log(
+//   `Ran ${sparqlEndpoint.reasons.length} queries:\n  ${
+//     sparqlEndpoint.reasons.sort().join("\n  ")
+//   }`,
+// );
 
 function colorizeIfPresent(
   text: string | undefined,

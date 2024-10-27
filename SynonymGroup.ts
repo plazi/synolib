@@ -160,7 +160,7 @@ LIMIT 5000`;
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
-      "Starting Points",
+      `Subtaxa ${url}`,
     );
 
     const names = json.results.bindings
@@ -198,7 +198,7 @@ LIMIT 500`;
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
-      "Starting Points",
+      `NameFromLatin ${genus} ${species} ${infrasp}`,
     );
 
     const names = json.results.bindings
@@ -284,7 +284,7 @@ LIMIT 500`;
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
-      "Starting Points",
+      `NameFromCol ${colUri}`,
     );
 
     return this.handleName(json, justification);
@@ -370,7 +370,7 @@ LIMIT 500`;
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
-      "Starting Points",
+      `NameFromTC ${tcUri}`,
     );
 
     await this.handleName(json, justification);
@@ -455,7 +455,7 @@ LIMIT 500`;
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
-      "Starting Points",
+      `NameFromTN ${tnUri}`,
     );
 
     return this.handleName(json, justification);
@@ -641,9 +641,11 @@ GROUP BY ?current ?current_status`;
       return [this.acceptedCol.get(colUri)!, []];
     }
 
-    const json = await this.sparqlEndpoint.getSparqlResultSet(query, {
-      signal: this.controller.signal,
-    });
+    const json = await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      { signal: this.controller.signal },
+      `AcceptedCol ${colUri}`,
+    );
 
     const promises: Promise<void>[] = [];
 
@@ -688,8 +690,9 @@ GROUP BY ?current ?current_status`;
     const result: vernacularNames = new Map();
     const query =
       `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
-    const bindings =
-      (await this.sparqlEndpoint.getSparqlResultSet(query)).results.bindings;
+    const bindings = (await this.sparqlEndpoint.getSparqlResultSet(query, {
+      signal: this.controller.signal,
+    }, `Vernacular ${uri}`)).results.bindings;
     for (const b of bindings) {
       if (b.n?.value) {
         if (b.n["xml:lang"]) {
@@ -811,7 +814,7 @@ GROUP BY ?date ?title ?mc`;
       const json = await this.sparqlEndpoint.getSparqlResultSet(
         query,
         { signal: this.controller.signal },
-        `Treatment Details for ${treatmentUri}`,
+        `TreatmentDetails ${treatmentUri}`,
       );
       const materialCitations: MaterialCitation[] = json.results.bindings
         .filter((t) => t.mc && t.catalogNumbers?.value)
@@ -851,7 +854,7 @@ SELECT DISTINCT ?url ?description WHERE {
       const figures = (await this.sparqlEndpoint.getSparqlResultSet(
         figureQuery,
         { signal: this.controller.signal },
-        `Figures for ${treatmentUri}`,
+        `TreatmentDetails/Figures ${treatmentUri}`,
       )).results.bindings;
       const figureCitations = figures.filter((f) => f.url?.value).map(
         (f) => {

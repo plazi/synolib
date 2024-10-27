@@ -27,7 +27,7 @@ export class SparqlEndpoint {
   constructor(private sparqlEnpointUri: string) {}
 
   /** @ignore */
-  queryCount = 0;
+  // reasons: string[] = [];
 
   /**
    * Run a query against the sparql endpoint
@@ -46,7 +46,7 @@ export class SparqlEndpoint {
     fetchOptions: RequestInit = {},
     _reason = "",
   ): Promise<SparqlJson> {
-    this.queryCount++;
+    // this.reasons.push(_reason);
 
     fetchOptions.headers = fetchOptions.headers || {};
     (fetchOptions.headers as Record<string, string>)["Accept"] =
