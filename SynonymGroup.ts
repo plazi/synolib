@@ -26,9 +26,9 @@ export class SynonymGroup implements AsyncIterable<Name> {
   names: Name[] = [];
   /**
    * Add a new Name to this.names.
-   * 
+   *
    * Note: does not deduplicate on its own
-   * 
+   *
    * @internal */
   private pushName(name: Name) {
     this.names.push(name);
@@ -37,7 +37,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
   /**
    * Call when all synonyms are found
-   * 
+   *
    * @internal */
   private finish() {
     this.isFinished = true;
@@ -70,10 +70,17 @@ export class SynonymGroup implements AsyncIterable<Name> {
   ) {
     this.sparqlEndpoint = sparqlEndpoint;
 
-    // TODO handle "Genus species"-style input
-
     if (taxonName.startsWith("http")) {
       this.getName(taxonName, { searchTerm: true }).then(() => this.finish());
+    } else {
+      const name = [
+        ...taxonName.split(" ").filter((n) => !!n),
+        undefined,
+        undefined,
+      ] as [string, string | undefined, string | undefined];
+      this.getNameFromLatin(name, { searchTerm: true }).then(() =>
+        this.finish()
+      );
     }
   }
 
@@ -91,8 +98,44 @@ export class SynonymGroup implements AsyncIterable<Name> {
     } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
       await this.getNameFromTN(taxonName, justification);
     } else {
-      console.log("// TODO handle", taxonName);
+      throw `Cannot handle name-uri <${taxonName}> !`;
     }
+  }
+
+  /** @internal */
+  private async getNameFromLatin(
+    [genus, species, infrasp]: [string, string | undefined, string | undefined],
+    justification: Justification,
+  ): Promise<void> {
+    const query = `
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+SELECT DISTINCT ?uri WHERE {
+  ?uri dwc:genus|dwc:genericName "${genus}" .
+  ${
+      species
+        ? `?uri dwc:species|dwc:specificEpithet "${species}" .`
+        : "FILTER NOT EXISTS { ?uri dwc:species|dwc:specificEpithet ?species . }"
+    }
+  ${
+      infrasp
+        ? `?uri dwc:subspecies|dwc:variety|dwc:infraspecificEpithet "${infrasp}" .`
+        : "FILTER NOT EXISTS { ?uri dwc:subspecies|dwc:variety|dwc:infraspecificEpithet ?infrasp . }"
+    }
+}
+LIMIT 500`;
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+    const json = await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      { signal: this.controller.signal },
+      "Starting Points",
+    );
+
+    const names = json.results.bindings
+      .map((n) => n.uri?.value)
+      .filter((n) => n && !this.expanded.has(n)) as string[];
+
+    await Promise.allSettled(names.map((n) => this.getName(n, justification)));
   }
 
   /** @internal */
@@ -257,7 +300,6 @@ LIMIT 500`;
     await this.handleName(json, justification);
   }
 
-
   /** @internal */
   private async getNameFromTN(
     tnUri: string,
@@ -342,7 +384,7 @@ LIMIT 500`;
 
   /**
    * Note this makes some assumptions on which variables are present in the bindings
-   * 
+   *
    * @internal */
   private async handleName(
     json: SparqlJson,
