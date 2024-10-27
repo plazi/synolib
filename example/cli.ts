@@ -1,5 +1,10 @@
 import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
-import { SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
+import {
+  Justification,
+  SparqlEndpoint,
+  SynonymGroup,
+  Treatment,
+} from "../mod.ts";
 
 const sparqlEndpoint = new SparqlEndpoint(
   "https://treatment.ld.plazi.org/sparql",
@@ -27,6 +32,7 @@ for await (const name of synoGroup) {
       Colors.underline(name.displayName) +
       colorizeIfPresent(name.taxonNameURI, "yellow"),
   );
+  await logJustification(name.justification);
   for (const trt of name.treatments.treats) await logTreatment(trt, "aug");
   for (const trt of name.treatments.cite) await logTreatment(trt, "cite");
 
@@ -116,6 +122,21 @@ async function logTreatment(
           [...details.treats.dpr.values()].join(", "),
         )
       }`,
+    );
+  }
+}
+
+async function logJustification(justification: Justification) {
+  if (justification.searchTerm) {
+    console.log(Colors.dim(`    (This is the search term)`));
+  } else {
+    const details = await justification.treatment.details;
+    console.log(
+      Colors.dim(
+        `    (Justification: Synonym of ${justification.parent.displayName} according to ${details.creators} ${details.date} “${
+          Colors.italic(details.title || Colors.dim("No Title"))
+        }” ${Colors.magenta(justification.treatment.url)})`,
+      ),
     );
   }
 }

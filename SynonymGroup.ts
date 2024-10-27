@@ -1,4 +1,4 @@
-import { JustificationSet, SparqlEndpoint, SparqlJson } from "./mod.ts";
+import { SparqlEndpoint, SparqlJson } from "./mod.ts";
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -62,25 +62,31 @@ export class SynonymGroup implements AsyncIterable<Name> {
     // TODO handle "Genus species"-style input
 
     if (taxonName.startsWith("http")) {
-      this.getName(taxonName).then(() => this.finish());
+      this.getName(taxonName, { searchTerm: true }).then(() => this.finish());
     }
   }
 
-  private async getName(taxonName: string): Promise<void> {
+  private async getName(
+    taxonName: string,
+    justification: Justification,
+  ): Promise<void> {
     if (this.expanded.has(taxonName)) {
       console.log("Skipping known", taxonName);
     } else if (taxonName.startsWith("https://www.catalogueoflife.org")) {
-      await this.getNameFromCol(taxonName);
+      await this.getNameFromCol(taxonName, justification);
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
-      await this.getNameFromTC(taxonName);
+      await this.getNameFromTC(taxonName, justification);
     } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
-      await this.getNameFromTN(taxonName);
+      await this.getNameFromTN(taxonName, justification);
     } else {
       console.log("// TODO handle", taxonName);
     }
   }
 
-  private async getNameFromCol(colUri: string): Promise<void> {
+  private async getNameFromCol(
+    colUri: string,
+    justification: Justification,
+  ): Promise<void> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
@@ -153,10 +159,13 @@ LIMIT 500`;
       "Starting Points",
     );
 
-    await this.handleName(json);
+    await this.handleName(json, justification);
   }
 
-  private async getNameFromTC(tcUri: string): Promise<void> {
+  private async getNameFromTC(
+    tcUri: string,
+    justification: Justification,
+  ): Promise<void> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
@@ -231,10 +240,13 @@ LIMIT 500`;
       "Starting Points",
     );
 
-    await this.handleName(json);
+    await this.handleName(json, justification);
   }
 
-  private async getNameFromTN(tnUri: string): Promise<void> {
+  private async getNameFromTN(
+    tnUri: string,
+    justification: Justification,
+  ): Promise<void> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
@@ -309,11 +321,14 @@ LIMIT 500`;
       "Starting Points",
     );
 
-    await this.handleName(json);
+    await this.handleName(json, justification);
   }
 
-  private async handleName(json: SparqlJson): Promise<void> {
-    const treatmentPromises: Promise<TreatmentDetails>[] = [];
+  private async handleName(
+    json: SparqlJson,
+    justification: Justification,
+  ): Promise<void> {
+    const treatmentPromises: Treatment[] = [];
 
     const displayName: string = json.results.bindings[0].name!.value
       .replace(
@@ -392,9 +407,9 @@ LIMIT 500`;
         // this.expanded.set(t.tc.value, NameStatus.madeName);
         this.expanded.add(t.tc.value);
 
-        def.forEach((t) => treatmentPromises.push(t.details));
-        aug.forEach((t) => treatmentPromises.push(t.details));
-        dpr.forEach((t) => treatmentPromises.push(t.details));
+        def.forEach((t) => treatmentPromises.push(t));
+        aug.forEach((t) => treatmentPromises.push(t));
+        dpr.forEach((t) => treatmentPromises.push(t));
       }
     }
 
@@ -403,33 +418,49 @@ LIMIT 500`;
     const treats = this.makeTreatmentSet(
       json.results.bindings[0].tntreats?.value.split("|"),
     );
-    treats.forEach((t) => treatmentPromises.push(t.details));
+    treats.forEach((t) => treatmentPromises.push(t));
 
-    this.pushName({
+    const name: Name = {
       displayName,
       taxonNameURI,
       authorizedNames,
-      justification: new JustificationSet(["//TODO"]),
+      justification,
       treatments: {
         treats,
         cite: this.makeTreatmentSet(
           json.results.bindings[0].tncites?.value.split("|"),
         ),
       },
-    });
+    };
+    this.pushName(name);
 
-    let newSynonyms = new Set<string>();
-    (await Promise.all(treatmentPromises)).map((d) => {
-      newSynonyms = newSynonyms
-        .union(d.treats.aug)
-        .union(d.treats.def)
-        .union(d.treats.dpr)
-        .union(d.treats.treattn)
-        .difference(this.expanded);
+    /** Map<synonymUri, Treatment> */
+    const newSynonyms = new Map<string, Treatment>();
+    (await Promise.all(
+      treatmentPromises.map((treat) =>
+        treat.details.then((d): [Treatment, TreatmentDetails] => {
+          return [treat, d];
+        })
+      ),
+    )).map(([treat, d]) => {
+      d.treats.aug.difference(this.expanded).forEach((s) =>
+        newSynonyms.set(s, treat)
+      );
+      d.treats.def.difference(this.expanded).forEach((s) =>
+        newSynonyms.set(s, treat)
+      );
+      d.treats.dpr.difference(this.expanded).forEach((s) =>
+        newSynonyms.set(s, treat)
+      );
+      d.treats.treattn.difference(this.expanded).forEach((s) =>
+        newSynonyms.set(s, treat)
+      );
     });
 
     await Promise.allSettled(
-      [...newSynonyms].map((n) => this.getName(n)),
+      [...newSynonyms].map(([n, treatment]) =>
+        this.getName(n, { searchTerm: false, parent: name, treatment })
+      ),
     );
   }
 
@@ -697,13 +728,20 @@ export type Name = {
   authorizedNames: AuthorizedName[];
 
   /** How this name was found */
-  justification: JustificationSet;
+  justification: Justification;
 
   /** treatments directly associated with .taxonNameUri */
   treatments: {
     treats: Set<Treatment>;
     cite: Set<Treatment>;
   };
+};
+
+/** Why a given Name was found (ther migth be other possible justifications) */
+export type Justification = { searchTerm: true } | {
+  searchTerm: false;
+  parent: Name;
+  treatment: Treatment;
 };
 
 /**
