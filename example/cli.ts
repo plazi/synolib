@@ -9,6 +9,13 @@ const taxonName = Deno.args.length > 0
   : "https://www.catalogueoflife.org/data/taxon/4P523";
 const synoGroup = new SynonymGroup(sparqlEndpoint, taxonName);
 
+const trtColor = {
+  "def": Colors.green,
+  "aug": Colors.blue,
+  "dpr": Colors.red,
+  "cite": Colors.gray,
+};
+
 console.log(Colors.blue(`Synonym Group For ${taxonName}`));
 for await (const name of synoGroup) {
   console.log(
@@ -16,12 +23,9 @@ for await (const name of synoGroup) {
       Colors.underline(name.displayName) +
       colorizeIfPresent(name.taxonNameURI, "yellow"),
   );
-  for (const trt of name.treatments.treats) {
-    console.log(Colors.blue("  ● ") + await treatmentToString(trt));
-  }
-  for (const trt of name.treatments.cite) {
-    console.log(Colors.gray("  ● ") + await treatmentToString(trt));
-  }
+  for (const trt of name.treatments.treats) await logTreatment(trt, "aug");
+  for (const trt of name.treatments.cite) await logTreatment(trt, "cite");
+
   // TODO justification
   for (const authorizedName of name.authorizedNames) {
     console.log(
@@ -34,16 +38,16 @@ for await (const name of synoGroup) {
         colorizeIfPresent(authorizedName.colURI, "cyan"),
     );
     for (const trt of authorizedName.treatments.def) {
-      console.log(Colors.green("    ● ") + await treatmentToString(trt));
+      await logTreatment(trt, "def");
     }
     for (const trt of authorizedName.treatments.aug) {
-      console.log(Colors.blue("    ● ") + await treatmentToString(trt));
+      await logTreatment(trt, "aug");
     }
     for (const trt of authorizedName.treatments.dpr) {
-      console.log(Colors.red("    ● ") + await treatmentToString(trt));
+      await logTreatment(trt, "dpr");
     }
     for (const trt of authorizedName.treatments.cite) {
-      console.log(Colors.gray("    ● ") + await treatmentToString(trt));
+      await logTreatment(trt, "cite");
     }
     // TODO justification
   }
@@ -57,9 +61,45 @@ function colorizeIfPresent(
   else return "";
 }
 
-async function treatmentToString(trt: Treatment) {
+async function logTreatment(
+  trt: Treatment,
+  type: "def" | "aug" | "dpr" | "cite",
+) {
   const details = await trt.details;
-  return `${details.creators} ${details.date} “${
-    Colors.italic(details.title || Colors.dim("No Title"))
-  }” ${Colors.magenta(trt.url)}`;
+  console.log(
+    `    ${trtColor[type]("●")} ${details.creators} ${details.date} “${
+      Colors.italic(details.title || Colors.dim("No Title"))
+    }” ${Colors.magenta(trt.url)}`,
+  );
+  if (type !== "def" && details.treats.def.size > 0) {
+    console.log(
+      `      → ${trtColor.def("●")} ${
+        Colors.magenta(
+          [...details.treats.def.values()].join(", "),
+        )
+      }`,
+    );
+  }
+  if (
+    type !== "aug" &&
+    (details.treats.aug.size > 0 || details.treats.treattn.size > 0)
+  ) {
+    console.log(
+      `      → ${trtColor.aug("●")} ${
+        Colors.magenta(
+          [...details.treats.aug.values(), ...details.treats.treattn.values()]
+            .join(", "),
+        )
+      }`,
+    );
+  }
+  if (type !== "dpr" && details.treats.dpr.size > 0) {
+    console.log(
+      `      → ${trtColor.dpr("●")} ${
+        Colors.magenta(
+          [...details.treats.dpr.values()].join(", "),
+        )
+      }`,
+    );
+  }
 }

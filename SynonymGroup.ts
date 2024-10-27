@@ -52,10 +52,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
   private freshSynonymQueue: string[] = [];
 
   /** contains TN, TC, CoL uris of synonyms whose (treatment-linked-) synonyms we have not yet looked for */
-  private expandSynonymQueue: string[] = [];
+  // private expandSynonymQueue: string[] = [];
+
+  private runningPromises: Promise<any>[] = [];
 
   /** contains TN, TC, CoL uris of synonyms which are in-flight somehow */
-  private expanded = new Map<string, NameStatus>();
+  private expanded = new Set<string>(); // new Map<string, NameStatus>();
 
   /** Used internally to deduplicate treatments, maps from URI to Object */
   private treatments = new Map<string, Treatment>();
@@ -77,39 +79,31 @@ export class SynonymGroup implements AsyncIterable<Name> {
     // TODO handle "Genus species"-style input
 
     if (taxonName.startsWith("http")) {
-      this.freshSynonymQueue.push(taxonName);
+      this.getName(taxonName).then(() => this.finish());
     }
-
-    this.driveQueue();
   }
 
-  private async driveQueue() {
-    while (
-      this.freshSynonymQueue.length > 0 || this.expandSynonymQueue.length > 0
-    ) {
-      if (this.freshSynonymQueue.length > 0) {
-        const taxonName = this.freshSynonymQueue.pop()!;
-        if (taxonName.startsWith("https://www.catalogueoflife.org")) {
-          await this.getNameFromCol(taxonName).then((name) => {
-            this.pushName(name);
-          });
-        }
-      }
-      // TODO handle expansion
-      console.log("Not expanding:", this.expandSynonymQueue.pop())
+  private async getName(taxonName: string): Promise<void> {
+    if (this.expanded.has(taxonName)) {
+      console.log("Skipping known", taxonName);
+    } else if (taxonName.startsWith("https://www.catalogueoflife.org")) {
+      await this.getNameFromCol(taxonName);
+    } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
+      await this.getNameFromTC(taxonName);
+    } else {
+      console.log("// TODO handle", taxonName);
     }
-    this.finish();
   }
 
   /** colUri must have been freshly popped from freshSynonymQueue */
-  private async getNameFromCol(colUri: string): Promise<Name> {
+  private async getNameFromCol(colUri: string): Promise<void> {
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX treat: <http://plazi.org/vocab/treatment#>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
@@ -148,16 +142,16 @@ SELECT DISTINCT ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
       FILTER NOT EXISTS { ?tn dwc:species ?species . }
     }
 
-    OPTIONAL { ?trtn treat:treatsTaxonName ?tn . }
-    OPTIONAL { ?citetn treat:citesTaxonName ?tn . }
+    OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
+    OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
 
     OPTIONAL {
-      ?tc treat:hasTaxonName ?tn ;
+      ?tc trt:hasTaxonName ?tn ;
           dwc:scientificNameAuthorship ?tcauth ;
           a dwcFP:TaxonConcept .
-      OPTIONAL { ?aug treat:augmentsTaxonConcept ?tc . }
-      OPTIONAL { ?def treat:definesTaxonConcept ?tc . }
-      OPTIONAL { ?dpr treat:deprecates ?tc . }
+      OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
+      OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
+      OPTIONAL { ?dpr trt:deprecates ?tc . }
       OPTIONAL { ?cite cito:cites ?tc . }
     }
   }
@@ -166,8 +160,7 @@ GROUP BY ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
 LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
 
-    if (this.expanded.get(colUri)) throw "Called on previously expanded name";
-    this.expanded.set(colUri, NameStatus.makingName);
+    if (this.expanded.has(colUri)) throw "Called on previously expanded name";
 
     if (this.controller.signal?.aborted) return Promise.reject();
 
@@ -177,6 +170,8 @@ LIMIT 500`;
       { signal: this.controller.signal },
       "Starting Points",
     );
+
+    const treatmentPromises: Promise<TreatmentDetails>[] = [];
 
     const displayName: string = json.results.bindings[0].fullName!.value
       .replace(
@@ -200,56 +195,289 @@ LIMIT 500`;
 
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
-      this.expanded.set(taxonNameURI, NameStatus.madeName);
-      this.expandSynonymQueue.push(taxonNameURI);
+      if (this.expanded.has(taxonNameURI)) {
+        console.log("Abbruch: already known", taxonNameURI);
+        return;
+      }
+      this.expanded.add(taxonNameURI); //, NameStatus.madeName);
     }
 
     for (const t of json.results.bindings) {
-      if (t.tc) {
+      if (t.tc && t.tcAuth?.value) {
+        if (this.expanded.has(t.tc.value)) {
+          console.log("Abbruch: already known", t.tc.value);
+          return;
+        }
+        const def = this.makeTreatmentSet(t.defs?.value.split("|"));
+        const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
+        const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
+        const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
         if (t.tcAuth?.value.split(" / ").includes(colName.authority)) {
           colName.authority = t.tcAuth?.value;
           colName.taxonConceptURI = t.tc.value;
           colName.treatments = {
-            def: this.makeTreatmentSet(t.defs?.value.split("|")),
-            aug: this.makeTreatmentSet(t.augs?.value.split("|")),
-            dpr: this.makeTreatmentSet(t.dprs?.value.split("|")),
-            cite: this.makeTreatmentSet(t.cites?.value.split("|")),
+            def,
+            aug,
+            dpr,
+            cite,
           };
-        } else if (t.tcAuth?.value) {
+        } else {
           authorizedNames.push({
             displayName,
             authority: t.tcAuth.value,
             taxonConceptURI: t.tc.value,
             treatments: {
-              def: this.makeTreatmentSet(t.defs?.value.split("|")),
-              aug: this.makeTreatmentSet(t.augs?.value.split("|")),
-              dpr: this.makeTreatmentSet(t.dprs?.value.split("|")),
-              cite: this.makeTreatmentSet(t.cites?.value.split("|")),
+              def,
+              aug,
+              dpr,
+              cite,
             },
           });
         }
-        this.expanded.set(t.tc.value, NameStatus.madeName);
-        this.expandSynonymQueue.push(t.tc.value);
+        // this.expanded.set(t.tc.value, NameStatus.madeName);
+        this.expanded.add(t.tc.value);
+
+        def.forEach((t) => treatmentPromises.push(t.details));
+        aug.forEach((t) => treatmentPromises.push(t.details));
+        dpr.forEach((t) => treatmentPromises.push(t.details));
       }
     }
 
     // TODO: handle col-data "acceptedName" and stuff
-    this.expanded.set(colUri, NameStatus.done);
+    this.expanded.add(colUri); //, NameStatus.done);
 
-    return {
+    const treats = this.makeTreatmentSet(
+      json.results.bindings[0].tntreats?.value.split("|"),
+    );
+    treats.forEach((t) => treatmentPromises.push(t.details));
+
+    this.pushName({
       displayName,
       taxonNameURI,
       authorizedNames,
       justification: new JustificationSet(["//TODO"]),
       treatments: {
-        treats: this.makeTreatmentSet(
-          json.results.bindings[0].tntreats?.value.split("|"),
-        ),
+        treats,
         cite: this.makeTreatmentSet(
           json.results.bindings[0].tncites?.value.split("|"),
         ),
       },
-    };
+    });
+
+    let newSynonyms = new Set<string>();
+    (await Promise.all(treatmentPromises)).map((d) => {
+      newSynonyms = newSynonyms
+        .union(d.treats.aug)
+        .union(d.treats.def)
+        .union(d.treats.dpr)
+        .union(d.treats.treattn)
+        .difference(this.expanded);
+    });
+
+    await Promise.allSettled(
+      [...newSynonyms].map((n) => this.getName(n)),
+    );
+  }
+
+  private async getNameFromTC(tcUri: string): Promise<void> {
+    // Note: this query assumes that there is no sub-species taxa with missing dwc:species
+    // Note: the handling assumes that at most one taxon-name matches this colTaxon
+    const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
+  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
+  <${tcUri}> trt:hasTaxonName ?tn .
+  ?tc trt:hasTaxonName ?tn ;
+      dwc:scientificNameAuthorship ?tcauth ;
+      a dwcFP:TaxonConcept .
+
+  ?tn a dwcFP:TaxonName .
+  ?tn dwc:rank ?rank .
+  ?tn dwc:genus ?genus .
+  
+  OPTIONAL {
+  ?col dwc:taxonRank ?rank .
+  ?col dwc:scientificNameAuthorship ?colAuth .
+  ?col dwc:scientificName ?fullName . # Note: contains authority
+  ?col dwc:genericName ?genus .
+  	OPTIONAL {
+      ?col dwc:specificEpithet ?species .
+      OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
+    }
+
+    {
+      ?col dwc:specificEpithet ?species .
+      ?tn dwc:species ?species .
+      {
+        ?col dwc:infraspecificEpithet ?infrasp .
+        ?tn dwc:subspecies|dwc:variety ?infrasp .
+      } UNION {
+        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
+        FILTER NOT EXISTS { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+      }
+    } UNION {
+      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
+      FILTER NOT EXISTS { ?tn dwc:species ?species . }
+    }
+  }
+  
+  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
+  BIND(COALESCE(?colAuth, "") as ?authority)
+
+  OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
+  OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
+
+  OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
+  OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
+  OPTIONAL { ?dpr trt:deprecates ?tc . }
+  OPTIONAL { ?cite cito:cites ?tc . }
+}
+GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
+LIMIT 500`;
+    // For unclear reasons, the query breaks if the limit is removed.
+
+    if (this.expanded.has(tcUri)) {
+      console.log("Abbruch: already known", tcUri);
+      return;
+    }
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+
+    /// ?tn ?tc ?col !rank !genus ?species ?infrasp !name !authority ?tcAuth
+    const json = await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      { signal: this.controller.signal },
+      "Starting Points",
+    );
+
+    const treatmentPromises: Promise<TreatmentDetails>[] = [];
+
+    const displayName: string = json.results.bindings[0].name!.value
+      .replace(
+        json.results.bindings[0].authority!.value,
+        "",
+      ).trim();
+
+    const colName: AuthorizedName | undefined =
+      json.results.bindings[0].col?.value
+        ? {
+          displayName,
+          authority: json.results.bindings[0].authority!.value,
+          colURI: json.results.bindings[0].col.value,
+          treatments: {
+            def: new Set(),
+            aug: new Set(),
+            dpr: new Set(),
+            cite: new Set(),
+          },
+        }
+        : undefined;
+
+    if (colName) {
+      if (this.expanded.has(colName.colURI!)) {
+        console.log("Abbruch: already known", colName.colURI!);
+        return;
+      }
+      this.expanded.add(colName.colURI!);
+    }
+
+    const authorizedNames = colName ? [colName] : [];
+
+    const taxonNameURI = json.results.bindings[0].tn?.value;
+    if (taxonNameURI) {
+      if (this.expanded.has(taxonNameURI)) {
+        console.log("Abbruch: already known", taxonNameURI);
+        return;
+      }
+      this.expanded.add(taxonNameURI); //, NameStatus.madeName);
+    }
+
+    for (const t of json.results.bindings) {
+      if (t.tc && t.tcAuth?.value) {
+        if (this.expanded.has(t.tc.value)) {
+          console.log("Abbruch: already known", t.tc.value);
+          return;
+        }
+        const def = this.makeTreatmentSet(t.defs?.value.split("|"));
+        const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
+        const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
+        const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
+        if (
+          colName && t.tcAuth?.value.split(" / ").includes(colName.authority)
+        ) {
+          colName.authority = t.tcAuth?.value;
+          colName.taxonConceptURI = t.tc.value;
+          colName.treatments = {
+            def,
+            aug,
+            dpr,
+            cite,
+          };
+        } else {
+          authorizedNames.push({
+            displayName,
+            authority: t.tcAuth.value,
+            taxonConceptURI: t.tc.value,
+            treatments: {
+              def,
+              aug,
+              dpr,
+              cite,
+            },
+          });
+        }
+        // this.expanded.set(t.tc.value, NameStatus.madeName);
+        this.expanded.add(t.tc.value);
+
+        def.forEach((t) => treatmentPromises.push(t.details));
+        aug.forEach((t) => treatmentPromises.push(t.details));
+        dpr.forEach((t) => treatmentPromises.push(t.details));
+      }
+    }
+
+    // TODO: handle col-data "acceptedName" and stuff
+    this.expanded.add(tcUri); //, NameStatus.done);
+
+    const treats = this.makeTreatmentSet(
+      json.results.bindings[0].tntreats?.value.split("|"),
+    );
+    treats.forEach((t) => treatmentPromises.push(t.details));
+
+    this.pushName({
+      displayName,
+      taxonNameURI,
+      authorizedNames,
+      justification: new JustificationSet(["//TODO"]),
+      treatments: {
+        treats,
+        cite: this.makeTreatmentSet(
+          json.results.bindings[0].tncites?.value.split("|"),
+        ),
+      },
+    });
+
+    let newSynonyms = new Set<string>();
+    (await Promise.all(treatmentPromises)).map((d) => {
+      newSynonyms = newSynonyms
+        .union(d.treats.aug)
+        .union(d.treats.def)
+        .union(d.treats.dpr)
+        .union(d.treats.treattn)
+        .difference(this.expanded);
+    });
+
+    await Promise.allSettled(
+      [...newSynonyms].map((n) => this.getName(n)),
+    );
   }
 
   private makeTreatmentSet(urls?: string[]): Set<Treatment> {
@@ -257,10 +485,12 @@ LIMIT 500`;
     return new Set<Treatment>(
       urls.filter((url) => !!url).map((url) => {
         if (!this.treatments.has(url)) {
+          const details = this.getTreatmentDetails(url);
           this.treatments.set(url, {
             url,
-            details: this.getTreatmentDetails(url),
+            details,
           });
+          this.runningPromises.push(details);
         }
         return this.treatments.get(url) as Treatment;
       }),
@@ -273,6 +503,8 @@ LIMIT 500`;
     const query = `
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
+PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
 SELECT DISTINCT
   ?date ?title ?mc
@@ -295,11 +527,23 @@ SELECT DISTINCT
   (group_concat(DISTINCT ?gbifSpecimenId;separator=" / ") as ?gbifSpecimenIds)
   (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
   (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trttn;separator="|") as ?trttns)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
 WHERE {
   BIND (<${treatmentUri}> as ?treatment)
   ?treatment dc:creator ?creator .
   OPTIONAL { ?treatment trt:publishedIn/dc:date ?date . }
   OPTIONAL { ?treatment dc:title ?title }
+  OPTIONAL { ?treatment trt:augmentsTaxonConcept ?aug . }
+  OPTIONAL { ?treatment trt:definesTaxonConcept ?def . }
+  OPTIONAL { ?treatment trt:deprecates ?dpr . }
+  OPTIONAL { ?treatment cito:cites ?cite . ?cite a dwcFP:TaxonConcept . }
+  OPTIONAL { ?treatment trt:treatsTaxonName ?trttn . }
+  OPTIONAL { ?treatment trt:citesTaxonName ?citetn . }
   OPTIONAL {
     ?treatment dwc:basisOfRecord ?mc .
     ?mc dwc:catalogNumber ?catalogNumber .
@@ -324,7 +568,18 @@ WHERE {
 }
 GROUP BY ?date ?title ?mc`;
     if (this.controller.signal.aborted) {
-      return { materialCitations: [], figureCitations: [] };
+      return {
+        materialCitations: [],
+        figureCitations: [],
+        treats: {
+          def: new Set(),
+          aug: new Set(),
+          dpr: new Set(),
+          citetc: new Set(),
+          treattn: new Set(),
+          citetn: new Set(),
+        },
+      };
     }
     try {
       const json = await this.sparqlEndpoint.getSparqlResultSet(
@@ -385,10 +640,53 @@ SELECT DISTINCT ?url ?description WHERE {
         title: json.results.bindings[0]?.title?.value,
         materialCitations,
         figureCitations,
+        treats: {
+          def: new Set(
+            json.results.bindings[0]?.defs?.value
+              ? json.results.bindings[0].defs.value.split("|")
+              : undefined,
+          ),
+          aug: new Set(
+            json.results.bindings[0]?.augs?.value
+              ? json.results.bindings[0].augs.value.split("|")
+              : undefined,
+          ),
+          dpr: new Set(
+            json.results.bindings[0]?.dprs?.value
+              ? json.results.bindings[0].dprs.value.split("|")
+              : undefined,
+          ),
+          citetc: new Set(
+            json.results.bindings[0]?.cites?.value
+              ? json.results.bindings[0].cites.value.split("|")
+              : undefined,
+          ),
+          treattn: new Set(
+            json.results.bindings[0]?.trttns?.value
+              ? json.results.bindings[0].trttns.value.split("|")
+              : undefined,
+          ),
+          citetn: new Set(
+            json.results.bindings[0]?.citetns?.value
+              ? json.results.bindings[0].citetns.value.split("|")
+              : undefined,
+          ),
+        },
       };
     } catch (error) {
       console.warn("SPARQL Error: " + error);
-      return { materialCitations: [], figureCitations: [] };
+      return {
+        materialCitations: [],
+        figureCitations: [],
+        treats: {
+          def: new Set(),
+          aug: new Set(),
+          dpr: new Set(),
+          citetc: new Set(),
+          treattn: new Set(),
+          citetn: new Set(),
+        },
+      };
     }
   }
 
@@ -501,6 +799,14 @@ export type TreatmentDetails = {
   date?: number;
   creators?: string;
   title?: string;
+  treats: {
+    def: Set<string>;
+    aug: Set<string>;
+    dpr: Set<string>;
+    citetc: Set<string>;
+    treattn: Set<string>;
+    citetn: Set<string>;
+  };
 };
 
 /** A cited material */
