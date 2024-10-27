@@ -1,6 +1,7 @@
 import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
 import {
   Justification,
+  Name,
   SparqlEndpoint,
   SynonymGroup,
   Treatment,
@@ -32,11 +33,10 @@ for await (const name of synoGroup) {
       Colors.underline(name.displayName) +
       colorizeIfPresent(name.taxonNameURI, "yellow"),
   );
-  await logJustification(name.justification);
+  await logJustification(name);
   for (const trt of name.treatments.treats) await logTreatment(trt, "aug");
   for (const trt of name.treatments.cite) await logTreatment(trt, "cite");
 
-  // TODO justification
   for (const authorizedName of name.authorizedNames) {
     authorizedNamesCount++;
     console.log(
@@ -60,7 +60,6 @@ for await (const name of synoGroup) {
     for (const trt of authorizedName.treatments.cite) {
       await logTreatment(trt, "cite");
     }
-    // TODO justification
   }
 }
 
@@ -126,17 +125,23 @@ async function logTreatment(
   }
 }
 
-async function logJustification(justification: Justification) {
-  if (justification.searchTerm) {
-    console.log(Colors.dim(`    (This is the search term)`));
+async function logJustification(name: Name) {
+    const just = await justify(name);
+    console.log(Colors.dim(`    (This ${just})`));
+}
+
+async function justify(name: Name): Promise<string> {
+  if (name.justification.searchTerm) {
+    return "is the search term.";
   } else {
-    const details = await justification.treatment.details;
-    console.log(
-      Colors.dim(
-        `    (Justification: Synonym of ${justification.parent.displayName} according to ${details.creators} ${details.date} “${
+    const details = await name.justification.treatment.details;
+    const parent = await justify(name.justification.parent);
+    return `is, according to ${
+      Colors.italic(
+        `${details.creators} ${details.date} “${
           Colors.italic(details.title || Colors.dim("No Title"))
-        }” ${Colors.magenta(justification.treatment.url)})`,
-      ),
-    );
+        }” ${Colors.magenta(name.justification.treatment.url)}`,
+      )
+    }, a synonym of ${name.justification.parent.displayName} \n     which ${parent}`;
   }
 }
