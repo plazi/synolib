@@ -1,11 +1,4 @@
-import { JustificationSet, SparqlEndpoint } from "./mod.ts";
-
-enum NameStatus {
-  makingName,
-  madeName,
-  findingSynonyms,
-  done,
-}
+import { JustificationSet, SparqlEndpoint, SparqlJson } from "./mod.ts";
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -94,7 +87,7 @@ PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
+SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
@@ -105,7 +98,7 @@ SELECT DISTINCT ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
   BIND(<${colUri}> as ?col)
   ?col dwc:taxonRank ?rank .
   ?col dwc:scientificNameAuthorship ?authority .
-  ?col dwc:scientificName ?fullName . # Note: contains authority
+  ?col dwc:scientificName ?name . # Note: contains authority
   ?col dwc:genericName ?genus .
   OPTIONAL {
     ?col dwc:specificEpithet ?species .
@@ -146,7 +139,7 @@ SELECT DISTINCT ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
     }
   }
 }
-GROUP BY ?tn ?tc ?rank ?genus ?species ?infrasp ?fullName ?authority
+GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 LIMIT 500`;
     // For unclear reasons, the query breaks if the limit is removed.
 
@@ -154,119 +147,14 @@ LIMIT 500`;
 
     if (this.controller.signal?.aborted) return Promise.reject();
 
-    /// ?tn ?tc !rank !genus ?species ?infrasp !fullName !authority ?tcAuth
+    /// ?tn ?tc !rank !genus ?species ?infrasp !name !authority ?tcAuth
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
       { signal: this.controller.signal },
       "Starting Points",
     );
 
-    const treatmentPromises: Promise<TreatmentDetails>[] = [];
-
-    const displayName: string = json.results.bindings[0].fullName!.value
-      .replace(
-        json.results.bindings[0].authority!.value,
-        "",
-      ).trim();
-
-    const colName: AuthorizedName = {
-      displayName,
-      authority: json.results.bindings[0].authority!.value,
-      colURI: colUri,
-      treatments: {
-        def: new Set(),
-        aug: new Set(),
-        dpr: new Set(),
-        cite: new Set(),
-      },
-    };
-
-    const authorizedNames = [colName];
-
-    const taxonNameURI = json.results.bindings[0].tn?.value;
-    if (taxonNameURI) {
-      if (this.expanded.has(taxonNameURI)) {
-        // console.log("Abbruch: already known", taxonNameURI);
-        return;
-      }
-      this.expanded.add(taxonNameURI); //, NameStatus.madeName);
-    }
-
-    for (const t of json.results.bindings) {
-      if (t.tc && t.tcAuth?.value) {
-        if (this.expanded.has(t.tc.value)) {
-          // console.log("Abbruch: already known", t.tc.value);
-          return;
-        }
-        const def = this.makeTreatmentSet(t.defs?.value.split("|"));
-        const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
-        const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
-        const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
-        if (t.tcAuth?.value.split(" / ").includes(colName.authority)) {
-          colName.authority = t.tcAuth?.value;
-          colName.taxonConceptURI = t.tc.value;
-          colName.treatments = {
-            def,
-            aug,
-            dpr,
-            cite,
-          };
-        } else {
-          authorizedNames.push({
-            displayName,
-            authority: t.tcAuth.value,
-            taxonConceptURI: t.tc.value,
-            treatments: {
-              def,
-              aug,
-              dpr,
-              cite,
-            },
-          });
-        }
-        // this.expanded.set(t.tc.value, NameStatus.madeName);
-        this.expanded.add(t.tc.value);
-
-        def.forEach((t) => treatmentPromises.push(t.details));
-        aug.forEach((t) => treatmentPromises.push(t.details));
-        dpr.forEach((t) => treatmentPromises.push(t.details));
-      }
-    }
-
-    // TODO: handle col-data "acceptedName" and stuff
-    this.expanded.add(colUri); //, NameStatus.done);
-
-    const treats = this.makeTreatmentSet(
-      json.results.bindings[0].tntreats?.value.split("|"),
-    );
-    treats.forEach((t) => treatmentPromises.push(t.details));
-
-    this.pushName({
-      displayName,
-      taxonNameURI,
-      authorizedNames,
-      justification: new JustificationSet(["//TODO"]),
-      treatments: {
-        treats,
-        cite: this.makeTreatmentSet(
-          json.results.bindings[0].tncites?.value.split("|"),
-        ),
-      },
-    });
-
-    let newSynonyms = new Set<string>();
-    (await Promise.all(treatmentPromises)).map((d) => {
-      newSynonyms = newSynonyms
-        .union(d.treats.aug)
-        .union(d.treats.def)
-        .union(d.treats.dpr)
-        .union(d.treats.treattn)
-        .difference(this.expanded);
-    });
-
-    await Promise.allSettled(
-      [...newSynonyms].map((n) => this.getName(n)),
-    );
+    await this.handleName(json);
   }
 
   private async getNameFromTC(tcUri: string): Promise<void> {
@@ -349,6 +237,10 @@ LIMIT 500`;
       "Starting Points",
     );
 
+    await this.handleName(json);
+  }
+
+  private async handleName(json: SparqlJson): Promise<void> {
     const treatmentPromises: Promise<TreatmentDetails>[] = [];
 
     const displayName: string = json.results.bindings[0].name!.value
@@ -435,7 +327,6 @@ LIMIT 500`;
     }
 
     // TODO: handle col-data "acceptedName" and stuff
-    this.expanded.add(tcUri); //, NameStatus.done);
 
     const treats = this.makeTreatmentSet(
       json.results.bindings[0].tntreats?.value.split("|"),
