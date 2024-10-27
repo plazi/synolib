@@ -176,6 +176,8 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . } BIND(COALESCE(?colAuth, "") as ?authority)
   ?col dwc:scientificName ?name . # Note: contains authority
   ?col dwc:genericName ?genus .
+  ?col dwc:parent* ?p .
+  ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
   OPTIONAL {
     ?col dwc:specificEpithet ?species .
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
@@ -185,7 +187,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
     ?tn a dwcFP:TaxonName .
     ?tn dwc:rank ?rank .
     ?tn dwc:genus ?genus .
-
+    ?tn dwc:kingdom ?kingdom .
     {
       ?col dwc:specificEpithet ?species .
       ?tn dwc:species ?species .
@@ -258,6 +260,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?rank .
+  ?tn dwc:kingdom ?kingdom .
   ?tn dwc:genus ?genus .
   OPTIONAL {
     ?tn dwc:species ?species .
@@ -269,6 +272,9 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
   ?col dwc:scientificName ?fullName . # Note: contains authority
   ?col dwc:genericName ?genus .
+  ?col dwc:parent* ?p .
+  ?p dwc:rank "kingdom" ;
+     dwc:taxonName ?kingdom .
 
     {
       ?col dwc:specificEpithet ?species .
@@ -337,6 +343,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?rank .
   ?tn dwc:genus ?genus .
+  ?tn dwc:kingdom ?kingdom .
   OPTIONAL {
     ?tn dwc:species ?species .
     OPTIONAL { ?tn dwc:subspecies|dwc:variety ?infrasp . }
@@ -347,6 +354,8 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
     OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
     ?col dwc:scientificName ?fullName . # Note: contains authority
     ?col dwc:genericName ?genus .
+    ?col dwc:parent* ?p .
+    ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
 
     {
       ?col dwc:specificEpithet ?species .
