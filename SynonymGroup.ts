@@ -47,6 +47,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** contains TN, TC, CoL uris of synonyms which are in-flight somehow or are done already */
   private expanded = new Set<string>(); // new Map<string, NameStatus>();
 
+  /** contains CoL uris where we don't need to check for Col "acceptedName" links
+   *
+   * col -> accepted col
+   */
+  private acceptedCol = new Map<string, string>();
+
   /**
    * Used internally to deduplicate treatments, maps from URI to Object.
    *
@@ -55,6 +61,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
    * @readonly
    */
   treatments = new Map<string, Treatment>();
+
+  /**
+   * Whether to show taxa deprecated by CoL that would not have been found otherwise
+   */
+  ignoreDeprecatedCoL: boolean;
 
   /**
    * Constructs a SynonymGroup
@@ -66,9 +77,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
   constructor(
     sparqlEndpoint: SparqlEndpoint,
     taxonName: string,
+    ignoreDeprecatedCoL = true,
     ignoreRank = false,
   ) {
     this.sparqlEndpoint = sparqlEndpoint;
+    this.ignoreDeprecatedCoL = ignoreDeprecatedCoL;
 
     if (taxonName.startsWith("http")) {
       this.getName(taxonName, { searchTerm: true }).then(() => this.finish());
@@ -160,7 +173,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
   BIND(<${colUri}> as ?col)
   ?col dwc:taxonRank ?rank .
-  ?col dwc:scientificNameAuthorship ?authority .
+  OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . } BIND(COALESCE(?colAuth, "") as ?authority)
   ?col dwc:scientificName ?name . # Note: contains authority
   ?col dwc:genericName ?genus .
   OPTIONAL {
@@ -215,7 +228,7 @@ LIMIT 500`;
       "Starting Points",
     );
 
-    await this.handleName(json, justification);
+    return this.handleName(json, justification);
   }
 
   /** @internal */
@@ -253,7 +266,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   
   OPTIONAL {
   ?col dwc:taxonRank ?rank .
-  ?col dwc:scientificNameAuthorship ?colAuth .
+  OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
   ?col dwc:scientificName ?fullName . # Note: contains authority
   ?col dwc:genericName ?genus .
 
@@ -331,7 +344,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   
   OPTIONAL {
     ?col dwc:taxonRank ?rank .
-    ?col dwc:scientificNameAuthorship ?colAuth .
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
     ?col dwc:scientificName ?fullName . # Note: contains authority
     ?col dwc:genericName ?genus .
 
@@ -379,7 +392,7 @@ LIMIT 500`;
       "Starting Points",
     );
 
-    await this.handleName(json, justification);
+    return this.handleName(json, justification);
   }
 
   /**
@@ -414,10 +427,7 @@ LIMIT 500`;
         : undefined;
 
     if (colName) {
-      if (this.expanded.has(colName.colURI!)) {
-        // console.log("Abbruch: already known", colName.colURI!);
-        return;
-      }
+      if (this.expanded.has(colName.colURI!)) return;
       this.expanded.add(colName.colURI!);
     }
 
@@ -425,10 +435,7 @@ LIMIT 500`;
 
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
-      if (this.expanded.has(taxonNameURI)) {
-        // console.log("Abbruch: already known", taxonNameURI);
-        return;
-      }
+      if (this.expanded.has(taxonNameURI)) return;
       this.expanded.add(taxonNameURI); //, NameStatus.madeName);
     }
 
@@ -497,6 +504,16 @@ LIMIT 500`;
         ? this.getVernacular(taxonNameURI)
         : Promise.resolve(new Map()),
     };
+
+    let colPromises: Promise<void>[] = [];
+
+    if (colName) {
+      [colName.acceptedColURI, colPromises] = await this.getAcceptedCol(
+        colName.colURI!,
+        name,
+      );
+    }
+
     this.pushName(name);
 
     /** Map<synonymUri, Treatment> */
@@ -523,10 +540,81 @@ LIMIT 500`;
     });
 
     await Promise.allSettled(
-      [...newSynonyms].map(([n, treatment]) =>
-        this.getName(n, { searchTerm: false, parent: name, treatment })
-      ),
+      [
+        ...colPromises,
+        ...[...newSynonyms].map(([n, treatment]) =>
+          this.getName(n, { searchTerm: false, parent: name, treatment })
+        ),
+      ],
     );
+  }
+
+  /** @internal */
+  private async getAcceptedCol(
+    colUri: string,
+    parent: Name,
+  ): Promise<[string, Promise<void>[]]> {
+    const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
+  BIND(<${colUri}> AS ?col)
+  {
+    ?col dwc:acceptedName ?current .
+    ?dpr dwc:acceptedName ?current .
+    ?current dwc:taxonomicStatus ?current_status .
+  } UNION {
+    ?col dwc:taxonomicStatus ?current_status .
+    OPTIONAL { ?dpr dwc:acceptedName ?col . }
+    FILTER NOT EXISTS { ?col dwc:acceptedName ?current . }
+    BIND(?col AS ?current)
+  }
+}
+GROUP BY ?current ?current_status`;
+
+    if (this.acceptedCol.has(colUri)) {
+      return [this.acceptedCol.get(colUri)!, []];
+    }
+
+    const json = await this.sparqlEndpoint.getSparqlResultSet(query, {
+      signal: this.controller.signal,
+    });
+
+    const promises: Promise<void>[] = [];
+
+    for (const b of json.results.bindings) {
+      for (const dpr of b.dprs!.value.split("|")) {
+        if (dpr) {
+          if (!this.acceptedCol.has(b.current!.value)) {
+            this.acceptedCol.set(b.current!.value, b.current!.value);
+            promises.push(
+              this.getNameFromCol(b.current!.value, {
+                searchTerm: false,
+                parent,
+              }),
+            );
+          }
+
+          this.acceptedCol.set(dpr, b.current!.value);
+          if (!this.ignoreDeprecatedCoL) {
+            promises.push(
+              this.getNameFromCol(dpr, { searchTerm: false, parent }),
+            );
+          }
+        }
+      }
+    }
+
+    if (json.results.bindings.length === 0) {
+      // the provided colUri is not in CoL
+      // promises === []
+      if (!this.acceptedCol.has(colUri)) {
+        this.acceptedCol.set(colUri, "INVALID COL");
+      }
+      return [this.acceptedCol.get(colUri)!, promises];
+    }
+
+    if (!this.acceptedCol.has(colUri)) this.acceptedCol.set(colUri, colUri);
+    return [this.acceptedCol.get(colUri)!, promises];
   }
 
   /** @internal */
@@ -802,10 +890,11 @@ export type Name = {
   /** Human-readable name */
   displayName: string;
 
-  /** //TODO Promise? */
+  /** vernacular names */
   vernacularNames: Promise<vernacularNames>;
+
   // /** Contains the family tree / upper taxons accorindg to CoL / treatmentbank.
-  //  * //TODO Promise? */
+  //  * //TODO */
   // trees: Promise<{
   //   col?: Tree;
   //   tb?: Tree;
@@ -835,7 +924,8 @@ export type vernacularNames = Map<string, string[]>;
 export type Justification = { searchTerm: true } | {
   searchTerm: false;
   parent: Name;
-  treatment: Treatment;
+  /** if missing, indicates synonymy according to CoL */
+  treatment?: Treatment;
 };
 
 /**
@@ -852,8 +942,16 @@ export type AuthorizedName = {
 
   /** The URI of the respective `dwcFP:TaxonConcept` if it exists */
   taxonConceptURI?: string;
+
   /** The URI of the respective CoL-taxon if it exists */
   colURI?: string;
+  /** The URI of the corresponding accepted CoL-taxon if it exists.
+   *
+   * Always present if colURI is present, they are the same if it is the accepted CoL-Taxon.
+   *
+   * May be the string "INVALID COL" if the colURI is not valid.
+   */
+  acceptedColURI?: string;
 
   // TODO: sensible?
   // /** these are CoL-taxa linked in the rdf, which differ lexically */

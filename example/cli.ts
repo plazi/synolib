@@ -1,11 +1,7 @@
 import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
-import {
-  Justification,
-  Name,
-  SparqlEndpoint,
-  SynonymGroup,
-  Treatment,
-} from "../mod.ts";
+import { Name, SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
+
+const HIDE_COL_ONLY_SYNONYMS = true;
 
 const sparqlEndpoint = new SparqlEndpoint(
   "https://treatment.ld.plazi.org/sparql",
@@ -13,7 +9,11 @@ const sparqlEndpoint = new SparqlEndpoint(
 const taxonName = Deno.args.length > 0
   ? Deno.args.join(" ")
   : "https://www.catalogueoflife.org/data/taxon/3WD9M"; // "https://www.catalogueoflife.org/data/taxon/4P523";
-const synoGroup = new SynonymGroup(sparqlEndpoint, taxonName);
+const synoGroup = new SynonymGroup(
+  sparqlEndpoint,
+  taxonName,
+  HIDE_COL_ONLY_SYNONYMS,
+);
 
 const trtColor = {
   "def": Colors.green,
@@ -53,6 +53,19 @@ for await (const name of synoGroup) {
         colorizeIfPresent(authorizedName.taxonConceptURI, "yellow") +
         colorizeIfPresent(authorizedName.colURI, "cyan"),
     );
+    if (authorizedName.colURI) {
+      if (authorizedName.acceptedColURI !== authorizedName.colURI) {
+        console.log(
+          `    ${trtColor.dpr("●")} Catalogue of Life\n      → ${
+            trtColor.aug("●")
+          } ${Colors.cyan(authorizedName.acceptedColURI!)}`,
+        );
+      } else {
+        console.log(
+          `    ${trtColor.aug("●")} Catalogue of Life`,
+        );
+      }
+    }
     for (const trt of authorizedName.treatments.def) {
       await logTreatment(trt, "def");
     }
@@ -138,7 +151,7 @@ async function logJustification(name: Name) {
 async function justify(name: Name): Promise<string> {
   if (name.justification.searchTerm) {
     return "is the search term.";
-  } else {
+  } else if (name.justification.treatment) {
     const details = await name.justification.treatment.details;
     const parent = await justify(name.justification.parent);
     return `is, according to ${
@@ -147,6 +160,9 @@ async function justify(name: Name): Promise<string> {
           Colors.italic(details.title || Colors.dim("No Title"))
         }” ${Colors.magenta(name.justification.treatment.url)}`,
       )
-    }, a synonym of ${name.justification.parent.displayName} \n     which ${parent}`;
+    },\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+  } else {
+    const parent = await justify(name.justification.parent);
+    return `is, according to the Catalogue of Life,\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
   }
 }
