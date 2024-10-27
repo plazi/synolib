@@ -63,36 +63,48 @@ export class SynonymGroup implements AsyncIterable<Name> {
   treatments = new Map<string, Treatment>();
 
   /**
-   * Whether to show taxa deprecated by CoL that would not have been found otherwise
+   * Whether to show taxa deprecated by CoL that would not have been found otherwise.
+   * This significantly increases the number of results in some cases.
    */
   ignoreDeprecatedCoL: boolean;
+
+  /**
+   * if set to true, subTaxa of the search term are also considered as starting points.
+   *
+   * Not that "weird" ranks like subGenus are always included when searching for a genus by latin name.
+   */
+  startWithSubTaxa: boolean;
 
   /**
    * Constructs a SynonymGroup
    *
    * @param sparqlEndpoint SPARQL-Endpoint to query
-   * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or a CoL taxon URI
-   * @param [ignoreRank=false] if taxonName is "Genus" or "Genus species", by default it will ony search for taxons of rank genus/species. If set to true, sub-taxa are also considered as staring points.
+   * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or ...#TaxonName or a CoL taxon URI
+   * @param [ignoreDeprecatedCoL=true] Whether to show taxa deprecated by CoL that would not have been found otherwise
+   * @param [startWithSubTaxa=false] if set to true, subTaxa of the search term are also considered as starting points.
    */
   constructor(
     sparqlEndpoint: SparqlEndpoint,
     taxonName: string,
     ignoreDeprecatedCoL = true,
-    ignoreRank = false,
+    startWithSubTaxa = false,
   ) {
     this.sparqlEndpoint = sparqlEndpoint;
     this.ignoreDeprecatedCoL = ignoreDeprecatedCoL;
+    this.startWithSubTaxa = startWithSubTaxa;
 
     if (taxonName.startsWith("http")) {
-      this.getName(taxonName, { searchTerm: true }).then(() => this.finish());
+      this.getName(taxonName, { searchTerm: true, subTaxon: false }).then(() =>
+        this.finish()
+      );
     } else {
       const name = [
         ...taxonName.split(" ").filter((n) => !!n),
         undefined,
         undefined,
       ] as [string, string | undefined, string | undefined];
-      this.getNameFromLatin(name, { searchTerm: true }).then(() =>
-        this.finish()
+      this.getNameFromLatin(name, { searchTerm: true, subTaxon: false }).then(
+        () => this.finish(),
       );
     }
   }
@@ -104,7 +116,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
   ): Promise<void> {
     if (this.expanded.has(taxonName)) {
       console.log("Skipping known", taxonName);
-    } else if (taxonName.startsWith("https://www.catalogueoflife.org")) {
+      return;
+    }
+
+    if (taxonName.startsWith("https://www.catalogueoflife.org")) {
       await this.getNameFromCol(taxonName, justification);
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
       await this.getNameFromTC(taxonName, justification);
@@ -113,6 +128,48 @@ export class SynonymGroup implements AsyncIterable<Name> {
     } else {
       throw `Cannot handle name-uri <${taxonName}> !`;
     }
+
+    if (
+      this.startWithSubTaxa && justification.searchTerm &&
+      !justification.subTaxon
+    ) {
+      await this.getSubtaxa(taxonName);
+    }
+  }
+
+  /** @internal */
+  private async getSubtaxa(url: string): Promise<void> {
+    const query = url.startsWith("http://taxon-concept.plazi.org")
+      ? `
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?sub WHERE {
+  BIND(<${url}> as ?url)
+  ?sub trt:hasParentName*/^trt:hasTaxonName ?url .
+}
+LIMIT 5000`
+      : `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?sub WHERE {
+  BIND(<${url}> as ?url)
+  ?sub (dwc:parent|trt:hasParentName)* ?url .
+}
+LIMIT 5000`;
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+    const json = await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      { signal: this.controller.signal },
+      "Starting Points",
+    );
+
+    const names = json.results.bindings
+      .map((n) => n.sub?.value)
+      .filter((n) => n && !this.expanded.has(n)) as string[];
+
+    await Promise.allSettled(
+      names.map((n) => this.getName(n, { searchTerm: true, subTaxon: true })),
+    );
   }
 
   /** @internal */
@@ -930,10 +987,14 @@ export type Name = {
 export type vernacularNames = Map<string, string[]>;
 
 /** Why a given Name was found (ther migth be other possible justifications) */
-export type Justification = { searchTerm: true } | {
+export type Justification = {
+  searchTerm: true;
+  /** indicates that this is a subTaxon of the parent */
+  subTaxon: boolean;
+} | {
   searchTerm: false;
   parent: Name;
-  /** if missing, indicates synonymy according to CoL */
+  /** if missing, indicates synonymy according to CoL or subTaxon */
   treatment?: Treatment;
 };
 

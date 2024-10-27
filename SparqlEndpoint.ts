@@ -12,7 +12,9 @@ export type SparqlJson = {
   };
   results: {
     bindings: {
-      [key: string]: { type: string; value: string; "xml:lang"?: string } | undefined;
+      [key: string]:
+        | { type: string; value: string; "xml:lang"?: string }
+        | undefined;
     }[];
   };
 };
@@ -23,6 +25,9 @@ export type SparqlJson = {
 export class SparqlEndpoint {
   /** Create a new SparqlEndpoint with the given URI */
   constructor(private sparqlEnpointUri: string) {}
+
+  /** @ignore */
+  queryCount = 0;
 
   /**
    * Run a query against the sparql endpoint
@@ -41,6 +46,8 @@ export class SparqlEndpoint {
     fetchOptions: RequestInit = {},
     _reason = "",
   ): Promise<SparqlJson> {
+    this.queryCount++;
+
     fetchOptions.headers = fetchOptions.headers || {};
     (fetchOptions.headers as Record<string, string>)["Accept"] =
       "application/sparql-results+json";

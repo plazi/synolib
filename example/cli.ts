@@ -2,6 +2,7 @@ import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
 import { Name, SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
 
 const HIDE_COL_ONLY_SYNONYMS = true;
+const START_WITH_SUBTAXA = true;
 
 const sparqlEndpoint = new SparqlEndpoint(
   "https://treatment.ld.plazi.org/sparql",
@@ -13,6 +14,7 @@ const synoGroup = new SynonymGroup(
   sparqlEndpoint,
   taxonName,
   HIDE_COL_ONLY_SYNONYMS,
+  START_WITH_SUBTAXA,
 );
 
 const trtColor = {
@@ -91,6 +93,7 @@ console.log(
       } milliseconds.`,
     ),
 );
+console.log(`Ran ${sparqlEndpoint.queryCount} queries.`);
 
 function colorizeIfPresent(
   text: string | undefined,
@@ -150,7 +153,9 @@ async function logJustification(name: Name) {
 
 async function justify(name: Name): Promise<string> {
   if (name.justification.searchTerm) {
-    return "is the search term.";
+    if (name.justification.subTaxon) {
+      return "is a sub-taxon of the search term.";
+    } else return "is the search term.";
   } else if (name.justification.treatment) {
     const details = await name.justification.treatment.details;
     const parent = await justify(name.justification.parent);
