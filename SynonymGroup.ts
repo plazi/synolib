@@ -180,16 +180,16 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?rank .
   ?tn dwc:genus ?genus .
+  OPTIONAL {
+    ?tn dwc:species ?species .
+    OPTIONAL { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+  }
   
   OPTIONAL {
   ?col dwc:taxonRank ?rank .
   ?col dwc:scientificNameAuthorship ?colAuth .
   ?col dwc:scientificName ?fullName . # Note: contains authority
   ?col dwc:genericName ?genus .
-  	OPTIONAL {
-      ?col dwc:specificEpithet ?species .
-      OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
-    }
 
     {
       ?col dwc:specificEpithet ?species .
