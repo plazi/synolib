@@ -13,15 +13,17 @@
 </head>
 
 <body>
-    <h1>Synonym Group for "https://www.catalogueoflife.org/data/taxon/3WD9M"</h1>
+    <h1>SynoLib</h1>
     <div id="root"></div>
 
     <script type="module">
         import {SynonymGroup,SparqlEndpoint} from "../npm-package/build/mod.js";
 
-        const HIDE_COL_ONLY_SYNONYMS=false;
-        const START_WITH_SUBTAXA=false;
-        const ENDPOINT_URL="https://treatment.ld.plazi.org/sparql";
+        let params=new URLSearchParams(document.location.search);
+        const HIDE_COL_ONLY_SYNONYMS=!params.has("show_col");
+        const START_WITH_SUBTAXA=params.has("subtaxa");
+        const ENDPOINT_URL=params.get("server")||"https://treatment.ld.plazi.org/sparql";
+        const NAME=params.get("q")||"https://www.catalogueoflife.org/data/taxon/3WD9M";
 
         /** @type HTMLDivElement */
         const root=document.getElementById("root");
@@ -87,9 +89,9 @@
 
                 const justification=document.createElement("abbr");
                 justification.classList.add("justification");
-                justification.innerText = "...?"
+                justification.innerText="...?";
                 justify(name).then(just => justification.title=`This ${just}`);
-                title.append(" ", justification);
+                title.append(" ",justification);
 
                 const vernacular=document.createElement("code");
                 vernacular.classList.add("vernacular");
@@ -203,20 +205,24 @@
             } else if(name.justification.treatment) {
                 const details=await name.justification.treatment.details;
                 const parent=await justify(name.justification.parent);
-                return `is, according to ${details.creators} ${details.date} “${details.title||"No Title"
-                    }” ${name.justification.treatment.url},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+                return `is, according to ${details.creators} ${details.date},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+                // return `is, according to ${details.creators} ${details.date} “${details.title||"No Title"}” ${name.justification.treatment.url},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
             } else {
                 const parent=await justify(name.justification.parent);
                 return `is, according to the Catalogue of Life,\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
             }
         }
 
-        const indicator=document.createElement("progress");
+        const indicator=document.createElement("div");
         root.insertAdjacentElement("beforebegin",indicator);
 
+        {
+            indicator.append(document.createElement("progress"));
+            indicator.append(` for ${NAME}`);
+        }
+
         const sparqlEndpoint=new SparqlEndpoint(ENDPOINT_URL);
-        const taxonName="https://www.catalogueoflife.org/data/taxon/3WD9M";
-        const synoGroup=new SynonymGroup(sparqlEndpoint,taxonName,HIDE_COL_ONLY_SYNONYMS,START_WITH_SUBTAXA);
+        const synoGroup=new SynonymGroup(sparqlEndpoint,NAME,HIDE_COL_ONLY_SYNONYMS,START_WITH_SUBTAXA);
 
         for await(const name of synoGroup) {
             const element=new SynoName(name);
