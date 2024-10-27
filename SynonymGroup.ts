@@ -94,8 +94,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.startWithSubTaxa = startWithSubTaxa;
 
     if (taxonName.startsWith("http")) {
-      this.getName(taxonName, { searchTerm: true, subTaxon: false }).then(() =>
-        this.finish()
+      this.getName(taxonName, { searchTerm: true, subTaxon: false }).finally(
+        () => this.finish(),
       );
     } else {
       const name = [
@@ -103,9 +103,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
         undefined,
         undefined,
       ] as [string, string | undefined, string | undefined];
-      this.getNameFromLatin(name, { searchTerm: true, subTaxon: false }).then(
-        () => this.finish(),
-      );
+      this.getNameFromLatin(name, { searchTerm: true, subTaxon: false })
+        .finally(
+          () => this.finish(),
+        );
     }
   }
 
@@ -233,8 +234,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . } BIND(COALESCE(?colAuth, "") as ?authority)
   ?col dwc:scientificName ?name . # Note: contains authority
   ?col dwc:genericName ?genus .
-  ?col dwc:parent* ?p .
-  ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
+  # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
   OPTIONAL {
     ?col dwc:specificEpithet ?species .
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
@@ -325,13 +325,11 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   }
   
   OPTIONAL {
-  ?col dwc:taxonRank ?rank .
-  OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
-  ?col dwc:scientificName ?fullName . # Note: contains authority
-  ?col dwc:genericName ?genus .
-  ?col dwc:parent* ?p .
-  ?p dwc:rank "kingdom" ;
-     dwc:taxonName ?kingdom .
+    ?col dwc:taxonRank ?rank .
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
+    ?col dwc:scientificName ?fullName . # Note: contains authority
+    ?col dwc:genericName ?genus .
+    # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
 
     {
       ?col dwc:specificEpithet ?species .
@@ -411,8 +409,7 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
     OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
     ?col dwc:scientificName ?fullName . # Note: contains authority
     ?col dwc:genericName ?genus .
-    ?col dwc:parent* ?p .
-    ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
+    # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
 
     {
       ?col dwc:specificEpithet ?species .

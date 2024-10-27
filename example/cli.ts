@@ -3,10 +3,10 @@ import { Name, SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
 
 const HIDE_COL_ONLY_SYNONYMS = true;
 const START_WITH_SUBTAXA = false;
+const ENDPOINT_URL = "https://treatment.ld.plazi.org/sparql";
+// const ENDPOINT_URL = "https://lindas-cached.cluster.ldbar.ch/query"; // is missing some CoL-data
 
-const sparqlEndpoint = new SparqlEndpoint(
-  "https://treatment.ld.plazi.org/sparql",
-);
+const sparqlEndpoint = new SparqlEndpoint(ENDPOINT_URL);
 const taxonName = Deno.args.length > 0
   ? Deno.args.join(" ")
   : "https://www.catalogueoflife.org/data/taxon/3WD9M"; // "https://www.catalogueoflife.org/data/taxon/4P523";
@@ -23,6 +23,8 @@ const trtColor = {
   "dpr": Colors.red,
   "cite": Colors.gray,
 };
+
+console.log(ENDPOINT_URL);
 
 console.log(Colors.blue(`Synonym Group For ${taxonName}`));
 
