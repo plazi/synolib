@@ -3,11 +3,21 @@
 A js module to get potential synonyms of a taxon name, the justifications for
 such synonymity and treatments about these taxon names or the respective taxa.
 
-See `index.html` for an example of a webpage using the library. Go to
-[http://plazi.github.io/synolib/](http://plazi.github.io/synolib/) to open the example page in the browser
-and execute the script.
+For a command line example using the library see: `example/cli.ts`.
 
-For a simple command line example using the library see: `example/cli.ts`.
+You can try it locally using Deno with
+
+```sh
+deno run --allow-net ./example/cli.ts Ludwigia adscendens
+# or
+deno run --allow-net ./example/cli.ts http://taxon-name.plazi.org/id/Plantae/Ludwigia_adscendens
+# or
+deno run --allow-net ./example/cli.ts http://taxon-concept.plazi.org/id/Plantae/Ludwigia_adscendens_Linnaeus_1767
+# or
+deno run --allow-net ./example/cli.ts https://www.catalogueoflife.org/data/taxon/3WD9M
+```
+
+(replace the argument with whatever name interests you)
 
 ## building
 
