@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>SynoLib</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        #root:empty::before {
+            content: "You should see a list of synonyms here";
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Synonym Group for "https://www.catalogueoflife.org/data/taxon/3WD9M"</h1>
+    <div id="root"></div>
+
+    <script type="module">
+        import {SynonymGroup,SparqlEndpoint} from "../npm-package/build/mod.js";
+
+        const HIDE_COL_ONLY_SYNONYMS=false;
+        const START_WITH_SUBTAXA=false;
+        const ENDPOINT_URL="https://treatment.ld.plazi.org/sparql";
+
+        /** @type HTMLDivElement */
+        const root=document.getElementById("root");
+
+        class SynoName extends HTMLElement {
+            constructor(name) {
+                super();
+                this.name=name;
+                const shadow=this.attachShadow({mode: "open"});
+
+                const style=document.createElement("style");
+                style.innerText=`
+                :host {
+                    display: block;
+                    margin: 1rem 0;
+                }
+
+                .uri:not(:empty) {
+                    font-size: 0.8rem;
+                    padding: 0.2rem;
+                    margin: 0.2rem;
+                    border-radius: 0.2rem;
+                    background: #ededed;
+                    font-family: monospace;
+                    font-weight: normal;
+
+                    &.taxon { color: #4e69ae; }
+                    &.col { color: #177669; }
+                }
+
+                .justification {
+                    font-size: 0.8rem;
+                    padding: 0.2rem;
+                    margin: 0.2rem;
+                    border-radius: 0.2rem;
+                    background: #ededed;
+                }
+
+                h2, h3, ul {
+                    margin: 0;
+                }
+
+                .treatment {
+                    &.def { list-style: "DEF "; }
+                    &.aug { list-style: "(•) "; }
+                    &.dpr { list-style: "(×) "; }
+                    &.cite { list-style: "(•) "; color: gray; }
+                }
+                `;
+                shadow.append(style);
+
+                const title=document.createElement("h2");
+                title.innerText=name.displayName;
+                shadow.append(title);
+
+                if(name.taxonNameURI) {
+                    const name_uri=document.createElement("code");
+                    name_uri.classList.add("taxon","uri");
+                    name_uri.innerText=name.taxonNameURI.replace("http://","");
+                    name_uri.title=name.taxonNameURI;
+                    title.append(" ",name_uri);
+                }
+
+                const justification=document.createElement("abbr");
+                justification.classList.add("justification");
+                justification.innerText = "...?"
+                justify(name).then(just => justification.title=`This ${just}`);
+                title.append(" ", justification);
+
+                const vernacular=document.createElement("code");
+                vernacular.classList.add("vernacular");
+                name.vernacularNames.then(names => {if(names.size>0) vernacular.innerText="“"+[...names.values()].join("”, “")+"”";});
+                shadow.append(vernacular);
+
+                if(name.treatments.treats.size>0||name.treatments.cite.size>0) {
+                    const treatments=document.createElement("ul");
+                    shadow.append(treatments);
+                    for(const trt of name.treatments.treats) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","aug");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                    for(const trt of name.treatments.cite) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","cite");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                }
+
+                for(const authorizedName of name.authorizedNames) {
+
+                    const authName=document.createElement("h3");
+                    authName.innerText=authorizedName.displayName+" "+authorizedName.authority;
+                    shadow.append(authName);
+
+                    const treatments=document.createElement("ul");
+                    shadow.append(treatments);
+
+                    if(authorizedName.taxonConceptURI) {
+                        const name_uri=document.createElement("code");
+                        name_uri.classList.add("taxon","uri");
+                        name_uri.innerText=authorizedName.taxonConceptURI.replace("http://","");
+                        name_uri.title=authorizedName.taxonConceptURI;
+                        authName.append(" ",name_uri);
+                    }
+                    if(authorizedName.colURI) {
+                        const col_uri=document.createElement("code");
+                        col_uri.classList.add("col","uri");
+                        const id=authorizedName.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");
+                        col_uri.innerText=id;
+                        col_uri.id=id;
+                        col_uri.title=authorizedName.colURI;
+                        authName.append(" ",col_uri);
+
+
+                        const li=document.createElement("li");
+                        li.classList.add("treatment");
+                        li.innerText="Catalogue of Life";
+                        treatments.append(li);
+
+                        if(authorizedName.acceptedColURI!==authorizedName.colURI) {
+                            li.classList.add("dpr");
+                            const col_uri=document.createElement("a");
+                            col_uri.classList.add("col","uri");
+                            const id=authorizedName.acceptedColURI.replace("https://www.catalogueoflife.org/data/taxon/","");
+                            col_uri.innerText=id;
+                            col_uri.href=`#${id}`;
+                            col_uri.title=authorizedName.acceptedColURI;
+                            li.append(" → ");
+                            li.append(col_uri);
+                        } else {
+                            li.classList.add("aug");
+                        }
+                    }
+
+                    for(const trt of authorizedName.treatments.def) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","def");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                    for(const trt of authorizedName.treatments.aug) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","aug");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                    for(const trt of authorizedName.treatments.dpr) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","dpr");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                    for(const trt of authorizedName.treatments.cite) {
+                        const li=document.createElement("li");
+                        li.classList.add("treatment","cite");
+                        li.innerText=trt.url;
+                        treatments.append(li);
+                        trt.details.then(details => li.innerText=`${details.creators} ${details.date} “${details.title||"No Title"}” ${trt.url}`);
+                    }
+                }
+            }
+        }
+        customElements.define("syno-name",SynoName);
+
+
+        async function justify(name) {
+            if(name.justification.searchTerm) {
+                if(name.justification.subTaxon) {
+                    return "is a sub-taxon of the search term.";
+                } else return "is the search term.";
+            } else if(name.justification.treatment) {
+                const details=await name.justification.treatment.details;
+                const parent=await justify(name.justification.parent);
+                return `is, according to ${details.creators} ${details.date} “${details.title||"No Title"
+                    }” ${name.justification.treatment.url},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+            } else {
+                const parent=await justify(name.justification.parent);
+                return `is, according to the Catalogue of Life,\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+            }
+        }
+
+        const indicator=document.createElement("progress");
+        root.insertAdjacentElement("beforebegin",indicator);
+
+        const sparqlEndpoint=new SparqlEndpoint(ENDPOINT_URL);
+        const taxonName="https://www.catalogueoflife.org/data/taxon/3WD9M";
+        const synoGroup=new SynonymGroup(sparqlEndpoint,taxonName,HIDE_COL_ONLY_SYNONYMS,START_WITH_SUBTAXA);
+
+        for await(const name of synoGroup) {
+            const element=new SynoName(name);
+            root.append(element);
+        }
+
+        indicator.remove();
+    </script>
+</body>
+
+</html>

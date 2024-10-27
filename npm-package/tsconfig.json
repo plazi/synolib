@@ -1,12 +1,12 @@
 {
   "include": [
-    "../SynonymGroup.ts",
-    "../JustificationSet.ts"
+    "../mod.ts"
   ],
   "compilerOptions": {
     "declaration": true,
     "emitDeclarationOnly": true,
     "removeComments": false,
+    "declarationDir": "./types",
     "outDir": ".",
     "lib": [
       "esnext",
@@ -14,7 +14,10 @@
       "dom.iterable",
       "scripthost"
     ],
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
     "target": "esnext",
-    "module": "esnext",
+    "module": "esnext"
   }
 }
