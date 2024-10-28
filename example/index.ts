@@ -16,18 +16,158 @@ const NAME = params.get("q") ||
 
 const root = document.getElementById("root") as HTMLDivElement;
 
+enum SynoStatus {
+  Def = "def",
+  Aug = "aug",
+  Dpr = "dpr",
+  Cite = "cite",
+}
+
+const icons = {
+  def:
+    `<svg class="green" viewBox="0 0 24 24"><path fill="currentcolor" d="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+  aug:
+    `<svg class="blue" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+  dpr:
+    `<svg class="red" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z"/></svg>`,
+  cite:
+    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+  unknown:
+    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentcolor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>`,
+
+  link:
+    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>`,
+  east:
+    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M15,5l-1.41,1.41L18.17,11H2V13h16.17l-4.59,4.59L15,19l7-7L15,5z"/></svg>`,
+  west:
+    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M9,19l1.41-1.41L5.83,13H22V11H5.83l4.59-4.59L9,5l-7,7L9,19z"/></svg>`,
+  line:
+    `<svg class="gray" viewBox="0 0 24 24"><rect fill="currentColor" height="2" width="16" x="4" y="11"/></svg>`,
+  empty: `<svg viewBox="0 0 24 24"></svg>`,
+};
+
 class SynoTreatment extends HTMLElement {
-  constructor(trt: Treatment) {
+  constructor(trt: Treatment, status: SynoStatus) {
     super();
 
-    const li = document.createElement("li");
-    li.innerText = trt.url;
-    this.append(li);
-    trt.details.then((details) =>
-      li.innerText = `${details.creators} ${details.date} “${
-        details.title || "No Title"
-      }” ${trt.url}`
-    );
+    this.innerHTML = icons[status] ?? icons.unknown;
+
+    const creators = document.createElement("span");
+    this.append(creators);
+
+    const date = document.createElement("span");
+    this.append(" ", date);
+
+    const title = document.createElement("em");
+    this.append(" ", title);
+
+    const url = document.createElement("a");
+    url.classList.add("treatment", "uri");
+    url.href = trt.url;
+    url.innerText = trt.url.replace("http://treatment.plazi.org/id/", "");
+    url.innerHTML += icons.link;
+    this.append(" ", url);
+
+    const names = document.createElement("div");
+    this.append(names);
+
+    trt.details.then((details) => {
+      if (details.creators) creators.innerText = details.creators;
+      else {
+        creators.classList.add("missing");
+        creators.innerText = "No Authors";
+      }
+
+      if (details.date) date.innerText = "" + details.date;
+      else {
+        date.classList.add("missing");
+        date.innerText = "No Date";
+      }
+
+      if (details.title) title.innerText = "“" + details.title + "”";
+      else {
+        title.classList.add("missing");
+        title.innerText = "No Title";
+      }
+
+      if (
+        status !== SynoStatus.Def && details.treats.def.size > 0 &&
+        status !== SynoStatus.Cite
+      ) {
+        const line = document.createElement("div");
+        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        line.innerHTML += icons.def;
+        names.append(line);
+
+        details.treats.def.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          line.append(url);
+        });
+      }
+      if (
+        status !== SynoStatus.Aug &&
+        (details.treats.aug.size > 0 || details.treats.treattn.size > 0) &&
+        status !== SynoStatus.Cite
+      ) {
+        const line = document.createElement("div");
+        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        line.innerHTML += icons.aug;
+        names.append(line);
+
+        details.treats.aug.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          line.append(url);
+        });
+        details.treats.treattn.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-name.plazi.org/id/", "");
+          line.append(url);
+        });
+      }
+      if (
+        status !== SynoStatus.Dpr && details.treats.dpr.size > 0 &&
+        status !== SynoStatus.Cite
+      ) {
+        const line = document.createElement("div");
+        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.west;
+        line.innerHTML += icons.dpr;
+        names.append(line);
+
+        details.treats.dpr.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          line.append(url);
+        });
+      }
+      if (
+        status !== SynoStatus.Dpr &&
+        (details.treats.citetc.size > 0 || details.treats.citetn.size > 0) &&
+        status !== SynoStatus.Cite
+      ) {
+        const line = document.createElement("div");
+        line.innerHTML = icons.empty + icons.cite;
+        names.append(line);
+
+        details.treats.citetc.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          line.append(url);
+        });
+        details.treats.citetn.forEach((n) => {
+          const url = document.createElement("code");
+          url.classList.add("taxon", "uri");
+          url.innerText = n.replace("http://taxon-name.plazi.org/id/", "");
+          line.append(url);
+        });
+      }
+    });
   }
 }
 customElements.define("syno-treatment", SynoTreatment);
@@ -43,16 +183,16 @@ class SynoName extends HTMLElement {
     if (name.taxonNameURI) {
       const name_uri = document.createElement("code");
       name_uri.classList.add("taxon", "uri");
-      name_uri.innerText = name.taxonNameURI.replace("http://", "");
+      name_uri.innerText = name.taxonNameURI.replace("http://taxon-name.plazi.org/id/", "");
       name_uri.title = name.taxonNameURI;
-      title.append(" ", name_uri);
+      title.append(name_uri);
     }
 
     const justification = document.createElement("abbr");
     justification.classList.add("justification");
     justification.innerText = "...?";
     justify(name).then((just) => justification.title = `This ${just}`);
-    title.append(" ", justification);
+    title.append(justification);
 
     const vernacular = document.createElement("code");
     vernacular.classList.add("vernacular");
@@ -67,13 +207,11 @@ class SynoName extends HTMLElement {
       const treatments = document.createElement("ul");
       this.append(treatments);
       for (const trt of name.treatments.treats) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("aug");
+        const li = new SynoTreatment(trt, SynoStatus.Aug);
         treatments.append(li);
       }
       for (const trt of name.treatments.cite) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("cite");
+        const li = new SynoTreatment(trt, SynoStatus.Cite);
         treatments.append(li);
       }
     }
@@ -91,11 +229,11 @@ class SynoName extends HTMLElement {
         const name_uri = document.createElement("code");
         name_uri.classList.add("taxon", "uri");
         name_uri.innerText = authorizedName.taxonConceptURI.replace(
-          "http://",
+          "http://taxon-concept.plazi.org/id/",
           "",
         );
         name_uri.title = authorizedName.taxonConceptURI;
-        authName.append(" ", name_uri);
+        authName.append(name_uri);
       }
       if (authorizedName.colURI) {
         const col_uri = document.createElement("code");
@@ -107,15 +245,27 @@ class SynoName extends HTMLElement {
         col_uri.innerText = id;
         col_uri.id = id;
         col_uri.title = authorizedName.colURI;
-        authName.append(" ", col_uri);
+        authName.append(col_uri);
 
-        const li = document.createElement("li");
-        li.classList.add("treatment");
-        li.innerText = "Catalogue of Life";
+        const li = document.createElement("div");
+        li.classList.add("treatmentline");
+        li.innerHTML = authorizedName.acceptedColURI !== authorizedName.colURI
+          ? icons.dpr
+          : icons.aug;
         treatments.append(li);
 
+        const creators = document.createElement("span");
+        creators.innerText = "Catalogue of Life";
+        li.append(creators);
+
+        const names = document.createElement("div");
+        li.append(names);
+
         if (authorizedName.acceptedColURI !== authorizedName.colURI) {
-          li.classList.add("dpr");
+          const line = document.createElement("div");
+          line.innerHTML = icons.east + icons.aug;
+          names.append(line);
+
           const col_uri = document.createElement("a");
           col_uri.classList.add("col", "uri");
           const id = authorizedName.acceptedColURI!.replace(
@@ -125,31 +275,24 @@ class SynoName extends HTMLElement {
           col_uri.innerText = id;
           col_uri.href = `#${id}`;
           col_uri.title = authorizedName.acceptedColURI!;
-          li.append(" → ");
-          li.append(col_uri);
-        } else {
-          li.classList.add("aug");
+          line.append(col_uri);
         }
       }
 
       for (const trt of authorizedName.treatments.def) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("def");
+        const li = new SynoTreatment(trt, SynoStatus.Def);
         treatments.append(li);
       }
       for (const trt of authorizedName.treatments.aug) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("aug");
+        const li = new SynoTreatment(trt, SynoStatus.Aug);
         treatments.append(li);
       }
       for (const trt of authorizedName.treatments.dpr) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("dpr");
+        const li = new SynoTreatment(trt, SynoStatus.Dpr);
         treatments.append(li);
       }
       for (const trt of authorizedName.treatments.cite) {
-        const li = new SynoTreatment(trt);
-        li.classList.add("cite");
+        const li = new SynoTreatment(trt, SynoStatus.Cite);
         treatments.append(li);
       }
     }

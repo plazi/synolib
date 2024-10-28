@@ -1,5 +1,15 @@
+* {
+    box-sizing: border-box;
+}
+
 #root:empty::before {
     content: "You should see a list of synonyms here";
+}
+
+svg {
+    height: 1rem;
+    vertical-align: sub;
+    margin: 0;
 }
 
 syno-name {
@@ -7,24 +17,33 @@ syno-name {
     margin: 1rem 0;
 }
 
-syno-treatment {
-    &.def { list-style: "DEF "; }
-    &.aug { list-style: "(•) "; }
-    &.dpr { list-style: "(×) "; }
-    &.cite { list-style: "(•) "; color: gray; }
-}
-
 .uri:not(:empty) {
     font-size: 0.8rem;
-    padding: 0.2rem;
+    line-height: 1rem;
+    padding: 0 0.2rem;
     margin: 0.2rem;
     border-radius: 0.2rem;
     background: #ededed;
     font-family: monospace;
     font-weight: normal;
 
-    &.taxon { color: #4e69ae; }
-    &.col { color: #177669; }
+    &.taxon {
+        color: #4e69ae;
+    }
+
+    &.treatment {
+        color: #8894af;
+    }
+
+    &.col {
+        color: #177669;
+    }
+
+    svg {
+        height: 0.8em;
+        vertical-align: baseline;
+        margin: 0 -0.1em 0 0.2em;
+    }
 }
 
 .justification {
@@ -35,6 +54,36 @@ syno-treatment {
     background: #ededed;
 }
 
-h2, h3, ul {
+h2,
+h3,
+ul {
     margin: 0;
+}
+
+
+syno-treatment,
+.treatmentline {
+    display: block;
+
+    &>svg {
+        height: 1rem;
+        vertical-align: sub;
+        margin: 0 0.2rem 0 -1.2rem;
+    }
+}
+
+.blue {
+    color: #1e88e5;
+}
+
+.green {
+    color: #388e3c;
+}
+
+.red {
+    color: #e53935;
+}
+
+.gray {
+    color: #666666;
 }
