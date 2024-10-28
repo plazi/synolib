@@ -945,6 +945,9 @@ SELECT DISTINCT ?url ?description WHERE {
   }
 }
 
+// TODO: CoL taxa without authority -- associate them with the Name directly
+// eg. 5KTTT is "Quercus robur subsp. robur" w/o authority
+
 /** The central object.
  *
  * Each `Name` exists because of a taxon-name, taxon-concept or col-taxon in the data.

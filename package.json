@@ -4,7 +4,9 @@
   "description": "",
   "main": "build/mod.mjs",
   "scripts": {
-    "build": "node build.mjs && rm -rf ./types; tsc",
+    "build": "node build.mjs build",
+    "build___unused": "node build.mjs build && rm -rf ./types; tsc",
+    "example": "node build.mjs example",
     "publish-package": "echo 'see readme'"
   },
   "repository": {

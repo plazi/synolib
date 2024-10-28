@@ -3,6 +3,10 @@
 A js module to get potential synonyms of a taxon name, the justifications for
 such synonymity and treatments about these taxon names or the respective taxa.
 
+## Examples
+
+### Command-Line
+
 For a command line example using the library see: `example/cli.ts`.
 
 You can try it locally using Deno with
@@ -19,8 +23,31 @@ deno run --allow-net ./example/cli.ts https://www.catalogueoflife.org/data/taxon
 
 (replace the argument with whatever name interests you)
 
-## building
+### Web
 
-Only for in-browser usage the code needs to be bundled
+An example running in the browser is located in `example/index.html` and `example/index.ts`.
 
-    deno bundle SynonymGroup.ts synonym-group.js
+To build the example, use
+```sh
+npm run example
+```
+or for a live-reloading server use
+```sh
+npm run example serve
+```
+
+(Both require `npm install` first)
+
+
+## Building for npm/web
+
+To build the library for use in web projects, use
+```sh
+npm run build
+```
+
+This will place the built library in `./build/mod.js`.
+
+Note that this does not (yet) generate `.d.ts` typings.
+
+(Requires `npm install` first)
