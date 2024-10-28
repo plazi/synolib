@@ -72,6 +72,10 @@ syno-treatment,
     }
 }
 
+.indent {
+    margin-left: 1.4rem;
+}
+
 .blue {
     color: #1e88e5;
 }

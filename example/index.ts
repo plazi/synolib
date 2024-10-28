@@ -53,12 +53,15 @@ class SynoTreatment extends HTMLElement {
     this.innerHTML = icons[status] ?? icons.unknown;
 
     const creators = document.createElement("span");
+    creators.innerText = "…";
     this.append(creators);
 
     const date = document.createElement("span");
+    date.innerText = "…";
     this.append(" ", date);
 
-    const title = document.createElement("em");
+    const title = document.createElement("i");
+    title.innerText = "…";
     this.append(" ", title);
 
     const url = document.createElement("a");
@@ -69,6 +72,7 @@ class SynoTreatment extends HTMLElement {
     this.append(" ", url);
 
     const names = document.createElement("div");
+    names.classList.add("indent");
     this.append(names);
 
     trt.details.then((details) => {
@@ -177,13 +181,18 @@ class SynoName extends HTMLElement {
     super();
 
     const title = document.createElement("h2");
-    title.innerText = name.displayName;
+    const name_title = document.createElement("i");
+    name_title.innerText = name.displayName;
+    title.append(name_title);
     this.append(title);
 
     if (name.taxonNameURI) {
       const name_uri = document.createElement("code");
       name_uri.classList.add("taxon", "uri");
-      name_uri.innerText = name.taxonNameURI.replace("http://taxon-name.plazi.org/id/", "");
+      name_uri.innerText = name.taxonNameURI.replace(
+        "http://taxon-name.plazi.org/id/",
+        "",
+      );
       name_uri.title = name.taxonNameURI;
       title.append(name_uri);
     }
@@ -218,8 +227,11 @@ class SynoName extends HTMLElement {
 
     for (const authorizedName of name.authorizedNames) {
       const authName = document.createElement("h3");
-      authName.innerText = authorizedName.displayName + " " +
-        authorizedName.authority;
+      const name_title = document.createElement("i");
+      name_title.innerText = authorizedName.displayName;
+      name_title.classList.add("gray");
+      authName.append(name_title);
+      authName.append(" ", authorizedName.authority);
       this.append(authName);
 
       const treatments = document.createElement("ul");
@@ -341,6 +353,6 @@ const timeEnd = performance.now();
 indicator.innerHTML = "";
 indicator.innerText =
   `Found ${synoGroup.names.length} names with ${synoGroup.treatments.size} treatments. This took ${
-    timeEnd - timeStart
-  } milliseconds.`;
+    (timeEnd - timeStart) / 1000
+  } seconds.`;
 if (synoGroup.names.length === 0) root.append(":[");
