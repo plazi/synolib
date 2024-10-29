@@ -9,6 +9,7 @@ import {
 const params = new URLSearchParams(document.location.search);
 const HIDE_COL_ONLY_SYNONYMS = !params.has("show_col");
 const START_WITH_SUBTAXA = params.has("subtaxa");
+const SORT_TREATMENTS_BY_TYPE = params.has("sort_treatments_by_type");
 const ENDPOINT_URL = params.get("server") ||
   "https://treatment.ld.plazi.org/sparql";
 const NAME = params.get("q") ||
@@ -52,13 +53,17 @@ class SynoTreatment extends HTMLElement {
 
     this.innerHTML = icons[status] ?? icons.unknown;
 
+    const date = document.createElement("span");
+    if (trt.date) date.innerText = "" + trt.date;
+    else {
+      date.classList.add("missing");
+      date.innerText = "No Date";
+    }
+    this.append(date);
+
     const creators = document.createElement("span");
     creators.innerText = "…";
-    this.append(creators);
-
-    const date = document.createElement("span");
-    date.innerText = "…";
-    this.append(" ", date);
+    this.append(": ", creators);
 
     const title = document.createElement("i");
     title.innerText = "…";
@@ -82,12 +87,6 @@ class SynoTreatment extends HTMLElement {
         creators.innerText = "No Authors";
       }
 
-      if (details.date) date.innerText = "" + details.date;
-      else {
-        date.classList.add("missing");
-        date.innerText = "No Date";
-      }
-
       if (details.title) title.innerText = "“" + details.title + "”";
       else {
         title.classList.add("missing");
@@ -99,7 +98,8 @@ class SynoTreatment extends HTMLElement {
         status !== SynoStatus.Cite
       ) {
         const line = document.createElement("div");
-        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        line.innerHTML = icons.east;
         line.innerHTML += icons.def;
         names.append(line);
 
@@ -116,7 +116,8 @@ class SynoTreatment extends HTMLElement {
         status !== SynoStatus.Cite
       ) {
         const line = document.createElement("div");
-        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
+        line.innerHTML = icons.east;
         line.innerHTML += icons.aug;
         names.append(line);
 
@@ -138,7 +139,8 @@ class SynoTreatment extends HTMLElement {
         status !== SynoStatus.Cite
       ) {
         const line = document.createElement("div");
-        line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.west;
+        // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.west;
+        line.innerHTML = icons.west;
         line.innerHTML += icons.dpr;
         names.append(line);
 
@@ -271,6 +273,7 @@ class SynoName extends HTMLElement {
         li.append(creators);
 
         const names = document.createElement("div");
+        names.classList.add("indent");
         li.append(names);
 
         if (authorizedName.acceptedColURI !== authorizedName.colURI) {
@@ -291,20 +294,32 @@ class SynoName extends HTMLElement {
         }
       }
 
+      const treatments_array: { trt: Treatment; status: SynoStatus }[] = [];
+
       for (const trt of authorizedName.treatments.def) {
-        const li = new SynoTreatment(trt, SynoStatus.Def);
-        treatments.append(li);
+        treatments_array.push({ trt, status: SynoStatus.Def });
       }
       for (const trt of authorizedName.treatments.aug) {
-        const li = new SynoTreatment(trt, SynoStatus.Aug);
-        treatments.append(li);
+        treatments_array.push({ trt, status: SynoStatus.Aug });
       }
       for (const trt of authorizedName.treatments.dpr) {
-        const li = new SynoTreatment(trt, SynoStatus.Dpr);
-        treatments.append(li);
+        treatments_array.push({ trt, status: SynoStatus.Dpr });
       }
       for (const trt of authorizedName.treatments.cite) {
-        const li = new SynoTreatment(trt, SynoStatus.Cite);
+        treatments_array.push({ trt, status: SynoStatus.Cite });
+      }
+
+      if (!SORT_TREATMENTS_BY_TYPE) {
+        treatments_array.sort((a, b) => {
+          if (a.trt.date && b.trt.date) return a.trt.date - b.trt.date;
+          if (a.trt.date) return 1;
+          if (b.trt.date) return -1;
+          return 0;
+        });
+      }
+
+      for (const { trt, status } of treatments_array) {
+        const li = new SynoTreatment(trt, status);
         treatments.append(li);
       }
     }
@@ -320,7 +335,7 @@ async function justify(name: Name): Promise<string> {
   } else if (name.justification.treatment) {
     const details = await name.justification.treatment.details;
     const parent = await justify(name.justification.parent);
-    return `is, according to ${details.creators} ${details.date},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
+    return `is, according to ${details.creators} ${name.justification.treatment.date},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
     // return `is, according to ${details.creators} ${details.date} “${details.title||"No Title"}” ${name.justification.treatment.url},\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
   } else {
     const parent = await justify(name.justification.parent);

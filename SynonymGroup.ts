@@ -217,6 +217,7 @@ LIMIT 500`;
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
@@ -260,17 +261,41 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
       FILTER NOT EXISTS { ?tn dwc:species ?species . }
     }
 
-    OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
-    OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
+    OPTIONAL {
+      ?trtnt trt:treatsTaxonName ?tn .
+      OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
+      BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+    }
+    OPTIONAL {
+      ?citetnt trt:citesTaxonName ?tn .
+      OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
+      BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+    }
 
     OPTIONAL {
       ?tc trt:hasTaxonName ?tn ;
           dwc:scientificNameAuthorship ?tcauth ;
           a dwcFP:TaxonConcept .
-      OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
-      OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
-      OPTIONAL { ?dpr trt:deprecates ?tc . }
-      OPTIONAL { ?cite cito:cites ?tc . }
+      OPTIONAL {
+        ?augt trt:augmentsTaxonConcept ?tc .
+        OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
+        BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+      }
+      OPTIONAL {
+        ?deft trt:definesTaxonConcept ?tc .
+        OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
+        BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+      }
+      OPTIONAL {
+        ?dprt trt:deprecates ?tc .
+        OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
+            BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+      }
+      OPTIONAL {
+        ?citet cito:cites ?tc . 
+        OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
+            BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+      }
     }
   }
 }
@@ -298,6 +323,7 @@ LIMIT 500`;
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
@@ -350,13 +376,37 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
   BIND(COALESCE(?colAuth, "") as ?authority)
 
-  OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
-  OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
+  OPTIONAL {
+    ?trtnt trt:treatsTaxonName ?tn .
+    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
+    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+  }
+  OPTIONAL {
+    ?citetnt trt:citesTaxonName ?tn .
+    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
+    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+  }
 
-  OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
-  OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
-  OPTIONAL { ?dpr trt:deprecates ?tc . }
-  OPTIONAL { ?cite cito:cites ?tc . }
+  OPTIONAL {
+    ?augt trt:augmentsTaxonConcept ?tc .
+    OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
+    BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+  }
+  OPTIONAL {
+    ?deft trt:definesTaxonConcept ?tc .
+    OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
+    BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+  }
+  OPTIONAL {
+    ?dprt trt:deprecates ?tc .
+    OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
+        BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+  }
+  OPTIONAL {
+    ?citet cito:cites ?tc . 
+    OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
+        BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+  }
 }
 GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
 LIMIT 500`;
@@ -382,6 +432,7 @@ LIMIT 500`;
     // Note: this query assumes that there is no sub-species taxa with missing dwc:species
     // Note: the handling assumes that at most one taxon-name matches this colTaxon
     const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
@@ -430,17 +481,41 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
   BIND(COALESCE(?colAuth, "") as ?authority)
 
-  OPTIONAL { ?trtn trt:treatsTaxonName ?tn . }
-  OPTIONAL { ?citetn trt:citesTaxonName ?tn . }
+  OPTIONAL {
+    ?trtnt trt:treatsTaxonName ?tn .
+    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
+    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+  }
+  OPTIONAL {
+    ?citetnt trt:citesTaxonName ?tn .
+    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
+    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+  }
 
   OPTIONAL {
     ?tc trt:hasTaxonName ?tn ;
         dwc:scientificNameAuthorship ?tcauth ;
         a dwcFP:TaxonConcept .
-    OPTIONAL { ?aug trt:augmentsTaxonConcept ?tc . }
-    OPTIONAL { ?def trt:definesTaxonConcept ?tc . }
-    OPTIONAL { ?dpr trt:deprecates ?tc . }
-    OPTIONAL { ?cite cito:cites ?tc . }
+    OPTIONAL {
+      ?augt trt:augmentsTaxonConcept ?tc .
+      OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
+      BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+    }
+    OPTIONAL {
+      ?deft trt:definesTaxonConcept ?tc .
+      OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
+      BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+    }
+    OPTIONAL {
+      ?dprt trt:deprecates ?tc .
+      OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
+          BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+    }
+    OPTIONAL {
+      ?citet cito:cites ?tc . 
+      OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
+          BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+    }
   }
 }
 GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
@@ -705,15 +780,20 @@ GROUP BY ?current ?current_status`;
     return result;
   }
 
-  /** @internal */
+  /** @internal
+   *
+   * the supplied "urls" must be of the form "URL>DATE"
+   */
   private makeTreatmentSet(urls?: string[]): Set<Treatment> {
     if (!urls) return new Set<Treatment>();
     return new Set<Treatment>(
-      urls.filter((url) => !!url).map((url) => {
+      urls.filter((url) => !!url).map((url_d) => {
+        const [url, date] = url_d.split(">");
         if (!this.treatments.has(url)) {
           const details = this.getTreatmentDetails(url);
           this.treatments.set(url, {
             url,
+            date: date ? parseInt(date, 10) : undefined,
             details,
           });
         }
@@ -762,7 +842,6 @@ SELECT DISTINCT
 WHERE {
   BIND (<${treatmentUri}> as ?treatment)
   ?treatment dc:creator ?creator .
-  OPTIONAL { ?treatment trt:publishedIn/dc:date ?date . }
   OPTIONAL { ?treatment dc:title ?title }
   OPTIONAL { ?treatment trt:augmentsTaxonConcept ?aug . }
   OPTIONAL { ?treatment trt:definesTaxonConcept ?def . }
@@ -860,9 +939,6 @@ SELECT DISTINCT ?url ?description WHERE {
       );
       return {
         creators: json.results.bindings[0]?.creators?.value,
-        date: json.results.bindings[0]?.date?.value
-          ? parseInt(json.results.bindings[0].date.value, 10)
-          : undefined,
         title: json.results.bindings[0]?.title?.value,
         materialCitations,
         figureCitations,
@@ -1042,6 +1118,7 @@ export type AuthorizedName = {
 /** A plazi-treatment */
 export type Treatment = {
   url: string;
+  date?: number;
 
   /** Details are behind a promise becuase they are loaded with a separate query. */
   details: Promise<TreatmentDetails>;
@@ -1051,7 +1128,6 @@ export type Treatment = {
 export type TreatmentDetails = {
   materialCitations: MaterialCitation[];
   figureCitations: FigureCitation[];
-  date?: number;
   creators?: string;
   title?: string;
   treats: {
