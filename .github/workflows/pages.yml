@@ -41,14 +41,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-      - run: cd synolib2
       - run: |
-          echo AHA
-          pwd
-          ls
+          cd synolib2
           npm ci
-      - run: npm run example build
-      - run: |
+          npm run example build
           mkdir ../build/next
           cp ./example/index.js ./example/index.css ./example/index.html ./example/index.js.map ../build/next/
           cd ..
