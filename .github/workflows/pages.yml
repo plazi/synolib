@@ -41,12 +41,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-      - run: |
+      - name: Draw the rest of the owl
+        run: |
           cd synolib2
           npm ci
           npm run example build
           mkdir ../build/next
-          cp ./example/index.js ./example/index.css ./example/index.html ./example/index.js.map ../build/next/
+          cp ./example/index.* ../build/next/
           cd ..
 
       - name: Deploy to GitHub Pages
