@@ -54,4 +54,4 @@ it added a `N` to the results.\
 This "justification" is also proved as metadata of a `N`.
 
 [^1]: I.e. ignoring differences in punctuation, diacritics, capitalization and
-such.
+    such.

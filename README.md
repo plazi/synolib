@@ -25,32 +25,37 @@ deno run --allow-net ./example/cli.ts https://www.catalogueoflife.org/data/taxon
 
 ### Web
 
-An example running in the browser is located in `example/index.html` and `example/index.ts`.
+An example running in the browser is located in `example/index.html` and
+`example/index.ts`.
 
 To build the example, use
+
 ```sh
 npm run example
 ```
+
 or for a live-reloading server use
+
 ```sh
 npm run example serve
 ```
 
 (Both require `npm install` first)
 
-
 The example page uses query parameters for options:
-- `q=TAXON` for the search term (Latin name, CoL-URI, taxon-name-URI or taxon-concept-URI)
+
+- `q=TAXON` for the search term (Latin name, CoL-URI, taxon-name-URI or
+  taxon-concept-URI)
 - `show_col=` to include many more CoL taxa
 - `subtaxa=` to include subtaxa of the search term
 - `server=URL` to configure the sparql endpoint
 
 e.g. http://localhost:8000/?q=Sadayoshia%20miyakei&show_col=
 
-
 ## Building for npm/web
 
 To build the library for use in web projects, use
+
 ```sh
 npm run build
 ```
