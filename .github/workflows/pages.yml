@@ -3,37 +3,50 @@ name: GitHub Pages
 on:
   push:
     branches:
-      - main  # Set a branch to deploy
+      - main      # Set a branch to deploy
+      - synolib2  # publish on change in either branch
+permissions:
+  contents: write
 
 jobs:
-  test:
+  build-pages:
+    concurrency: ci-${{ github.ref }} # Recommended if you intend to make multiple deployments in quick succession.
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Setup repo
-        uses: actions/checkout@v2
-
+    
+      # main / old:
+      - name: 'Checkout main branch'
+        uses: actions/checkout@v3
+        with:
+          ref: main
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-
-      - name: Checkout 🛎️
-        uses: actions/checkout@v2.3.1
-        with:
-          persist-credentials: false 
-
       - name: prepare
         run: |
           mkdir build
           cp index.html build/
-        
-        
-      - name: Bundle
-        run: deno bundle SynonymGroup.ts build/synonym-group.js
-        
-      - name: copy ts
-        run: cp SynonymGroup.ts build/
+      - run: deno bundle SynonymGroup.ts build/synonym-group.js
+      - run: cp SynonymGroup.ts build/
+
+      # synolib2 / new:
+      - name: 'Checkout synolib2 branch'
+        uses: actions/checkout@v3
+        with:
+          ref: synolib2
+          path: 'synolib2'
+      - run: cd synolib2
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: npm ci
+      - run: npm run example build
+      - run: mkdir ../build/next
+      - run: cp ./example/index.js ./example/index.css ./example/index.html ./example/index.js.map ../build/next/
+      - run: cd ..
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@4.1.5
