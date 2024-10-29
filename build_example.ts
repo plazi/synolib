@@ -1,12 +1,11 @@
 import * as esbuild from "esbuild";
 
-const SERVE = process.argv.includes("serve");
-const BUILD = process.argv.includes("build");
-const EXAMPLE = process.argv.includes("example");
+const SERVE = Deno.args.includes("serve");
+const BUILD = Deno.args.includes("build");
 
-const config = {
-  entryPoints: EXAMPLE ? ["./example/index.ts"] : ["./mod.ts"],
-  outfile: EXAMPLE ? "./example/index.js" : "./build/mod.js",
+const config: esbuild.BuildOptions = {
+  entryPoints: ["./example/index.ts"],
+  outfile: "./example/index.js",
   sourcemap: true,
   bundle: true,
   format: "esm",
@@ -21,11 +20,11 @@ const config = {
 };
 
 if (SERVE) {
-  let ctx = await esbuild.context(config);
+  const ctx = await esbuild.context(config);
   await ctx.watch();
 
   const { host, port } = await ctx.serve({
-    servedir: EXAMPLE ? "./example" : "./build",
+    servedir: "./example",
   });
 
   console.log(`Listening at ${host}:${port}`);

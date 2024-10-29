@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "lib": [
+            "dom",
+            "dom.iterable",
+            "dom.asynciterable",
+            "deno.ns"
+        ]
+    },
+    "imports": {
+        "esbuild": "npm:esbuild@^0.24.0"
+    },
+    "tasks": {
+      "example_serve": "deno run --allow-read --allow-env --allow-run build_example.ts serve",
+      "example_build": "deno run --allow-read --allow-env --allow-run build_example.ts build"
+    }
+  }
