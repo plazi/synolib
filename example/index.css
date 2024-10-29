@@ -64,11 +64,35 @@ ul {
 syno-treatment,
 .treatmentline {
     display: block;
+    position: relative;
 
     &>svg {
         height: 1rem;
         vertical-align: sub;
         margin: 0 0.2rem 0 -1.2rem;
+    }
+
+    .details {
+        display: grid;
+    }
+
+    .hidden {
+        height: 0;
+        overflow: hidden;
+        transition: height 1s;
+    }
+
+    &.expanded {
+        /* position: absolute; */
+        background: #f0f9fc;
+        z-index: 10;
+        border-radius: 0.2rem;
+        padding: 0.2rem;
+        margin: -0.2rem;
+
+        .hidden {
+            height: 100%;
+        }
     }
 }
 

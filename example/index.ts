@@ -22,6 +22,7 @@ enum SynoStatus {
   Aug = "aug",
   Dpr = "dpr",
   Cite = "cite",
+  Full = "full",
 }
 
 const icons = {
@@ -51,7 +52,16 @@ class SynoTreatment extends HTMLElement {
   constructor(trt: Treatment, status: SynoStatus) {
     super();
 
-    this.innerHTML = icons[status] ?? icons.unknown;
+    if (status === SynoStatus.Full) this.classList.add("expanded");
+    else {
+      this.innerHTML = icons[status] ?? icons.unknown;
+      this.addEventListener("click", () => {
+        // const expanded = new SynoTreatment(trt, SynoStatus.Full);
+        // this.prepend(expanded);
+        // expanded.addEventListener("click", () => expanded.remove());
+        this.classList.toggle("expanded");
+      });
+    }
 
     const date = document.createElement("span");
     if (trt.date) date.innerText = "" + trt.date;
@@ -77,7 +87,7 @@ class SynoTreatment extends HTMLElement {
     this.append(" ", url);
 
     const names = document.createElement("div");
-    names.classList.add("indent");
+    names.classList.add("indent", "details");
     this.append(names);
 
     trt.details.then((details) => {
@@ -93,14 +103,14 @@ class SynoTreatment extends HTMLElement {
         title.innerText = "No Title";
       }
 
-      if (
-        status !== SynoStatus.Def && details.treats.def.size > 0 &&
-        status !== SynoStatus.Cite
-      ) {
+      if (details.treats.def.size > 0) {
         const line = document.createElement("div");
         // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
         line.innerHTML = icons.east;
         line.innerHTML += icons.def;
+        if (status === SynoStatus.Def || status === SynoStatus.Cite) {
+          line.classList.add("hidden");
+        }
         names.append(line);
 
         details.treats.def.forEach((n) => {
@@ -110,15 +120,14 @@ class SynoTreatment extends HTMLElement {
           line.append(url);
         });
       }
-      if (
-        status !== SynoStatus.Aug &&
-        (details.treats.aug.size > 0 || details.treats.treattn.size > 0) &&
-        status !== SynoStatus.Cite
-      ) {
+      if (details.treats.aug.size > 0 || details.treats.treattn.size > 0) {
         const line = document.createElement("div");
         // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.east;
         line.innerHTML = icons.east;
         line.innerHTML += icons.aug;
+        if (status === SynoStatus.Aug || status === SynoStatus.Cite) {
+          line.classList.add("hidden");
+        }
         names.append(line);
 
         details.treats.aug.forEach((n) => {
@@ -134,14 +143,14 @@ class SynoTreatment extends HTMLElement {
           line.append(url);
         });
       }
-      if (
-        status !== SynoStatus.Dpr && details.treats.dpr.size > 0 &&
-        status !== SynoStatus.Cite
-      ) {
+      if (details.treats.dpr.size > 0) {
         const line = document.createElement("div");
         // line.innerHTML = status === SynoStatus.Cite ? icons.line : icons.west;
         line.innerHTML = icons.west;
         line.innerHTML += icons.dpr;
+        if (status === SynoStatus.Dpr || status === SynoStatus.Cite) {
+          line.classList.add("hidden");
+        }
         names.append(line);
 
         details.treats.dpr.forEach((n) => {
@@ -151,13 +160,12 @@ class SynoTreatment extends HTMLElement {
           line.append(url);
         });
       }
-      if (
-        status !== SynoStatus.Dpr &&
-        (details.treats.citetc.size > 0 || details.treats.citetn.size > 0) &&
-        status !== SynoStatus.Cite
-      ) {
+      if (details.treats.citetc.size > 0 || details.treats.citetn.size > 0) {
         const line = document.createElement("div");
         line.innerHTML = icons.empty + icons.cite;
+        // if (status === SynoStatus.Dpr || status === SynoStatus.Cite) {
+        line.classList.add("hidden");
+        // }
         names.append(line);
 
         details.treats.citetc.forEach((n) => {
