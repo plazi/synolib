@@ -42,7 +42,11 @@ jobs:
         with:
           node-version: '20.x'
       - run: cd synolib2
-      - run: npm ci
+      - run: |
+          echo AHA
+          pwd
+          ls
+          npm ci
       - run: npm run example build
       - run: |
           mkdir ../build/next
