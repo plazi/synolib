@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import { denoPlugins } from "@luca/esbuild-deno-loader";
 
 const SERVE = Deno.args.includes("serve");
 const BUILD = Deno.args.includes("build");
@@ -9,6 +10,7 @@ const config: esbuild.BuildOptions = {
   sourcemap: true,
   bundle: true,
   format: "esm",
+  plugins: [...denoPlugins()],
   lineLimit: 120,
   minify: BUILD ? true : false,
   banner: SERVE

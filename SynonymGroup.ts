@@ -189,8 +189,8 @@ SELECT DISTINCT ?uri WHERE {
     }
   ${
       infrasp
-        ? `?uri dwc:subspecies|dwc:variety|dwc:infraspecificEpithet "${infrasp}" .`
-        : "FILTER NOT EXISTS { ?uri dwc:subspecies|dwc:variety|dwc:infraspecificEpithet ?infrasp . }"
+        ? `?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet "${infrasp}" .`
+        : "FILTER NOT EXISTS { ?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet ?infrasp . }"
     }
 }
 LIMIT 500`;
@@ -242,8 +242,8 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   }
 
   OPTIONAL {
-    ?tn a dwcFP:TaxonName .
-    ?tn dwc:rank ?rank .
+    ?tn dwc:rank ?trank .
+    FILTER(LCASE(?rank) = LCASE(?trank))
     ?tn dwc:genus ?genus .
     ?tn dwc:kingdom ?kingdom .
     {
@@ -251,10 +251,10 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
       ?tn dwc:species ?species .
       {
         ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subspecies|dwc:variety ?infrasp .
+        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
       } UNION {
         FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
       }
     } UNION {
       FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
@@ -347,11 +347,12 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   ?tn dwc:genus ?genus .
   OPTIONAL {
     ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
   }
   
   OPTIONAL {
-    ?col dwc:taxonRank ?rank .
+    ?col dwc:taxonRank ?crank .
+    FILTER(LCASE(?rank) = LCASE(?crank))
     OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
     ?col dwc:scientificName ?fullName . # Note: contains authority
     ?col dwc:genericName ?genus .
@@ -362,10 +363,10 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
       ?tn dwc:species ?species .
       {
         ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subspecies|dwc:variety ?infrasp .
+        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
       } UNION {
         FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
       }
     } UNION {
       FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
@@ -452,11 +453,12 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   ?tn dwc:kingdom ?kingdom .
   OPTIONAL {
     ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
   }
   
   OPTIONAL {
-    ?col dwc:taxonRank ?rank .
+    ?col dwc:taxonRank ?crank .
+    FILTER(LCASE(?rank) = LCASE(?crank))
     OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
     ?col dwc:scientificName ?fullName . # Note: contains authority
     ?col dwc:genericName ?genus .
@@ -467,10 +469,10 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
       ?tn dwc:species ?species .
       {
         ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subspecies|dwc:variety ?infrasp .
+        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
       } UNION {
         FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subspecies|dwc:variety ?infrasp . }
+        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
       }
     } UNION {
       FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
@@ -562,10 +564,9 @@ LIMIT 500`;
     for (const t of json.results.bindings) {
       if (t.col) {
         const colURI = t.col.value;
-        console.log(colURI);
         if (!authorizedCoLNames.find((e) => e.colURI === colURI)) {
           if (this.expanded.has(colURI)) {
-            console.log("Abbruch: already known", colURI);
+            console.log("Skipping known", colURI);
             return;
           }
           this.expanded.add(colURI);
@@ -602,7 +603,7 @@ LIMIT 500`;
             cite,
           };
         } else if (this.expanded.has(t.tc.value)) {
-          console.log("Abbruch: already known", t.tc.value);
+          console.log("Skipping known", t.tc.value);
           return;
         } else {
           authorizedTCNames.push({
@@ -635,6 +636,7 @@ LIMIT 500`;
 
     const name: Name = {
       displayName,
+      rank: json.results.bindings[0].rank!.value,
       taxonNameURI,
       authorizedNames: [...authorizedCoLNames, ...authorizedTCNames],
       justification,
@@ -1044,6 +1046,8 @@ export type Name = {
   // kingdom: string;
   /** Human-readable name */
   displayName: string;
+  /** taxonomic rank */
+  rank: string;
 
   /** vernacular names */
   vernacularNames: Promise<vernacularNames>;

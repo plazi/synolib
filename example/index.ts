@@ -5,6 +5,7 @@ import {
   SynonymGroup,
   type Treatment,
 } from "../mod.ts";
+import { distinct } from "jsr:@std/collections/distinct";
 
 const params = new URLSearchParams(document.location.search);
 const HIDE_COL_ONLY_SYNONYMS = !params.has("show_col");
@@ -196,6 +197,11 @@ class SynoName extends HTMLElement {
     title.append(name_title);
     this.append(title);
 
+    const rank_badge = document.createElement("span");
+    rank_badge.classList.add("rank");
+    rank_badge.innerText = name.rank;
+    title.append(" ", rank_badge);
+
     if (name.taxonNameURI) {
       const name_uri = document.createElement("code");
       name_uri.classList.add("taxon", "uri");
@@ -204,20 +210,21 @@ class SynoName extends HTMLElement {
         "",
       );
       name_uri.title = name.taxonNameURI;
-      title.append(name_uri);
+      title.append(" ", name_uri);
     }
 
     const justification = document.createElement("abbr");
     justification.classList.add("justification");
     justification.innerText = "...?";
     justify(name).then((just) => justification.title = `This ${just}`);
-    title.append(justification);
+    title.append(" ", justification);
 
-    const vernacular = document.createElement("code");
+    const vernacular = document.createElement("div");
     vernacular.classList.add("vernacular");
     name.vernacularNames.then((names) => {
       if (names.size > 0) {
-        vernacular.innerText = "“" + [...names.values()].join("”, “") + "”";
+        vernacular.innerText = "“" +
+          distinct([...names.values()].flat()).join("”, “") + "”";
       }
     });
     this.append(vernacular);

@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+:root {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
 #root:empty::before {
   content: "You should see a list of synonyms here";
 }
@@ -17,11 +21,22 @@ syno-name {
   margin: 1rem 0;
 }
 
+.rank {
+  font-size: 0.8rem;
+  line-height: 1rem;
+  padding: 0 0.2rem;
+  margin: 0.2rem 0;
+  border-radius: 0.2rem;
+  background: #ededed;
+  font-weight: normal;
+  color: #686868;
+}
+
 .uri:not(:empty) {
   font-size: 0.8rem;
   line-height: 1rem;
   padding: 0 0.2rem;
-  margin: 0.2rem;
+  margin: 0.2rem 0;
   border-radius: 0.2rem;
   background: #ededed;
   font-family: monospace;
