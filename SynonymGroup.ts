@@ -569,7 +569,6 @@ LIMIT 500`;
             console.log("Skipping known", colURI);
             return;
           }
-          this.expanded.add(colURI);
           authorizedCoLNames.push({
             displayName,
             authority: t.authority!.value,
@@ -618,16 +617,12 @@ LIMIT 500`;
             },
           });
         }
-        // this.expanded.set(t.tc.value, NameStatus.madeName);
-        this.expanded.add(t.tc.value);
 
         def.forEach((t) => treatmentPromises.push(t));
         aug.forEach((t) => treatmentPromises.push(t));
         dpr.forEach((t) => treatmentPromises.push(t));
       }
     }
-
-    // TODO: handle col-data "acceptedName" and stuff
 
     const treats = this.makeTreatmentSet(
       json.results.bindings[0].tntreats?.value.split("|"),
@@ -650,6 +645,11 @@ LIMIT 500`;
         ? this.getVernacular(taxonNameURI)
         : Promise.resolve(new Map()),
     };
+
+    for (const authName of name.authorizedNames) {
+      if (authName.colURI) this.expanded.add(authName.colURI);
+      if (authName.taxonConceptURI) this.expanded.add(authName.taxonConceptURI);
+    }
 
     const colPromises: Promise<void>[] = [];
 
