@@ -549,27 +549,9 @@ LIMIT 500`;
         "",
       ).trim();
 
-    const colName: AuthorizedName | undefined =
-      json.results.bindings[0].col?.value
-        ? {
-          displayName,
-          authority: json.results.bindings[0].authority!.value,
-          colURI: json.results.bindings[0].col.value,
-          treatments: {
-            def: new Set(),
-            aug: new Set(),
-            dpr: new Set(),
-            cite: new Set(),
-          },
-        }
-        : undefined;
-
-    if (colName) {
-      if (this.expanded.has(colName.colURI!)) return;
-      this.expanded.add(colName.colURI!);
-    }
-
-    const authorizedNames = colName ? [colName] : [];
+    // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
+    const authorizedCoLNames: AuthorizedName[] = [];
+    const authorizedTCNames: AuthorizedName[] = [];
 
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
@@ -578,18 +560,39 @@ LIMIT 500`;
     }
 
     for (const t of json.results.bindings) {
-      if (t.tc && t.tcAuth?.value) {
-        if (this.expanded.has(t.tc.value)) {
-          // console.log("Abbruch: already known", t.tc.value);
-          return;
+      if (t.col) {
+        const colURI = t.col.value;
+        console.log(colURI);
+        if (!authorizedCoLNames.find((e) => e.colURI === colURI)) {
+          if (this.expanded.has(colURI)) {
+            console.log("Abbruch: already known", colURI);
+            return;
+          }
+          this.expanded.add(colURI);
+          authorizedCoLNames.push({
+            displayName,
+            authority: t.authority!.value,
+            colURI: t.col.value,
+            treatments: {
+              def: new Set(),
+              aug: new Set(),
+              dpr: new Set(),
+              cite: new Set(),
+            },
+          });
         }
+      }
+
+      if (t.tc && t.tcAuth && t.tcAuth.value) {
         const def = this.makeTreatmentSet(t.defs?.value.split("|"));
         const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
         const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
         const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
-        if (
-          colName && t.tcAuth?.value.split(" / ").includes(colName.authority)
-        ) {
+
+        const colName = authorizedCoLNames.find((e) =>
+          t.tcAuth!.value.split(" / ").includes(e.authority)
+        );
+        if (colName) {
           colName.authority = t.tcAuth?.value;
           colName.taxonConceptURI = t.tc.value;
           colName.treatments = {
@@ -598,8 +601,11 @@ LIMIT 500`;
             dpr,
             cite,
           };
+        } else if (this.expanded.has(t.tc.value)) {
+          console.log("Abbruch: already known", t.tc.value);
+          return;
         } else {
-          authorizedNames.push({
+          authorizedTCNames.push({
             displayName,
             authority: t.tcAuth.value,
             taxonConceptURI: t.tc.value,
@@ -630,7 +636,7 @@ LIMIT 500`;
     const name: Name = {
       displayName,
       taxonNameURI,
-      authorizedNames,
+      authorizedNames: [...authorizedCoLNames, ...authorizedTCNames],
       justification,
       treatments: {
         treats,
@@ -643,14 +649,18 @@ LIMIT 500`;
         : Promise.resolve(new Map()),
     };
 
-    let colPromises: Promise<void>[] = [];
+    const colPromises: Promise<void>[] = [];
 
-    if (colName) {
-      [colName.acceptedColURI, colPromises] = await this.getAcceptedCol(
-        colName.colURI!,
-        name,
-      );
-    }
+    await Promise.all(
+      authorizedCoLNames.map(async (n) => {
+        const [acceptedColURI, promises] = await this.getAcceptedCol(
+          n.colURI!,
+          name,
+        );
+        n.acceptedColURI = acceptedColURI;
+        colPromises.push(...promises);
+      }),
+    );
 
     this.pushName(name);
 
