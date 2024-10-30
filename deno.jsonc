@@ -1,6 +1,12 @@
 {
+  "name": "@plazi/synolib",
+  "version": "3.0.0",
+  "exports": "./mod.ts",
+  "publish": {
+    "include": ["./*.ts", "README.md", "LICENSE"],
+    "exclude": ["./build_example.ts"]
+  },
   "compilerOptions": {
-    "target": "esnext",
     "lib": [
       "dom",
       "dom.iterable",

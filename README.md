@@ -31,16 +31,14 @@ An example running in the browser is located in `example/index.html` and
 To build the example, use
 
 ```sh
-npm run example
+deno task example_build
 ```
 
 or for a live-reloading server use
 
 ```sh
-npm run example serve
+deno task example_serve
 ```
-
-(Both require `npm install` first)
 
 The example page uses query parameters for options:
 
@@ -54,14 +52,7 @@ e.g. http://localhost:8000/?q=Sadayoshia%20miyakei&show_col=
 
 ## Building for npm/web
 
-To build the library for use in web projects, use
+The library is to be published as-is (in typescript) to jsr.io.
 
-```sh
-npm run build
-```
-
-This will place the built library in `./build/mod.js`.
-
-Note that this does not (yet) generate `.d.ts` typings.
-
-(Requires `npm install` first)
+It can be used from there in with other deno or node/npm projects. There is no
+building step neccesary on our side.

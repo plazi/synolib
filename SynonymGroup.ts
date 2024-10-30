@@ -1,4 +1,4 @@
-import { SparqlEndpoint, SparqlJson } from "./mod.ts";
+import type { SparqlEndpoint, SparqlJson } from "./mod.ts";
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -60,7 +60,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
    *
    * @readonly
    */
-  treatments = new Map<string, Treatment>();
+  treatments: Map<string, Treatment> = new Map();
 
   /**
    * Whether to show taxa deprecated by CoL that would not have been found otherwise.

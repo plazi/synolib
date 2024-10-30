@@ -1,5 +1,10 @@
 import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
-import { Name, SparqlEndpoint, SynonymGroup, Treatment } from "../mod.ts";
+import {
+  type Name,
+  SparqlEndpoint,
+  SynonymGroup,
+  type Treatment,
+} from "../mod.ts";
 
 const HIDE_COL_ONLY_SYNONYMS = true;
 const START_WITH_SUBTAXA = false;
@@ -115,7 +120,7 @@ async function logTreatment(
 ) {
   const details = await trt.details;
   console.log(
-    `    ${trtColor[type]("●")} ${details.creators} ${details.date} “${
+    `    ${trtColor[type]("●")} ${details.creators} ${trt.date} “${
       Colors.italic(details.title || Colors.dim("No Title"))
     }” ${Colors.magenta(trt.url)}`,
   );
@@ -167,7 +172,7 @@ async function justify(name: Name): Promise<string> {
     const parent = await justify(name.justification.parent);
     return `is, according to ${
       Colors.italic(
-        `${details.creators} ${details.date} “${
+        `${details.creators} ${name.justification.treatment.date} “${
           Colors.italic(details.title || Colors.dim("No Title"))
         }” ${Colors.magenta(name.justification.treatment.url)}`,
       )
