@@ -21,7 +21,8 @@ syno-name {
   margin: 1rem 0;
 }
 
-.rank {
+.rank,
+.justification {
   font-size: 0.8rem;
   line-height: 1rem;
   padding: 0 0.2rem;
@@ -61,14 +62,6 @@ syno-name {
   }
 }
 
-.justification {
-  font-size: 0.8rem;
-  padding: 0.2rem;
-  margin: 0.2rem;
-  border-radius: 0.2rem;
-  background: #ededed;
-}
-
 h2,
 h3,
 ul {
@@ -87,13 +80,14 @@ syno-treatment,
   }
 
   .details {
-    display: grid;
+    /* display: grid; */
   }
 
   .hidden {
     height: 0;
+    max-height: 0;
     overflow: hidden;
-    transition: height 1s;
+    transition: all 200ms;
   }
 
   &.expanded {
@@ -105,7 +99,9 @@ syno-treatment,
     margin: -0.2rem;
 
     .hidden {
-      height: 100%;
+      height: auto;
+      max-height: 100px;
+      overflow: auto;
     }
   }
 }

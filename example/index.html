@@ -9,6 +9,31 @@
 
   <body>
     <h1>SynoLib</h1>
+    <p>
+      Use url parameters to configure: (e.g. <a
+        href="?q=Sadayoshia&subtaxa=&show_col"
+      >/?q=Sadayoshia&subtaxa=&show_col</a>)
+      <ul>
+        <li>
+          <code>q=TAXON</code> for the search term (Latin name, CoL-URI,
+          taxon-name-URI or taxon-concept-URI)
+        </li>
+        <li>
+          <code>show_col=</code> to include many more CoL taxa
+        </li>
+        <li>
+          <code>subtaxa=</code> to include subtaxa of the search term
+        </li>
+        <li>
+          <code>server=URL</code> to configure the sparql endpoint
+        </li>
+      </ul>
+      <br />
+      Click on a treatment to show all cited taxa. Click on a taxon identifier
+      beneath a treatment to scroll to that name — if it is (already) in the
+      list.
+    </p>
+
     <div id="root"></div>
 
     <script type="module" src="index.js"></script>

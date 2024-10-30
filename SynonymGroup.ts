@@ -8,7 +8,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
    */
   isFinished = false;
   /** Used internally to watch for new names found */
-  private monitor = new EventTarget();
+  private monitor: EventTarget = new EventTarget();
 
   /** Used internally to abort in-flight network requests when SynonymGroup is aborted */
   private controller = new AbortController();
@@ -94,9 +94,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.startWithSubTaxa = startWithSubTaxa;
 
     if (taxonName.startsWith("http")) {
-      this.getName(taxonName, { searchTerm: true, subTaxon: false }).finally(
-        () => this.finish(),
-      );
+      this.getName(taxonName, { searchTerm: true, subTaxon: false })
+        .catch((e) => {
+          console.log("SynoGroup Failure: ", e);
+          this.controller.abort("SynoGroup Failed");
+        })
+        .finally(() => this.finish());
     } else {
       const name = [
         ...taxonName.split(" ").filter((n) => !!n),
@@ -602,7 +605,7 @@ LIMIT 500`;
             cite,
           };
         } else if (this.expanded.has(t.tc.value)) {
-          console.log("Skipping known", t.tc.value);
+          // console.log("Skipping known", t.tc.value);
           return;
         } else {
           authorizedTCNames.push({
