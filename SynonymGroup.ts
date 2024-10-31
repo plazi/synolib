@@ -113,6 +113,46 @@ export class SynonymGroup implements AsyncIterable<Name> {
     }
   }
 
+  /**
+   * Finds the given name (identified by taxon-name, taxon-concept or CoL uri) among the list of synonyms.
+   *
+   * Will reject when the SynonymGroup finishes but the name was not found — this means that this was not a synonym.
+   */
+  findName(uri: string): Promise<Name | AuthorizedName> {
+    let name: Name | AuthorizedName | undefined;
+    for (const n of this.names) {
+      if (n.taxonNameURI === uri || n.colURI === uri) {
+        name = n;
+        break;
+      }
+      const an = n.authorizedNames.find((an) =>
+        an.taxonConceptURI === uri || an.colURI === uri
+      );
+      if (an) {
+        name = an;
+        break;
+      }
+    }
+    if (name) return Promise.resolve(name);
+    return new Promise((resolve, reject) => {
+      this.monitor.addEventListener("updated", () => {
+        if (this.names.length === 0 || this.isFinished) reject();
+        const n = this.names.at(-1)!;
+        if (n.taxonNameURI === uri || n.colURI === uri) {
+          resolve(n);
+          return;
+        }
+        const an = n.authorizedNames.find((an) =>
+          an.taxonConceptURI === uri || an.colURI === uri
+        );
+        if (an) {
+          resolve(an);
+          return;
+        }
+      });
+    });
+  }
+
   /** @internal */
   private async getName(
     taxonName: string,

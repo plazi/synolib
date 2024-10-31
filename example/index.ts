@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import {
+  type AuthorizedName,
   type Name,
   SparqlEndpoint,
   SynonymGroup,
@@ -48,6 +49,22 @@ const icons = {
     `<svg class="gray" viewBox="0 0 24 24"><rect fill="currentColor" height="2" width="16" x="4" y="11"/></svg>`,
   empty: `<svg viewBox="0 0 24 24"></svg>`,
 };
+
+const indicator = document.createElement("div");
+root.insertAdjacentElement("beforebegin", indicator);
+indicator.append(`Finding Synonyms for ${NAME} `);
+const progress = document.createElement("progress");
+indicator.append(progress);
+
+const timeStart = performance.now();
+
+const sparqlEndpoint = new SparqlEndpoint(ENDPOINT_URL);
+const synoGroup = new SynonymGroup(
+  sparqlEndpoint,
+  NAME,
+  HIDE_COL_ONLY_SYNONYMS,
+  START_WITH_SUBTAXA,
+);
 
 class SynoTreatment extends HTMLElement {
   constructor(trt: Treatment, status: SynoStatus) {
@@ -121,7 +138,16 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
       }
       if (details.treats.aug.size > 0 || details.treats.treattn.size > 0) {
@@ -141,7 +167,16 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
         details.treats.treattn.forEach((n) => {
           const url = document.createElement("a");
@@ -150,7 +185,16 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
       }
       if (details.treats.dpr.size > 0) {
@@ -170,7 +214,16 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
       }
       if (details.treats.citetc.size > 0 || details.treats.citetn.size > 0) {
@@ -188,7 +241,16 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
         details.treats.citetn.forEach((n) => {
           const url = document.createElement("a");
@@ -197,8 +259,34 @@ class SynoTreatment extends HTMLElement {
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
-          line.append(url);
+          line.append(" ", url);
+          synoGroup.findName(n).then((nn) => {
+            url.classList.remove("uri");
+            if ((nn as AuthorizedName).authority) {
+              url.innerText = nn.displayName + " " +
+                (nn as AuthorizedName).authority;
+            } else url.innerText = nn.displayName;
+          }, () => {
+            url.removeAttribute("href");
+          });
         });
+      }
+      if (details.materialCitations.length > 0) {
+        const line = document.createElement("div");
+        line.innerHTML = icons.empty + icons.cite + " Material Citations:<br>";
+        line.classList.add("hidden");
+        names.append(line);
+        line.innerText += details.materialCitations.map((c) =>
+          JSON.stringify(c)
+        ).join("\n");
+      }
+      if (details.figureCitations.length > 0) {
+        const line = document.createElement("div");
+        line.innerHTML = icons.empty + icons.cite + " Figures:<br>";
+        line.classList.add("hidden");
+        names.append(line);
+        line.innerText += details.figureCitations.map((c) => JSON.stringify(c))
+          .join("\n");
       }
     });
   }
@@ -292,6 +380,14 @@ class SynoName extends HTMLElement {
         col_uri.href = `#${id}`;
         col_uri.title = "show name";
         line.append(col_uri);
+        synoGroup.findName(name.acceptedColURI!).then((n) => {
+          if ((n as AuthorizedName).authority) {
+            col_uri.innerText = n.displayName + " " +
+              (n as AuthorizedName).authority;
+          } else col_uri.innerText = n.displayName;
+        }, () => {
+          col_uri.removeAttribute("href");
+        });
       }
     }
     if (name.treatments.treats.size > 0 || name.treatments.cite.size > 0) {
@@ -380,7 +476,16 @@ class SynoName extends HTMLElement {
           col_uri.innerText = id;
           col_uri.href = `#${id}`;
           col_uri.title = "show name";
-          line.append(col_uri);
+          line.append(" ", col_uri);
+          synoGroup.findName(authorizedName.acceptedColURI!).then((n) => {
+            col_uri.classList.remove("uri");
+            if ((n as AuthorizedName).authority) {
+              col_uri.innerText = n.displayName + " " +
+                (n as AuthorizedName).authority;
+            } else col_uri.innerText = n.displayName;
+          }, () => {
+            col_uri.removeAttribute("href");
+          });
         }
       }
 
@@ -432,22 +537,6 @@ async function justify(name: Name): Promise<string> {
     return `is, according to the Catalogue of Life,\n     a synonym of ${name.justification.parent.displayName} which ${parent}`;
   }
 }
-
-const indicator = document.createElement("div");
-root.insertAdjacentElement("beforebegin", indicator);
-indicator.append(`Finding Synonyms for ${NAME} `);
-const progress = document.createElement("progress");
-indicator.append(progress);
-
-const timeStart = performance.now();
-
-const sparqlEndpoint = new SparqlEndpoint(ENDPOINT_URL);
-const synoGroup = new SynonymGroup(
-  sparqlEndpoint,
-  NAME,
-  HIDE_COL_ONLY_SYNONYMS,
-  START_WITH_SUBTAXA,
-);
 
 for await (const name of synoGroup) {
   const element = new SynoName(name);

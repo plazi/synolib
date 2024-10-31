@@ -33,6 +33,15 @@ syno-name {
   color: #686868;
 }
 
+.taxon, .col {
+  color: #444;
+  font-size: 0.8rem;
+
+  &:not(:last-child):not(.uri)::after {
+    content: ",";
+  }
+}
+
 .uri:not(:empty) {
   font-size: 0.8rem;
   line-height: 1rem;
@@ -100,7 +109,7 @@ syno-treatment,
 
     .hidden {
       height: auto;
-      max-height: 100px;
+      max-height: 300px;
       overflow: auto;
     }
   }
