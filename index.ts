@@ -5,6 +5,7 @@ import {
   SynonymGroup,
   type Treatment,
 } from "../mod.ts";
+import { distinct } from "jsr:@std/collections/distinct";
 
 const params = new URLSearchParams(document.location.search);
 const HIDE_COL_ONLY_SYNONYMS = !params.has("show_col");
@@ -71,17 +72,13 @@ class SynoTreatment extends HTMLElement {
     }
     this.append(date);
 
-    const creators = document.createElement("span");
-    creators.innerText = "…";
-    this.append(": ", creators);
-
-    const title = document.createElement("i");
-    title.innerText = "…";
-    this.append(" ", title);
+    const spinner = document.createElement("progress");
+    this.append(": ", spinner);
 
     const url = document.createElement("a");
     url.classList.add("treatment", "uri");
     url.href = trt.url;
+    url.target = "_blank";
     url.innerText = trt.url.replace("http://treatment.plazi.org/id/", "");
     url.innerHTML += icons.link;
     this.append(" ", url);
@@ -91,6 +88,10 @@ class SynoTreatment extends HTMLElement {
     this.append(names);
 
     trt.details.then((details) => {
+      const creators = document.createElement("span");
+      const title = document.createElement("i");
+      spinner.replaceWith(creators, " ", title);
+
       if (details.creators) creators.innerText = details.creators;
       else {
         creators.classList.add("missing");
@@ -114,9 +115,12 @@ class SynoTreatment extends HTMLElement {
         names.append(line);
 
         details.treats.def.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
       }
@@ -131,15 +135,21 @@ class SynoTreatment extends HTMLElement {
         names.append(line);
 
         details.treats.aug.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
         details.treats.treattn.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-name.plazi.org/id/", "");
+          const short = n.replace("http://taxon-name.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
       }
@@ -154,9 +164,12 @@ class SynoTreatment extends HTMLElement {
         names.append(line);
 
         details.treats.dpr.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
       }
@@ -169,15 +182,21 @@ class SynoTreatment extends HTMLElement {
         names.append(line);
 
         details.treats.citetc.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
         details.treats.citetn.forEach((n) => {
-          const url = document.createElement("code");
+          const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          url.innerText = n.replace("http://taxon-name.plazi.org/id/", "");
+          const short = n.replace("http://taxon-name.plazi.org/id/", "");
+          url.innerText = short;
+          url.href = "#" + short;
+          url.title = "show name";
           line.append(url);
         });
       }
@@ -196,28 +215,38 @@ class SynoName extends HTMLElement {
     title.append(name_title);
     this.append(title);
 
+    const rank_badge = document.createElement("span");
+    rank_badge.classList.add("rank");
+    rank_badge.innerText = name.rank;
+    title.append(" ", rank_badge);
+
     if (name.taxonNameURI) {
-      const name_uri = document.createElement("code");
+      const name_uri = document.createElement("a");
       name_uri.classList.add("taxon", "uri");
-      name_uri.innerText = name.taxonNameURI.replace(
+      const short = name.taxonNameURI.replace(
         "http://taxon-name.plazi.org/id/",
         "",
       );
-      name_uri.title = name.taxonNameURI;
-      title.append(name_uri);
+      name_uri.innerText = short;
+      name_uri.id = short;
+      name_uri.href = name.taxonNameURI;
+      name_uri.target = "_blank";
+      name_uri.innerHTML += icons.link;
+      title.append(" ", name_uri);
     }
 
     const justification = document.createElement("abbr");
     justification.classList.add("justification");
     justification.innerText = "...?";
     justify(name).then((just) => justification.title = `This ${just}`);
-    title.append(justification);
+    title.append(" ", justification);
 
-    const vernacular = document.createElement("code");
+    const vernacular = document.createElement("div");
     vernacular.classList.add("vernacular");
     name.vernacularNames.then((names) => {
       if (names.size > 0) {
-        vernacular.innerText = "“" + [...names.values()].join("”, “") + "”";
+        vernacular.innerText = "“" +
+          distinct([...names.values()].flat()).join("”, “") + "”";
       }
     });
     this.append(vernacular);
@@ -248,17 +277,21 @@ class SynoName extends HTMLElement {
       this.append(treatments);
 
       if (authorizedName.taxonConceptURI) {
-        const name_uri = document.createElement("code");
+        const name_uri = document.createElement("a");
         name_uri.classList.add("taxon", "uri");
-        name_uri.innerText = authorizedName.taxonConceptURI.replace(
+        const short = authorizedName.taxonConceptURI.replace(
           "http://taxon-concept.plazi.org/id/",
           "",
         );
-        name_uri.title = authorizedName.taxonConceptURI;
-        authName.append(name_uri);
+        name_uri.innerText = short;
+        name_uri.id = short;
+        name_uri.href = authorizedName.taxonConceptURI;
+        name_uri.target = "_blank";
+        name_uri.innerHTML += icons.link;
+        authName.append(" ", name_uri);
       }
       if (authorizedName.colURI) {
-        const col_uri = document.createElement("code");
+        const col_uri = document.createElement("a");
         col_uri.classList.add("col", "uri");
         const id = authorizedName.colURI.replace(
           "https://www.catalogueoflife.org/data/taxon/",
@@ -266,8 +299,10 @@ class SynoName extends HTMLElement {
         );
         col_uri.innerText = id;
         col_uri.id = id;
-        col_uri.title = authorizedName.colURI;
-        authName.append(col_uri);
+        col_uri.href = authorizedName.colURI;
+        col_uri.target = "_blank";
+        col_uri.innerHTML += icons.link;
+        authName.append(" ", col_uri);
 
         const li = document.createElement("div");
         li.classList.add("treatmentline");
@@ -297,7 +332,7 @@ class SynoName extends HTMLElement {
           );
           col_uri.innerText = id;
           col_uri.href = `#${id}`;
-          col_uri.title = authorizedName.acceptedColURI!;
+          col_uri.title = "show name";
           line.append(col_uri);
         }
       }
@@ -354,7 +389,8 @@ async function justify(name: Name): Promise<string> {
 const indicator = document.createElement("div");
 root.insertAdjacentElement("beforebegin", indicator);
 indicator.append(`Finding Synonyms for ${NAME} `);
-indicator.append(document.createElement("progress"));
+const progress = document.createElement("progress");
+indicator.append(progress);
 
 const timeStart = performance.now();
 

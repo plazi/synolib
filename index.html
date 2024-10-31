@@ -1,81 +1,41 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SynoLib</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="index.css" />
+  </head>
 
-<head>
-  <meta charset="utf-8">
-  <title></title>
-  <meta name="author" content="">
-  <meta name="description" content="">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <body>
+    <h1>SynoLib</h1>
+    <p>
+      Use url parameters to configure: (e.g. <a
+        href="?q=Sadayoshia&subtaxa=&show_col"
+      >/?q=Sadayoshia&subtaxa=&show_col</a>)
+      <ul>
+        <li>
+          <code>q=TAXON</code> for the search term (Latin name, CoL-URI,
+          taxon-name-URI or taxon-concept-URI)
+        </li>
+        <li>
+          <code>show_col=</code> to include many more CoL taxa
+        </li>
+        <li>
+          <code>subtaxa=</code> to include subtaxa of the search term
+        </li>
+        <li>
+          <code>server=URL</code> to configure the sparql endpoint
+        </li>
+      </ul>
+      <br />
+      Click on a treatment to show all cited taxa. Click on a taxon identifier
+      beneath a treatment to scroll to that name — if it is (already) in the
+      list.
+    </p>
 
-  <link href="css/style.css" rel="stylesheet">
-</head>
+    <div id="root"></div>
 
-<body>
-
-  <p id="root">You should see a list of synonyms here</p>
-
-  <script type="module">
-    import SynoGroup, { SparqlEndpoint } from "./synonym-group.js";
-
-    const sparqlEndpoint = new SparqlEndpoint("https://treatment.ld.plazi.org/sparql")
-    const taxonName = "Artema atlanta";
-    const synoGroup = new SynoGroup(sparqlEndpoint, taxonName);
-    const root = document.getElementById("root")
-    root.innerHTML = `<h1>Synonym Group For ${taxonName}</h1>`;
-    for await (const synonym of synoGroup) {
-      const synElem = document.createElement("div");
-      root.appendChild(synElem);
-      synElem.innerHTML = `<h2>${synonym.taxonConceptUri}</h2>
-      Justifications:
-      <ul class="justification-list"></ul>
-      Treatments:
-      <ul class="treatment-list"></ul>
-      `;
-      const justListElem = synElem.getElementsByClassName("justification-list")[0];
-      const treatListElem = synElem.getElementsByClassName("treatment-list")[0];
-      (async () => {
-        for await (const justification of synonym.justifications) {
-          const justElem = document.createElement("li");
-          justElem.innerHTML = `${justification}`
-          justListElem.appendChild(justElem)
-        }
-      })();
-      (async () => {
-        for (const treatment of synonym.treatments.aug) {
-          const treatElem = document.createElement("li");
-          treatElem.innerHTML = `Aug. by: ${treatment.url}`
-          treatListElem.appendChild(treatElem)
-          if ((await treatment.details).materialCitations?.length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
-          }
-        }
-      })();
-      (async () => {
-        for (const treatment of synonym.treatments.def) {
-          const treatElem = document.createElement("li");
-          treatElem.innerHTML = `Def. by: ${treatment.url}`
-          treatListElem.appendChild(treatElem)
-          if ((await treatment.details).materialCitations.length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
-          }
-        }
-      })();
-      (async () => {
-        for (const treatment of synonym.treatments.dpr) {
-          const treatElem = document.createElement("li");
-          treatElem.innerHTML = `Dpr. by: ${treatment.url}`
-          treatListElem.appendChild(treatElem)
-          if ((await treatment.details).materialCitations.length > 0) {
-            treatElem.append(" · Cites: ", (await treatment.details).materialCitations.map(mc => mc.catalogNumber).join(", "))
-          }
-        }
-      })();
-    }
-
-  </script>
-
-
-</body>
-
+    <script type="module" src="index.js"></script>
+  </body>
 </html>
