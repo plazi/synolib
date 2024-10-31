@@ -18,6 +18,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: synolib2
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Draw the rest of the owl
         run: |
           deno task example_build
