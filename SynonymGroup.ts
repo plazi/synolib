@@ -554,6 +554,9 @@ LIMIT 500`;
         "",
       ).trim();
 
+    // Case where the CoL-taxon has no authority. There should only be one of these.
+    let unathorizedCol: string | undefined;
+
     // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
     const authorizedCoLNames: AuthorizedName[] = [];
     const authorizedTCNames: AuthorizedName[] = [];
@@ -567,7 +570,16 @@ LIMIT 500`;
     for (const t of json.results.bindings) {
       if (t.col) {
         const colURI = t.col.value;
-        if (!authorizedCoLNames.find((e) => e.colURI === colURI)) {
+        if (!t.authority?.value) {
+          if (this.expanded.has(colURI)) {
+            console.log("Skipping known", colURI);
+            return;
+          }
+          if (unathorizedCol && unathorizedCol !== colURI) {
+            console.log("Duplicate unathorized COL:", unathorizedCol, colURI);
+          }
+          unathorizedCol = colURI;
+        } else if (!authorizedCoLNames.find((e) => e.colURI === colURI)) {
           if (this.expanded.has(colURI)) {
             console.log("Skipping known", colURI);
             return;
@@ -637,6 +649,7 @@ LIMIT 500`;
       rank: json.results.bindings[0].rank!.value,
       taxonNameURI,
       authorizedNames: [...authorizedCoLNames, ...authorizedTCNames],
+      colURI: unathorizedCol,
       justification,
       treatments: {
         treats,
@@ -655,6 +668,15 @@ LIMIT 500`;
     }
 
     const colPromises: Promise<void>[] = [];
+
+    if (unathorizedCol) {
+      const [acceptedColURI, promises] = await this.getAcceptedCol(
+        unathorizedCol,
+        name,
+      );
+      name.acceptedColURI = acceptedColURI;
+      colPromises.push(...promises);
+    }
 
     await Promise.all(
       authorizedCoLNames.map(async (n) => {
@@ -1064,6 +1086,21 @@ export type Name = {
 
   /** The URI of the respective `dwcFP:TaxonName` if it exists */
   taxonNameURI?: string;
+
+  /**
+   * The URI of the respective CoL-taxon if it exists
+   *
+   * Not that this is only for CoL-taxa which do not have an authority.
+   */
+  colURI?: string;
+  /** The URI of the corresponding accepted CoL-taxon if it exists.
+   *
+   * Always present if colURI is present, they are the same if it is the accepted CoL-Taxon.
+   *
+   * May be the string "INVALID COL" if the colURI is not valid.
+   */
+  acceptedColURI?: string;
+
   /** All `AuthorizedName`s with this name */
   authorizedNames: AuthorizedName[];
 

@@ -235,12 +235,6 @@ class SynoName extends HTMLElement {
       title.append(" ", name_uri);
     }
 
-    const justification = document.createElement("abbr");
-    justification.classList.add("justification");
-    justification.innerText = "...?";
-    justify(name).then((just) => justification.title = `This ${just}`);
-    title.append(" ", justification);
-
     const vernacular = document.createElement("div");
     vernacular.classList.add("vernacular");
     name.vernacularNames.then((names) => {
@@ -251,9 +245,56 @@ class SynoName extends HTMLElement {
     });
     this.append(vernacular);
 
+    const treatments = document.createElement("ul");
+    this.append(treatments);
+
+    if (name.colURI) {
+      const col_uri = document.createElement("a");
+      col_uri.classList.add("col", "uri");
+      const id = name.colURI.replace(
+        "https://www.catalogueoflife.org/data/taxon/",
+        "",
+      );
+      col_uri.innerText = id;
+      col_uri.id = id;
+      col_uri.href = name.colURI;
+      col_uri.target = "_blank";
+      col_uri.innerHTML += icons.link;
+      title.append(" ", col_uri);
+
+      const li = document.createElement("div");
+      li.classList.add("treatmentline");
+      li.innerHTML = name.acceptedColURI !== name.colURI
+        ? icons.dpr
+        : icons.aug;
+      treatments.append(li);
+
+      const creators = document.createElement("span");
+      creators.innerText = "Catalogue of Life";
+      li.append(creators);
+
+      const names = document.createElement("div");
+      names.classList.add("indent");
+      li.append(names);
+
+      if (name.acceptedColURI !== name.colURI) {
+        const line = document.createElement("div");
+        line.innerHTML = icons.east + icons.aug;
+        names.append(line);
+
+        const col_uri = document.createElement("a");
+        col_uri.classList.add("col", "uri");
+        const id = name.acceptedColURI!.replace(
+          "https://www.catalogueoflife.org/data/taxon/",
+          "",
+        );
+        col_uri.innerText = id;
+        col_uri.href = `#${id}`;
+        col_uri.title = "show name";
+        line.append(col_uri);
+      }
+    }
     if (name.treatments.treats.size > 0 || name.treatments.cite.size > 0) {
-      const treatments = document.createElement("ul");
-      this.append(treatments);
       for (const trt of name.treatments.treats) {
         const li = new SynoTreatment(trt, SynoStatus.Aug);
         treatments.append(li);
@@ -263,6 +304,12 @@ class SynoName extends HTMLElement {
         treatments.append(li);
       }
     }
+
+    const justification = document.createElement("abbr");
+    justification.classList.add("justification");
+    justification.innerText = "...?";
+    justify(name).then((just) => justification.title = `This ${just}`);
+    title.append(" ", justification);
 
     for (const authorizedName of name.authorizedNames) {
       const authName = document.createElement("h3");
