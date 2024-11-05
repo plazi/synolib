@@ -1,4 +1,5 @@
 import type { SparqlEndpoint, SparqlJson } from "./mod.ts";
+import * as Queries from "./Queries.ts";
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -163,15 +164,33 @@ export class SynonymGroup implements AsyncIterable<Name> {
       return;
     }
 
+    if (this.controller.signal?.aborted) return Promise.reject();
+
+    let json: SparqlJson | undefined;
+
     if (taxonName.startsWith("https://www.catalogueoflife.org")) {
-      await this.getNameFromCol(taxonName, justification);
+      json = await this.sparqlEndpoint.getSparqlResultSet(
+        Queries.getNameFromCol(taxonName),
+        { signal: this.controller.signal },
+        `NameFromCol ${taxonName}`,
+      );
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
-      await this.getNameFromTC(taxonName, justification);
+      json = await this.sparqlEndpoint.getSparqlResultSet(
+        Queries.getNameFromTC(taxonName),
+        { signal: this.controller.signal },
+        `NameFromTC ${taxonName}`,
+      );
     } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
-      await this.getNameFromTN(taxonName, justification);
+      json = await this.sparqlEndpoint.getSparqlResultSet(
+        Queries.getNameFromTN(taxonName),
+        { signal: this.controller.signal },
+        `NameFromTN ${taxonName}`,
+      );
     } else {
       throw `Cannot handle name-uri <${taxonName}> !`;
     }
+
+    await this.handleName(json!, justification);
 
     if (
       this.startWithSubTaxa && justification.searchTerm &&
@@ -250,333 +269,6 @@ LIMIT 500`;
       .filter((n) => n && !this.expanded.has(n)) as string[];
 
     await Promise.allSettled(names.map((n) => this.getName(n, justification)));
-  }
-
-  /** @internal */
-  private async getNameFromCol(
-    colUri: string,
-    justification: Justification,
-  ): Promise<void> {
-    // Note: this query assumes that there is no sub-species taxa with missing dwc:species
-    // Note: the handling assumes that at most one taxon-name matches this colTaxon
-    const query = `
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
-PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  BIND(<${colUri}> as ?col)
-  ?col dwc:taxonRank ?rank .
-  OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . } BIND(COALESCE(?colAuth, "") as ?authority)
-  ?col dwc:scientificName ?name . # Note: contains authority
-  ?col dwc:genericName ?genus .
-  # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
-  OPTIONAL {
-    ?col dwc:specificEpithet ?species .
-    OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
-  }
-
-  OPTIONAL {
-    ?tn dwc:rank ?trank ;
-       a dwcFP:TaxonName .
-    FILTER(LCASE(?rank) = LCASE(?trank))
-    ?tn dwc:genus ?genus .
-    ?tn dwc:kingdom ?kingdom .
-    {
-      ?col dwc:specificEpithet ?species .
-      ?tn dwc:species ?species .
-      {
-        ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
-      } UNION {
-        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-      }
-    } UNION {
-      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
-      FILTER NOT EXISTS { ?tn dwc:species ?species . }
-    }
-
-    OPTIONAL {
-      ?trtnt trt:treatsTaxonName ?tn .
-      OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-      BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
-    }
-    OPTIONAL {
-      ?citetnt trt:citesTaxonName ?tn .
-      OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-      BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
-    }
-
-    OPTIONAL {
-      ?tc trt:hasTaxonName ?tn ;
-          dwc:scientificNameAuthorship ?tcauth ;
-          a dwcFP:TaxonConcept .
-      OPTIONAL {
-        ?augt trt:augmentsTaxonConcept ?tc .
-        OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-        BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
-      }
-      OPTIONAL {
-        ?deft trt:definesTaxonConcept ?tc .
-        OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-        BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
-      }
-      OPTIONAL {
-        ?dprt trt:deprecates ?tc .
-        OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-            BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
-      }
-      OPTIONAL {
-        ?citet cito:cites ?tc . 
-        OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-            BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
-      }
-    }
-  }
-}
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;
-    // For unclear reasons, the query breaks if the limit is removed.
-
-    if (this.controller.signal?.aborted) return Promise.reject();
-
-    /// ?tn ?tc !rank !genus ?species ?infrasp !name !authority ?tcAuth
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      { signal: this.controller.signal },
-      `NameFromCol ${colUri}`,
-    );
-
-    return this.handleName(json, justification);
-  }
-
-  /** @internal */
-  private async getNameFromTC(
-    tcUri: string,
-    justification: Justification,
-  ): Promise<void> {
-    // Note: this query assumes that there is no sub-species taxa with missing dwc:species
-    // Note: the handling assumes that at most one taxon-name matches this colTaxon
-    const query = `
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
-PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  <${tcUri}> trt:hasTaxonName ?tn .
-  ?tc trt:hasTaxonName ?tn ;
-      dwc:scientificNameAuthorship ?tcauth ;
-      a dwcFP:TaxonConcept .
-
-  ?tn a dwcFP:TaxonName .
-  ?tn dwc:rank ?rank .
-  ?tn dwc:kingdom ?kingdom .
-  ?tn dwc:genus ?genus .
-  OPTIONAL {
-    ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-  }
-  
-  OPTIONAL {
-    ?col dwc:taxonRank ?crank .
-    FILTER(LCASE(?rank) = LCASE(?crank))
-    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
-    ?col dwc:scientificName ?fullName . # Note: contains authority
-    ?col dwc:genericName ?genus .
-    # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
-
-    {
-      ?col dwc:specificEpithet ?species .
-      ?tn dwc:species ?species .
-      {
-        ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
-      } UNION {
-        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-      }
-    } UNION {
-      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
-      FILTER NOT EXISTS { ?tn dwc:species ?species . }
-    }
-  }
-  
-  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
-  BIND(COALESCE(?colAuth, "") as ?authority)
-
-  OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
-  }
-  OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
-  }
-
-  OPTIONAL {
-    ?augt trt:augmentsTaxonConcept ?tc .
-    OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-    BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
-  }
-  OPTIONAL {
-    ?deft trt:definesTaxonConcept ?tc .
-    OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-    BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
-  }
-  OPTIONAL {
-    ?dprt trt:deprecates ?tc .
-    OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-        BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
-  }
-  OPTIONAL {
-    ?citet cito:cites ?tc . 
-    OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-        BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
-  }
-}
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;
-    // For unclear reasons, the query breaks if the limit is removed.
-
-    if (this.controller.signal?.aborted) return Promise.reject();
-
-    /// ?tn ?tc ?col !rank !genus ?species ?infrasp !name !authority ?tcAuth
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      { signal: this.controller.signal },
-      `NameFromTC ${tcUri}`,
-    );
-
-    await this.handleName(json, justification);
-  }
-
-  /** @internal */
-  private async getNameFromTN(
-    tnUri: string,
-    justification: Justification,
-  ): Promise<void> {
-    // Note: this query assumes that there is no sub-species taxa with missing dwc:species
-    // Note: the handling assumes that at most one taxon-name matches this colTaxon
-    const query = `
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
-PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  BIND(<${tnUri}> as ?tn)
-  ?tn a dwcFP:TaxonName .
-  ?tn dwc:rank ?rank .
-  ?tn dwc:genus ?genus .
-  ?tn dwc:kingdom ?kingdom .
-  OPTIONAL {
-    ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-  }
-  
-  OPTIONAL {
-    ?col dwc:taxonRank ?crank .
-    FILTER(LCASE(?rank) = LCASE(?crank))
-    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
-    ?col dwc:scientificName ?fullName . # Note: contains authority
-    ?col dwc:genericName ?genus .
-    # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
-
-    {
-      ?col dwc:specificEpithet ?species .
-      ?tn dwc:species ?species .
-      {
-        ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
-      } UNION {
-        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-      }
-    } UNION {
-      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
-      FILTER NOT EXISTS { ?tn dwc:species ?species . }
-    }
-  }
-  
-  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
-  BIND(COALESCE(?colAuth, "") as ?authority)
-
-  OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
-  }
-  OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
-  }
-
-  OPTIONAL {
-    ?tc trt:hasTaxonName ?tn ;
-        dwc:scientificNameAuthorship ?tcauth ;
-        a dwcFP:TaxonConcept .
-    OPTIONAL {
-      ?augt trt:augmentsTaxonConcept ?tc .
-      OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-      BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
-    }
-    OPTIONAL {
-      ?deft trt:definesTaxonConcept ?tc .
-      OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-      BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
-    }
-    OPTIONAL {
-      ?dprt trt:deprecates ?tc .
-      OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-          BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
-    }
-    OPTIONAL {
-      ?citet cito:cites ?tc . 
-      OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-          BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
-    }
-  }
-}
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;
-    // For unclear reasons, the query breaks if the limit is removed.
-
-    if (this.controller.signal?.aborted) return Promise.reject();
-
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      { signal: this.controller.signal },
-      `NameFromTN ${tnUri}`,
-    );
-
-    return this.handleName(json, justification);
   }
 
   /**
@@ -805,7 +497,7 @@ GROUP BY ?current ?current_status`;
           if (!this.acceptedCol.has(b.current!.value)) {
             this.acceptedCol.set(b.current!.value, b.current!.value);
             promises.push(
-              this.getNameFromCol(b.current!.value, {
+              this.getName(b.current!.value, {
                 searchTerm: false,
                 parent,
               }),
@@ -815,7 +507,7 @@ GROUP BY ?current ?current_status`;
           this.acceptedCol.set(dpr, b.current!.value);
           if (!this.ignoreDeprecatedCoL) {
             promises.push(
-              this.getNameFromCol(dpr, { searchTerm: false, parent }),
+              this.getName(dpr, { searchTerm: false, parent }),
             );
           }
         }
