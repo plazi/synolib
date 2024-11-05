@@ -283,7 +283,7 @@ LIMIT 500`;
 
     const displayName: string = json.results.bindings[0].name!.value
       .replace(
-        json.results.bindings[0].authority!.value,
+        json.results.bindings[0].authority?.value ?? "",
         "",
       ).trim();
 

@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-unused-labels
 async function sleep(ms: number): Promise<void> {
   const p = new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
@@ -47,6 +48,7 @@ export class SparqlEndpoint {
     _reason = "",
   ): Promise<SparqlJson> {
     // this.reasons.push(_reason);
+    // DEBUG: console.info(`SPARQL ${_reason}:\n${query}`);
 
     fetchOptions.headers = fetchOptions.headers || {};
     (fetchOptions.headers as Record<string, string>)["Accept"] =
@@ -54,7 +56,7 @@ export class SparqlEndpoint {
     let retryCount = 0;
     const sendRequest = async (): Promise<SparqlJson> => {
       try {
-        // console.info(`SPARQL ${_reason} (${retryCount + 1})`);
+        // DEBUG: console.info(`SPARQL ${_reason} (${retryCount + 1})`);
         const response = await fetch(
           this.sparqlEnpointUri + "?query=" + encodeURIComponent(query),
           fetchOptions,
