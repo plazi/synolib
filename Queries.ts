@@ -67,39 +67,32 @@ BIND(<${colUri}> as ?col)
     }
 
     OPTIONAL {
-      ?trtnt trt:treatsTaxonName ?tn .
-      OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-      BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+      ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+      BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
     }
     OPTIONAL {
-      ?citetnt trt:citesTaxonName ?tn .
-      OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-      BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+      ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+      BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
     }
 
     OPTIONAL {
-      ?tc trt:hasTaxonName ?tn ;
-          dwc:scientificNameAuthorship ?tcauth ;
-          a dwcFP:TaxonConcept .
+      ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?tcauth ; a dwcFP:TaxonConcept .
+
       OPTIONAL {
-        ?augt trt:augmentsTaxonConcept ?tc .
-        OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-        BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+        ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+        BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
       }
       OPTIONAL {
-        ?deft trt:definesTaxonConcept ?tc .
-        OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-        BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+        ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+        BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
       }
       OPTIONAL {
-        ?dprt trt:deprecates ?tc .
-        OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-            BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+        ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+        BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
       }
       OPTIONAL {
-        ?citet cito:cites ?tc . 
-        OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-            BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+        ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+        BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
       }
     }
   }
@@ -156,35 +149,29 @@ export const getNameFromTC = (tcUri: string) =>
   BIND(COALESCE(?colAuth, "") as ?authority)
 
   OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+    ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+    BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
   }
   OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+    ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+    BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
   }
 
   OPTIONAL {
-    ?augt trt:augmentsTaxonConcept ?tc .
-    OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-    BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+    ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+    BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
   }
   OPTIONAL {
-    ?deft trt:definesTaxonConcept ?tc .
-    OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-    BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+    ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+    BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
   }
   OPTIONAL {
-    ?dprt trt:deprecates ?tc .
-    OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-        BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+    ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+    BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
   }
   OPTIONAL {
-    ?citet cito:cites ?tc . 
-    OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-        BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+    ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+    BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
   }
 }
 ${postamble}
@@ -235,39 +222,32 @@ export const getNameFromTN = (tnUri: string) =>
   BIND(COALESCE(?colAuth, "") as ?authority)
 
   OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+    ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+    BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
   }
   OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+    ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+    BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
   }
 
   OPTIONAL {
-    ?tc trt:hasTaxonName ?tn ;
-        dwc:scientificNameAuthorship ?tcauth ;
-        a dwcFP:TaxonConcept .
+    ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?tcauth ; a dwcFP:TaxonConcept .
+
     OPTIONAL {
-      ?augt trt:augmentsTaxonConcept ?tc .
-      OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-      BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+      ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+      BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
     }
     OPTIONAL {
-      ?deft trt:definesTaxonConcept ?tc .
-      OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-      BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+      ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+      BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
     }
     OPTIONAL {
-      ?dprt trt:deprecates ?tc .
-      OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-          BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+      ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+      BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
     }
     OPTIONAL {
-      ?citet cito:cites ?tc . 
-      OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-          BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+      ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+      BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
     }
   }
 }
