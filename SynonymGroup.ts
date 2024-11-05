@@ -281,11 +281,41 @@ LIMIT 500`;
   ): Promise<void> {
     const treatmentPromises: Treatment[] = [];
 
-    const displayName: string = json.results.bindings[0].name!.value
-      .replace(
-        json.results.bindings[0].authority?.value ?? "",
-        "",
-      ).trim();
+    const abbreviateRank = (rank: string) => {
+      switch (rank) {
+        case "variety":
+          return "var.";
+        case "subspecies":
+          return "subsp.";
+        case "form":
+          return "f.";
+        default:
+          return rank;
+      }
+    };
+
+    const displayName: string = (json.results.bindings[0].name
+      ? (
+        json.results.bindings[0].authority
+          ? json.results.bindings[0].name.value
+            .replace(
+              json.results.bindings[0].authority.value,
+              "",
+            )
+          : json.results.bindings[0].name.value
+      )
+      : json.results.bindings[0].genus!.value +
+        (json.results.bindings[0].subgenus?.value
+          ? ` (${json.results.bindings[0].subgenus.value})`
+          : "") +
+        (json.results.bindings[0].species?.value
+          ? ` ${json.results.bindings[0].species.value}`
+          : "") +
+        (json.results.bindings[0].infrasp?.value
+          ? ` ${abbreviateRank(json.results.bindings[0].rank!.value)} ${
+            json.results.bindings[0].infrasp.value
+          }`
+          : "")).trim();
 
     // Case where the CoL-taxon has no authority. There should only be one of these.
     let unathorizedCol: string | undefined;
@@ -469,11 +499,11 @@ SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator=
   {
     ?col dwc:acceptedName ?current .
     ?dpr dwc:acceptedName ?current .
-    ?current dwc:taxonomicStatus ?current_status .
+    OPTIONAL { ?current dwc:taxonomicStatus ?current_status . }
   } UNION {
     ?col dwc:taxonomicStatus ?current_status .
     OPTIONAL { ?dpr dwc:acceptedName ?col . }
-    FILTER NOT EXISTS { ?col dwc:acceptedName ?current . }
+    FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
     BIND(?col AS ?current)
   }
 }
