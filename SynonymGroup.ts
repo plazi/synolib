@@ -285,7 +285,8 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
   }
 
   OPTIONAL {
-    ?tn dwc:rank ?trank .
+    ?tn dwc:rank ?trank ;
+       a dwcFP:TaxonName .
     FILTER(LCASE(?rank) = LCASE(?trank))
     ?tn dwc:genus ?genus .
     ?tn dwc:kingdom ?kingdom .
