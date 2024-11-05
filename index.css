@@ -6,8 +6,18 @@
   font-family: Inter, Arial, Helvetica, sans-serif;
 }
 
+body {
+  margin: 0 auto;
+  max-width: 80rem;
+}
+
 #root:empty::before {
   content: "You should see a list of synonyms here";
+}
+
+img {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 svg {
@@ -33,7 +43,8 @@ syno-name {
   color: #686868;
 }
 
-.taxon, .col {
+.taxon,
+.col {
   color: #444;
   font-size: 0.8rem;
 
@@ -81,11 +92,18 @@ syno-treatment,
 .treatmentline {
   display: block;
   position: relative;
+  margin: 0;
+  transition: all 200ms;
+  clear: both;
 
-  & > svg {
+  &>svg {
     height: 1rem;
     vertical-align: sub;
     margin: 0 0.2rem 0 -1.2rem;
+  }
+
+  >.icon.button {
+    float: right;
   }
 
   .details {
@@ -93,10 +111,13 @@ syno-treatment,
   }
 
   .hidden {
-    height: 0;
     max-height: 0;
     overflow: hidden;
     transition: all 200ms;
+
+    & img {
+      display: none;
+    }
   }
 
   &.expanded {
@@ -105,13 +126,63 @@ syno-treatment,
     z-index: 10;
     border-radius: 0.2rem;
     padding: 0.2rem;
-    margin: -0.2rem;
+    margin: 0.2rem -0.2rem;
 
     .hidden {
-      height: auto;
-      max-height: 300px;
+      max-height: 200rem;
       overflow: auto;
+
+      & img {
+        display: unset;
+      }
     }
+  }
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat( auto-fill, minmax(12rem, 1fr) );
+  grid-template-rows: masonry;
+  margin: 0.2rem 0 0.2rem 2.2rem;
+  gap: 1rem;
+
+  & figure {
+    margin: 0;
+  }
+
+  & figcaption {
+    font-size: 0.4rem;
+  }
+}
+
+
+.icon.button {
+  border-radius: 1rem;
+  border: none;
+  background: none;
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+  padding: 0;
+  position: relative;
+
+  &>svg {
+    height: 1rem;
+    margin: 0;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -1rem;
+    bottom: -1rem;
+    left: -1rem;
+    right: -1rem;
+    border-radius: 100%;
+  }
+
+  &:hover::before {
+    background: #ededed8c;
   }
 }
 

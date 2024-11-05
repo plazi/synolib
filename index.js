@@ -1,77 +1,37 @@
-async function F(T){return await new Promise(s=>{setTimeout(s,T)})}var A=class{constructor(t){this.sparqlEnpointUri=t}async getSparqlResultSet(t,s={},i=""){
-s.headers=s.headers||{},s.headers.Accept="application/sparql-results+json";let d=0,c=async()=>{try{let p=await fetch(this.
-sparqlEnpointUri+"?query="+encodeURIComponent(t),s);if(!p.ok)throw new Error("Response not ok. Status "+p.status);return await p.
-json()}catch(p){if(s.signal?.aborted)throw p;if(d<10){let l=50*(1<<d++);return console.warn(`!! Fetch Error. Retrying in\
- ${l}ms (${d})`),await F(l),await c()}throw console.warn("!! Fetch Error:",t,`
+async function U(h){return await new Promise(i=>{setTimeout(i,h)})}var A=class{constructor(t){this.sparqlEnpointUri=t}async getSparqlResultSet(t,i={},s=""){
+i.headers=i.headers||{},i.headers.Accept="application/sparql-results+json";let l=0,c=async()=>{try{let d=await fetch(this.
+sparqlEnpointUri+"?query="+encodeURIComponent(t),i);if(!d.ok)throw new Error("Response not ok. Status "+d.status);return await d.
+json()}catch(d){if(i.signal?.aborted)throw d;if(l<10){let u=50*(1<<l++);return console.warn(`!! Fetch Error. Retrying in\
+ ${u}ms (${l})`),await U(u),await c()}throw console.warn("!! Fetch Error:",t,`
 ---
-`,p),p}};return await c()}};var v=class{isFinished=!1;monitor=new EventTarget;controller=new AbortController;sparqlEndpoint;names=[];pushName(t){this.
-names.push(t),this.monitor.dispatchEvent(new CustomEvent("updated"))}finish(){this.isFinished=!0,this.monitor.dispatchEvent(
-new CustomEvent("updated"))}expanded=new Set;acceptedCol=new Map;treatments=new Map;ignoreDeprecatedCoL;startWithSubTaxa;constructor(t,s,i=!0,d=!1){
-if(this.sparqlEndpoint=t,this.ignoreDeprecatedCoL=i,this.startWithSubTaxa=d,s.startsWith("http"))this.getName(s,{searchTerm:!0,
-subTaxon:!1}).catch(c=>{console.log("SynoGroup Failure: ",c),this.controller.abort("SynoGroup Failed")}).finally(()=>this.
-finish());else{let c=[...s.split(" ").filter(p=>!!p),void 0,void 0];this.getNameFromLatin(c,{searchTerm:!0,subTaxon:!1}).
-finally(()=>this.finish())}}findName(t){let s;for(let i of this.names){if(i.taxonNameURI===t||i.colURI===t){s=i;break}let d=i.
-authorizedNames.find(c=>c.taxonConceptURI===t||c.colURI===t);if(d){s=d;break}}return s?Promise.resolve(s):new Promise((i,d)=>{
-this.monitor.addEventListener("updated",()=>{(this.names.length===0||this.isFinished)&&d();let c=this.names.at(-1);if(c.
-taxonNameURI===t||c.colURI===t){i(c);return}let p=c.authorizedNames.find(l=>l.taxonConceptURI===t||l.colURI===t);if(p){i(
-p);return}})})}async getName(t,s){if(this.expanded.has(t)){console.log("Skipping known",t);return}if(t.startsWith("https\
-://www.catalogueoflife.org"))await this.getNameFromCol(t,s);else if(t.startsWith("http://taxon-concept.plazi.org"))await this.
-getNameFromTC(t,s);else if(t.startsWith("http://taxon-name.plazi.org"))await this.getNameFromTN(t,s);else throw`Cannot h\
-andle name-uri <${t}> !`;this.startWithSubTaxa&&s.searchTerm&&!s.subTaxon&&await this.getSubtaxa(t)}async getSubtaxa(t){
-let s=t.startsWith("http://taxon-concept.plazi.org")?`
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?sub WHERE {
-  BIND(<${t}> as ?url)
-  ?sub trt:hasParentName*/^trt:hasTaxonName ?url .
-}
-LIMIT 5000`:`
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?sub WHERE {
-  BIND(<${t}> as ?url)
-  ?sub (dwc:parent|trt:hasParentName)* ?url .
-}
-LIMIT 5000`;if(this.controller.signal?.aborted)return Promise.reject();let d=(await this.sparqlEndpoint.getSparqlResultSet(
-s,{signal:this.controller.signal},`Subtaxa ${t}`)).results.bindings.map(c=>c.sub?.value).filter(c=>c&&!this.expanded.has(
-c));await Promise.allSettled(d.map(c=>this.getName(c,{searchTerm:!0,subTaxon:!0})))}async getNameFromLatin([t,s,i],d){let c=`\
-
-    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-SELECT DISTINCT ?uri WHERE {
-  ?uri dwc:genus|dwc:genericName "${t}" .
-  ${s?`?uri dwc:species|dwc:specificEpithet "${s}" .`:"FILTER NOT EXISTS { ?uri dwc:species|dwc:specificEpithet ?species\
- . }"}
-  ${i?`?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet "${i}" .`:"FILTER NOT EXISTS { ?uri dwc:subSpec\
-ies|dwc:variety|dwc:form|dwc:infraspecificEpithet ?infrasp . }"}
-}
-LIMIT 500`;if(this.controller.signal?.aborted)return Promise.reject();let l=(await this.sparqlEndpoint.getSparqlResultSet(
-c,{signal:this.controller.signal},`NameFromLatin ${t} ${s} ${i}`)).results.bindings.map(a=>a.uri?.value).filter(a=>a&&!this.
-expanded.has(a));await Promise.allSettled(l.map(a=>this.getName(a,d)))}async getNameFromCol(t,s){let i=`
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
+`,d),d}};return await c()}};var x=`PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
+SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
   (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
   (group_concat(DISTINCT ?cite;separator="|") as ?cites)
   (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  BIND(<${t}> as ?col)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites)`,P="GROUP BY ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?\
+infrasp ?name ?authority",q=h=>`${x} WHERE {
+BIND(<${h}> as ?col)
   ?col dwc:taxonRank ?rank .
-  OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . } BIND(COALESCE(?colAuth, "") as ?authority)
-  ?col dwc:scientificName ?name . # Note: contains authority
+  ?col dwc:scientificName ?name .
   ?col dwc:genericName ?genus .
   # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
   OPTIONAL {
     ?col dwc:specificEpithet ?species .
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
   }
+  OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
 
   OPTIONAL {
-    ?tn dwc:rank ?trank .
+    ?tn dwc:rank ?trank ;
+       a dwcFP:TaxonName .
     FILTER(LCASE(?rank) = LCASE(?trank))
     ?tn dwc:genus ?genus .
     ?tn dwc:kingdom ?kingdom .
@@ -91,275 +51,253 @@ SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
     }
 
     OPTIONAL {
-      ?trtnt trt:treatsTaxonName ?tn .
-      OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-      BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
+      ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+      BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
     }
     OPTIONAL {
-      ?citetnt trt:citesTaxonName ?tn .
-      OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-      BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+      ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+      BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
     }
 
     OPTIONAL {
-      ?tc trt:hasTaxonName ?tn ;
-          dwc:scientificNameAuthorship ?tcauth ;
-          a dwcFP:TaxonConcept .
+      ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?tcauth ; a dwcFP:TaxonConcept .
+
       OPTIONAL {
-        ?augt trt:augmentsTaxonConcept ?tc .
-        OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-        BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+        ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+        BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
       }
       OPTIONAL {
-        ?deft trt:definesTaxonConcept ?tc .
-        OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-        BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+        ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+        BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
       }
       OPTIONAL {
-        ?dprt trt:deprecates ?tc .
-        OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-            BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+        ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+        BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
       }
       OPTIONAL {
-        ?citet cito:cites ?tc . 
-        OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-            BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+        ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+        BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
       }
     }
   }
 }
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;if(this.controller.signal?.aborted)return Promise.reject();let d=await this.sparqlEndpoint.getSparqlResultSet(
-i,{signal:this.controller.signal},`NameFromCol ${t}`);return this.handleName(d,s)}async getNameFromTC(t,s){let i=`
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
-PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  <${t}> trt:hasTaxonName ?tn .
+${P}
+LIMIT 500`,k=h=>`${x} WHERE {
+  <${h}> trt:hasTaxonName ?tn .
   ?tc trt:hasTaxonName ?tn ;
       dwc:scientificNameAuthorship ?tcauth ;
       a dwcFP:TaxonConcept .
 
   ?tn a dwcFP:TaxonName .
-  ?tn dwc:rank ?rank .
+  ?tn dwc:rank ?tnrank .
   ?tn dwc:kingdom ?kingdom .
   ?tn dwc:genus ?genus .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
   OPTIONAL {
-    ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
+    ?tn dwc:species ?tnspecies .
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
   }
   
+  BIND(LCASE(?tnrank) AS ?rank)
+  BIND(COALESCE(?tnspecies, "") AS ?species)
+  BIND(COALESCE(?tninfrasp, "") AS ?infrasp)
+  
   OPTIONAL {
-    ?col dwc:taxonRank ?crank .
-    FILTER(LCASE(?rank) = LCASE(?crank))
-    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
-    ?col dwc:scientificName ?fullName . # Note: contains authority
+    ?col dwc:taxonRank ?rank .
+    ?col dwc:scientificName ?name . # Note: contains authority
     ?col dwc:genericName ?genus .
     # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
 
-    {
-      ?col dwc:specificEpithet ?species .
-      ?tn dwc:species ?species .
-      {
-        ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
-      } UNION {
-        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-      }
-    } UNION {
-      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
-      FILTER NOT EXISTS { ?tn dwc:species ?species . }
-    }
-  }
-  
-  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), \
-COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
-  BIND(COALESCE(?colAuth, "") as ?authority)
-
-  OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
-  }
-  OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+    OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
+    FILTER(?species = COALESCE(?colspecies, ""))
+    OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
+    FILTER(?infrasp = COALESCE(?colinfrasp, ""))
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
   }
 
   OPTIONAL {
-    ?augt trt:augmentsTaxonConcept ?tc .
-    OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-    BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+    ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+    BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
   }
   OPTIONAL {
-    ?deft trt:definesTaxonConcept ?tc .
-    OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-    BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+    ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+    BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
+  }
+
+  OPTIONAL {
+    ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+    BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
   }
   OPTIONAL {
-    ?dprt trt:deprecates ?tc .
-    OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-        BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+    ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+    BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
   }
   OPTIONAL {
-    ?citet cito:cites ?tc . 
-    OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-        BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+    ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+    BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
+  }
+  OPTIONAL {
+    ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+    BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
   }
 }
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;if(this.controller.signal?.aborted)return Promise.reject();let d=await this.sparqlEndpoint.getSparqlResultSet(
-i,{signal:this.controller.signal},`NameFromTC ${t}`);await this.handleName(d,s)}async getNameFromTN(t,s){let i=`
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
-PREFIX cito: <http://purl.org/spar/cito/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-  (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites) WHERE {
-  BIND(<${t}> as ?tn)
+${P}
+LIMIT 500`,_=h=>`${x} WHERE {
+  BIND(<${h}> as ?tn)
   ?tn a dwcFP:TaxonName .
-  ?tn dwc:rank ?rank .
+  ?tn dwc:rank ?tnrank .
   ?tn dwc:genus ?genus .
   ?tn dwc:kingdom ?kingdom .
+  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
   OPTIONAL {
-    ?tn dwc:species ?species .
-    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
+    ?tn dwc:species ?tnspecies .
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
   }
   
+  BIND(LCASE(?tnrank) AS ?rank)
+  BIND(COALESCE(?tnspecies, "") AS ?species)
+  BIND(COALESCE(?tninfrasp, "") AS ?infrasp)
+  
   OPTIONAL {
-    ?col dwc:taxonRank ?crank .
-    FILTER(LCASE(?rank) = LCASE(?crank))
-    OPTIONAL { ?col dwc:scientificNameAuthorship ?colAuth . }
-    ?col dwc:scientificName ?fullName . # Note: contains authority
+    ?col dwc:taxonRank ?rank .
+    ?col dwc:scientificName ?name . # Note: contains authority
     ?col dwc:genericName ?genus .
     # TODO # ?col dwc:parent* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?kingdom .
 
-    {
-      ?col dwc:specificEpithet ?species .
-      ?tn dwc:species ?species .
-      {
-        ?col dwc:infraspecificEpithet ?infrasp .
-        ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp .
-      } UNION {
-        FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?infrasp . }
-        FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
-      }
-    } UNION {
-      FILTER NOT EXISTS { ?col dwc:specificEpithet ?species . }
-      FILTER NOT EXISTS { ?tn dwc:species ?species . }
-    }
-  }
-  
-  BIND(COALESCE(?fullName, CONCAT(?genus, COALESCE(CONCAT(" (",?subgenus,")"), ""), COALESCE(CONCAT(" ",?species), ""), \
-COALESCE(CONCAT(" ", ?infrasp), ""))) as ?name)
-  BIND(COALESCE(?colAuth, "") as ?authority)
-
-  OPTIONAL {
-    ?trtnt trt:treatsTaxonName ?tn .
-    OPTIONAL { ?trtnt trt:publishedIn/dc:date ?trtndate . }
-    BIND(CONCAT(STR(?trtnt), ">", COALESCE(?trtndate, "")) AS ?trtn)
-  }
-  OPTIONAL {
-    ?citetnt trt:citesTaxonName ?tn .
-    OPTIONAL { ?citetnt trt:publishedIn/dc:date ?citetndate . }
-    BIND(CONCAT(STR(?citetnt), ">", COALESCE(?citetndate, "")) AS ?citetn)
+    OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
+    FILTER(?species = COALESCE(?colspecies, ""))
+    OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
+    FILTER(?infrasp = COALESCE(?colinfrasp, ""))
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
   }
 
   OPTIONAL {
-    ?tc trt:hasTaxonName ?tn ;
-        dwc:scientificNameAuthorship ?tcauth ;
-        a dwcFP:TaxonConcept .
+    ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+    BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
+  }
+  OPTIONAL {
+    ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+    BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
+  }
+
+  OPTIONAL {
+    ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?tcauth ; a dwcFP:TaxonConcept .
+
     OPTIONAL {
-      ?augt trt:augmentsTaxonConcept ?tc .
-      OPTIONAL { ?augt trt:publishedIn/dc:date ?augdate . }
-      BIND(CONCAT(STR(?augt), ">", COALESCE(?augdate, "")) AS ?aug)
+      ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+      BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
     }
     OPTIONAL {
-      ?deft trt:definesTaxonConcept ?tc .
-      OPTIONAL { ?deft trt:publishedIn/dc:date ?defdate . }
-      BIND(CONCAT(STR(?deft), ">", COALESCE(?defdate, "")) AS ?def)
+      ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+      BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
     }
     OPTIONAL {
-      ?dprt trt:deprecates ?tc .
-      OPTIONAL { ?dprt trt:publishedIn/dc:date ?dprdate . }
-          BIND(CONCAT(STR(?dprt), ">", COALESCE(?dprdate, "")) AS ?dpr)
+      ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+      BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
     }
     OPTIONAL {
-      ?citet cito:cites ?tc . 
-      OPTIONAL { ?citet trt:publishedIn/dc:date ?citedate . }
-          BIND(CONCAT(STR(?citet), ">", COALESCE(?citedate, "")) AS ?cite)
+      ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+      BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
     }
   }
 }
-GROUP BY ?tn ?tc ?col ?rank ?genus ?species ?infrasp ?name ?authority
-LIMIT 500`;if(this.controller.signal?.aborted)return Promise.reject();let d=await this.sparqlEndpoint.getSparqlResultSet(
-i,{signal:this.controller.signal},`NameFromTN ${t}`);return this.handleName(d,s)}async handleName(t,s){let i=[],d=t.results.
-bindings[0].name.value.replace(t.results.bindings[0].authority.value,"").trim(),c,p=[],l=[],a=t.results.bindings[0].tn?.
-value;if(a){if(this.expanded.has(a))return;this.expanded.add(a)}for(let e of t.results.bindings){if(e.col){let r=e.col.value;
-if(e.authority?.value){if(!p.find(g=>g.colURI===r)){if(this.expanded.has(r)){console.log("Skipping known",r);return}p.push(
-{displayName:d,authority:e.authority.value,colURI:e.col.value,treatments:{def:new Set,aug:new Set,dpr:new Set,cite:new Set}})}}else{
-if(this.expanded.has(r)){console.log("Skipping known",r);return}c&&c!==r&&console.log("Duplicate unathorized COL:",c,r),
-c=r}}if(e.tc&&e.tcAuth&&e.tcAuth.value){let r=this.makeTreatmentSet(e.defs?.value.split("|")),g=this.makeTreatmentSet(e.
-augs?.value.split("|")),N=this.makeTreatmentSet(e.dprs?.value.split("|")),C=this.makeTreatmentSet(e.cites?.value.split("\
-|")),S=p.find(f=>e.tcAuth.value.split(" / ").includes(f.authority));if(S)S.authority=e.tcAuth?.value,S.taxonConceptURI=e.
-tc.value,S.treatments={def:r,aug:g,dpr:N,cite:C};else{if(this.expanded.has(e.tc.value))return;l.push({displayName:d,authority:e.
-tcAuth.value,taxonConceptURI:e.tc.value,treatments:{def:r,aug:g,dpr:N,cite:C}})}r.forEach(f=>i.push(f)),g.forEach(f=>i.push(
-f)),N.forEach(f=>i.push(f))}}let h=this.makeTreatmentSet(t.results.bindings[0].tntreats?.value.split("|"));h.forEach(e=>i.
-push(e));let o={displayName:d,rank:t.results.bindings[0].rank.value,taxonNameURI:a,authorizedNames:[...p,...l],colURI:c,
-justification:s,treatments:{treats:h,cite:this.makeTreatmentSet(t.results.bindings[0].tncites?.value.split("|"))},vernacularNames:a?
-this.getVernacular(a):Promise.resolve(new Map)};for(let e of o.authorizedNames)e.colURI&&this.expanded.add(e.colURI),e.taxonConceptURI&&
-this.expanded.add(e.taxonConceptURI);let u=[];if(c){let[e,r]=await this.getAcceptedCol(c,o);o.acceptedColURI=e,u.push(...r)}
-await Promise.all(p.map(async e=>{let[r,g]=await this.getAcceptedCol(e.colURI,o);e.acceptedColURI=r,u.push(...g)})),this.
-pushName(o);let n=new Map;(await Promise.all(i.map(e=>e.details.then(r=>[e,r])))).map(([e,r])=>{r.treats.aug.difference(
-this.expanded).forEach(g=>n.set(g,e)),r.treats.def.difference(this.expanded).forEach(g=>n.set(g,e)),r.treats.dpr.difference(
-this.expanded).forEach(g=>n.set(g,e)),r.treats.treattn.difference(this.expanded).forEach(g=>n.set(g,e))}),await Promise.
-allSettled([...u,...[...n].map(([e,r])=>this.getName(e,{searchTerm:!1,parent:o,treatment:r}))])}async getAcceptedCol(t,s){
-let i=`
+${P}
+LIMIT 500`;var O=class{isFinished=!1;monitor=new EventTarget;controller=new AbortController;sparqlEndpoint;names=[];pushName(t){this.
+names.push(t),this.monitor.dispatchEvent(new CustomEvent("updated"))}finish(){this.isFinished=!0,this.monitor.dispatchEvent(
+new CustomEvent("updated"))}expanded=new Set;acceptedCol=new Map;treatments=new Map;ignoreDeprecatedCoL;startWithSubTaxa;constructor(t,i,s=!0,l=!1){
+if(this.sparqlEndpoint=t,this.ignoreDeprecatedCoL=s,this.startWithSubTaxa=l,i.startsWith("http"))this.getName(i,{searchTerm:!0,
+subTaxon:!1}).catch(c=>{console.log("SynoGroup Failure: ",c),this.controller.abort("SynoGroup Failed")}).finally(()=>this.
+finish());else{let c=[...i.split(" ").filter(d=>!!d),void 0,void 0];this.getNameFromLatin(c,{searchTerm:!0,subTaxon:!1}).
+finally(()=>this.finish())}}findName(t){let i;for(let s of this.names){if(s.taxonNameURI===t||s.colURI===t){i=s;break}let l=s.
+authorizedNames.find(c=>c.taxonConceptURI===t||c.colURI===t);if(l){i=l;break}}return i?Promise.resolve(i):new Promise((s,l)=>{
+this.monitor.addEventListener("updated",()=>{(this.names.length===0||this.isFinished)&&l();let c=this.names.at(-1);if(c.
+taxonNameURI===t||c.colURI===t){s(c);return}let d=c.authorizedNames.find(u=>u.taxonConceptURI===t||u.colURI===t);if(d){s(
+d);return}})})}async getName(t,i){if(this.expanded.has(t)){console.log("Skipping known",t);return}if(this.controller.signal?.
+aborted)return Promise.reject();let s;if(t.startsWith("https://www.catalogueoflife.org"))s=await this.sparqlEndpoint.getSparqlResultSet(
+q(t),{signal:this.controller.signal},`NameFromCol ${t}`);else if(t.startsWith("http://taxon-concept.plazi.org"))s=await this.
+sparqlEndpoint.getSparqlResultSet(k(t),{signal:this.controller.signal},`NameFromTC ${t}`);else if(t.startsWith("http://t\
+axon-name.plazi.org"))s=await this.sparqlEndpoint.getSparqlResultSet(_(t),{signal:this.controller.signal},`NameFromTN ${t}`);else
+throw`Cannot handle name-uri <${t}> !`;await this.handleName(s,i),this.startWithSubTaxa&&i.searchTerm&&!i.subTaxon&&await this.
+getSubtaxa(t)}async getSubtaxa(t){let i=t.startsWith("http://taxon-concept.plazi.org")?`
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?sub WHERE {
+  BIND(<${t}> as ?url)
+  ?sub trt:hasParentName*/^trt:hasTaxonName ?url .
+}
+LIMIT 5000`:`
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?sub WHERE {
+  BIND(<${t}> as ?url)
+  ?sub (dwc:parent|trt:hasParentName)* ?url .
+}
+LIMIT 5000`;if(this.controller.signal?.aborted)return Promise.reject();let l=(await this.sparqlEndpoint.getSparqlResultSet(
+i,{signal:this.controller.signal},`Subtaxa ${t}`)).results.bindings.map(c=>c.sub?.value).filter(c=>c&&!this.expanded.has(
+c));await Promise.allSettled(l.map(c=>this.getName(c,{searchTerm:!0,subTaxon:!0})))}async getNameFromLatin([t,i,s],l){let c=`\
+
+    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+SELECT DISTINCT ?uri WHERE {
+  ?uri dwc:genus|dwc:genericName "${t}" .
+  ${i?`?uri dwc:species|dwc:specificEpithet "${i}" .`:"FILTER NOT EXISTS { ?uri dwc:species|dwc:specificEpithet ?species\
+ . }"}
+  ${s?`?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet "${s}" .`:"FILTER NOT EXISTS { ?uri dwc:subSpec\
+ies|dwc:variety|dwc:form|dwc:infraspecificEpithet ?infrasp . }"}
+}
+LIMIT 500`;if(this.controller.signal?.aborted)return Promise.reject();let u=(await this.sparqlEndpoint.getSparqlResultSet(
+c,{signal:this.controller.signal},`NameFromLatin ${t} ${i} ${s}`)).results.bindings.map(a=>a.uri?.value).filter(a=>a&&!this.
+expanded.has(a));await Promise.allSettled(u.map(a=>this.getName(a,l)))}async handleName(t,i){let s=[],l=n=>{switch(n){case"\
+variety":return"var.";case"subspecies":return"subsp.";case"form":return"f.";default:return n}},c=(t.results.bindings[0].
+name?t.results.bindings[0].authority?t.results.bindings[0].name.value.replace(t.results.bindings[0].authority.value,""):
+t.results.bindings[0].name.value:t.results.bindings[0].genus.value+(t.results.bindings[0].subgenus?.value?` (${t.results.
+bindings[0].subgenus.value})`:"")+(t.results.bindings[0].species?.value?` ${t.results.bindings[0].species.value}`:"")+(t.
+results.bindings[0].infrasp?.value?` ${l(t.results.bindings[0].rank.value)} ${t.results.bindings[0].infrasp.value}`:"")).
+trim(),d,u=[],a=[],m=t.results.bindings[0].tn?.value;if(m){if(this.expanded.has(m))return;this.expanded.add(m)}for(let n of t.
+results.bindings){if(n.col){let r=n.col.value;if(n.authority?.value){if(!u.find(f=>f.colURI===r)){if(this.expanded.has(r)){
+console.log("Skipping known",r);return}u.push({displayName:c,authority:n.authority.value,colURI:n.col.value,treatments:{
+def:new Set,aug:new Set,dpr:new Set,cite:new Set}})}}else{if(this.expanded.has(r)){console.log("Skipping known",r);return}
+d&&d!==r&&console.log("Duplicate unathorized COL:",d,r),d=r}}if(n.tc&&n.tcAuth&&n.tcAuth.value){let r=this.makeTreatmentSet(
+n.defs?.value.split("|")),f=this.makeTreatmentSet(n.augs?.value.split("|")),S=this.makeTreatmentSet(n.dprs?.value.split(
+"|")),w=this.makeTreatmentSet(n.cites?.value.split("|")),N=u.find(v=>n.tcAuth.value.split(" / ").includes(v.authority));
+if(N)N.authority=n.tcAuth?.value,N.taxonConceptURI=n.tc.value,N.treatments={def:r,aug:f,dpr:S,cite:w};else{if(this.expanded.
+has(n.tc.value))return;a.push({displayName:c,authority:n.tcAuth.value,taxonConceptURI:n.tc.value,treatments:{def:r,aug:f,
+dpr:S,cite:w}})}r.forEach(v=>s.push(v)),f.forEach(v=>s.push(v)),S.forEach(v=>s.push(v))}}let T=this.makeTreatmentSet(t.results.
+bindings[0].tntreats?.value.split("|"));T.forEach(n=>s.push(n));let o={displayName:c,rank:t.results.bindings[0].rank.value,
+taxonNameURI:m,authorizedNames:[...u,...a],colURI:d,justification:i,treatments:{treats:T,cite:this.makeTreatmentSet(t.results.
+bindings[0].tncites?.value.split("|"))},vernacularNames:m?this.getVernacular(m):Promise.resolve(new Map)};for(let n of o.
+authorizedNames)n.colURI&&this.expanded.add(n.colURI),n.taxonConceptURI&&this.expanded.add(n.taxonConceptURI);let p=[];if(d){
+let[n,r]=await this.getAcceptedCol(d,o);o.acceptedColURI=n,p.push(...r)}await Promise.all(u.map(async n=>{let[r,f]=await this.
+getAcceptedCol(n.colURI,o);n.acceptedColURI=r,p.push(...f)})),this.pushName(o);let e=new Map;(await Promise.all(s.map(n=>n.
+details.then(r=>[n,r])))).map(([n,r])=>{r.treats.aug.difference(this.expanded).forEach(f=>e.set(f,n)),r.treats.def.difference(
+this.expanded).forEach(f=>e.set(f,n)),r.treats.dpr.difference(this.expanded).forEach(f=>e.set(f,n)),r.treats.treattn.difference(
+this.expanded).forEach(f=>e.set(f,n))}),await Promise.allSettled([...p,...[...e].map(([n,r])=>this.getName(n,{searchTerm:!1,
+parent:o,treatment:r}))])}async getAcceptedCol(t,i){let s=`
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
   BIND(<${t}> AS ?col)
   {
     ?col dwc:acceptedName ?current .
     ?dpr dwc:acceptedName ?current .
-    ?current dwc:taxonomicStatus ?current_status .
+    OPTIONAL { ?current dwc:taxonomicStatus ?current_status . }
   } UNION {
     ?col dwc:taxonomicStatus ?current_status .
     OPTIONAL { ?dpr dwc:acceptedName ?col . }
-    FILTER NOT EXISTS { ?col dwc:acceptedName ?current . }
+    FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
     BIND(?col AS ?current)
   }
 }
-GROUP BY ?current ?current_status`;if(this.acceptedCol.has(t))return[this.acceptedCol.get(t),[]];let d=await this.sparqlEndpoint.
-getSparqlResultSet(i,{signal:this.controller.signal},`AcceptedCol ${t}`),c=[];for(let p of d.results.bindings)for(let l of p.
-dprs.value.split("|"))l&&(this.acceptedCol.has(p.current.value)||(this.acceptedCol.set(p.current.value,p.current.value),
-c.push(this.getNameFromCol(p.current.value,{searchTerm:!1,parent:s}))),this.acceptedCol.set(l,p.current.value),this.ignoreDeprecatedCoL||
-c.push(this.getNameFromCol(l,{searchTerm:!1,parent:s})));return d.results.bindings.length===0?(this.acceptedCol.has(t)||
-this.acceptedCol.set(t,"INVALID COL"),[this.acceptedCol.get(t),c]):(this.acceptedCol.has(t)||this.acceptedCol.set(t,t),[
-this.acceptedCol.get(t),c])}async getVernacular(t){let s=new Map,i=`SELECT DISTINCT ?n WHERE { <${t}> <http://rs.tdwg.or\
-g/dwc/terms/vernacularName> ?n . }`,d=(await this.sparqlEndpoint.getSparqlResultSet(i,{signal:this.controller.signal},`V\
-ernacular ${t}`)).results.bindings;for(let c of d)c.n?.value&&(c.n["xml:lang"]?s.has(c.n["xml:lang"])?s.get(c.n["xml:lan\
-g"]).push(c.n.value):s.set(c.n["xml:lang"],[c.n.value]):s.has("??")?s.get("??").push(c.n.value):s.set("??",[c.n.value]));
-return s}makeTreatmentSet(t){return t?new Set(t.filter(s=>!!s).map(s=>{let[i,d]=s.split(">");if(!this.treatments.has(i)){
-let c=this.getTreatmentDetails(i);this.treatments.set(i,{url:i,date:d?parseInt(d,10):void 0,details:c})}return this.treatments.
-get(i)})):new Set}async getTreatmentDetails(t){let s=`
+GROUP BY ?current ?current_status`;if(this.acceptedCol.has(t))return[this.acceptedCol.get(t),[]];let l=await this.sparqlEndpoint.
+getSparqlResultSet(s,{signal:this.controller.signal},`AcceptedCol ${t}`),c=[];for(let d of l.results.bindings)for(let u of d.
+dprs.value.split("|"))u&&(this.acceptedCol.has(d.current.value)||(this.acceptedCol.set(d.current.value,d.current.value),
+c.push(this.getName(d.current.value,{searchTerm:!1,parent:i}))),this.acceptedCol.set(u,d.current.value),this.ignoreDeprecatedCoL||
+c.push(this.getName(u,{searchTerm:!1,parent:i})));return l.results.bindings.length===0?(this.acceptedCol.has(t)||this.acceptedCol.
+set(t,"INVALID COL"),[this.acceptedCol.get(t),c]):(this.acceptedCol.has(t)||this.acceptedCol.set(t,t),[this.acceptedCol.
+get(t),c])}async getVernacular(t){let i=new Map,s=`SELECT DISTINCT ?n WHERE { <${t}> <http://rs.tdwg.org/dwc/terms/verna\
+cularName> ?n . }`,l=(await this.sparqlEndpoint.getSparqlResultSet(s,{signal:this.controller.signal},`Vernacular ${t}`)).
+results.bindings;for(let c of l)c.n?.value&&(c.n["xml:lang"]?i.has(c.n["xml:lang"])?i.get(c.n["xml:lang"]).push(c.n.value):
+i.set(c.n["xml:lang"],[c.n.value]):i.has("??")?i.get("??").push(c.n.value):i.set("??",[c.n.value]));return i}makeTreatmentSet(t){
+return t?new Set(t.filter(i=>!!i).map(i=>{let[s,l]=i.split(">");if(!this.treatments.has(s)){let c=this.getTreatmentDetails(
+s);this.treatments.set(s,{url:s,date:l?parseInt(l,10):void 0,details:c})}return this.treatments.get(s)})):new Set}async getTreatmentDetails(t){
+let i=`
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
@@ -425,15 +363,15 @@ WHERE {
   }
 }
 GROUP BY ?date ?title ?mc`;if(this.controller.signal.aborted)return{materialCitations:[],figureCitations:[],treats:{def:new Set,
-aug:new Set,dpr:new Set,citetc:new Set,treattn:new Set,citetn:new Set}};try{let i=await this.sparqlEndpoint.getSparqlResultSet(
-s,{signal:this.controller.signal},`TreatmentDetails ${t}`),d=i.results.bindings.filter(a=>a.mc&&a.catalogNumbers?.value).
-map(a=>{let h=a.httpUris?.value?.split("|");return{catalogNumber:a.catalogNumbers.value,collectionCode:a.collectionCodes?.
+aug:new Set,dpr:new Set,citetc:new Set,treattn:new Set,citetn:new Set}};try{let s=await this.sparqlEndpoint.getSparqlResultSet(
+i,{signal:this.controller.signal},`TreatmentDetails ${t}`),l=s.results.bindings.filter(a=>a.mc&&a.catalogNumbers?.value).
+map(a=>{let m=a.httpUris?.value?.split("|");return{catalogNumber:a.catalogNumbers.value,collectionCode:a.collectionCodes?.
 value||void 0,typeStatus:a.typeStatuss?.value||void 0,countryCode:a.countryCodes?.value||void 0,stateProvince:a.stateProvinces?.
 value||void 0,municipality:a.municipalitys?.value||void 0,county:a.countys?.value||void 0,locality:a.localitys?.value||void 0,
 verbatimLocality:a.verbatimLocalitys?.value||void 0,recordedBy:a.recordedBys?.value||void 0,eventDate:a.eventDates?.value||
 void 0,samplingProtocol:a.samplingProtocols?.value||void 0,decimalLatitude:a.decimalLatitudes?.value||void 0,decimalLongitude:a.
 decimalLongitudes?.value||void 0,verbatimElevation:a.verbatimElevations?.value||void 0,gbifOccurrenceId:a.gbifOccurrenceIds?.
-value||void 0,gbifSpecimenId:a.gbifSpecimenIds?.value||void 0,httpUri:h?.length?h:void 0}}),c=`
+value||void 0,gbifSpecimenId:a.gbifSpecimenIds?.value||void 0,httpUri:m?.length?m:void 0}}),c=`
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX fabio: <http://purl.org/spar/fabio/>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -442,112 +380,133 @@ SELECT DISTINCT ?url ?description WHERE {
   ?cites a fabio:Figure ;
   fabio:hasRepresentation ?url .
   OPTIONAL { ?cites dc:description ?description . }
-} `,l=(await this.sparqlEndpoint.getSparqlResultSet(c,{signal:this.controller.signal},`TreatmentDetails/Figures ${t}`)).
-results.bindings.filter(a=>a.url?.value).map(a=>({url:a.url.value,description:a.description?.value}));return{creators:i.
-results.bindings[0]?.creators?.value,title:i.results.bindings[0]?.title?.value,materialCitations:d,figureCitations:l,treats:{
-def:new Set(i.results.bindings[0]?.defs?.value?i.results.bindings[0].defs.value.split("|"):void 0),aug:new Set(i.results.
-bindings[0]?.augs?.value?i.results.bindings[0].augs.value.split("|"):void 0),dpr:new Set(i.results.bindings[0]?.dprs?.value?
-i.results.bindings[0].dprs.value.split("|"):void 0),citetc:new Set(i.results.bindings[0]?.cites?.value?i.results.bindings[0].
-cites.value.split("|"):void 0),treattn:new Set(i.results.bindings[0]?.trttns?.value?i.results.bindings[0].trttns.value.split(
-"|"):void 0),citetn:new Set(i.results.bindings[0]?.citetns?.value?i.results.bindings[0].citetns.value.split("|"):void 0)}}}catch(i){
-return console.warn("SPARQL Error: "+i),{materialCitations:[],figureCitations:[],treats:{def:new Set,aug:new Set,dpr:new Set,
-citetc:new Set,treattn:new Set,citetn:new Set}}}}[Symbol.asyncIterator](){let t=0;return{next:()=>new Promise((s,i)=>{let d=()=>{
-if(this.controller.signal.aborted)i(new Error("SynyonymGroup has been aborted"));else if(t<this.names.length)s({value:this.
-names[t++]});else if(this.isFinished)s({done:!0,value:!0});else{let c=()=>{this.monitor.removeEventListener("updated",c),
-d()};this.monitor.addEventListener("updated",c)}};d()})}}};function R(T){let t=new Set(T);return Array.from(t)}var w=new URLSearchParams(document.location.search),_=!w.has("show_col"),k=w.has("subtaxa"),z=w.has("sort_treatments_by_\
-type"),U=w.get("server")||"https://treatment.ld.plazi.org/sparql",D=w.get("q")||"https://www.catalogueoflife.org/data/ta\
-xon/3WD9M",x=document.getElementById("root");var m={def:'<svg class="green" viewBox="0 0 24 24"><path fill="currentcolor" d="M17,13H13V17H11V13H7V11H11V7H13V11H17M12\
-,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>',aug:'<svg class="blue" viewBox="0 0 \
-24 24"><path fill="currentcolor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg\
->',dpr:'<svg class="red" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 \
-12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L\
-17,15.59L13.41,12L17,8.41L15.59,7Z"/></svg>',cite:'<svg class="gray" viewBox="0 0 24 24"><path fill="currentcolor" d="M1\
-2,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>',unknown:'<svg class="gray" viewBox=\
-"0 0 24 24"><path fill="currentcolor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2\
-v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-\
-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>',link:'<svg class="gray" viewBox="0 0 24 \
-24"><path fill="currentColor" d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3\
-.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>',east:'<svg class="gray" viewBox="0 0 24 24"><path fill="currentCol\
-or" d="M15,5l-1.41,1.41L18.17,11H2V13h16.17l-4.59,4.59L15,19l7-7L15,5z"/></svg>',west:'<svg class="gray" viewBox="0 0 24\
- 24"><path fill="currentColor" d="M9,19l1.41-1.41L5.83,13H22V11H5.83l4.59-4.59L9,5l-7,7L9,19z"/></svg>',line:'<svg class\
-="gray" viewBox="0 0 24 24"><rect fill="currentColor" height="2" width="16" x="4" y="11"/></svg>',empty:'<svg viewBox="0\
- 0 24 24"></svg>'},L=document.createElement("div");x.insertAdjacentElement("beforebegin",L);L.append(`Finding Synonyms f\
-or ${D} `);var B=document.createElement("progress");L.append(B);var M=performance.now(),H=new A(U),I=new v(H,D,_,k),E=class extends HTMLElement{constructor(t,s){
-super(),s==="full"?this.classList.add("expanded"):(this.innerHTML=m[s]??m.unknown,this.addEventListener("click",()=>{this.
-classList.toggle("expanded")}));let i=document.createElement("span");t.date?i.innerText=""+t.date:(i.classList.add("miss\
-ing"),i.innerText="No Date"),this.append(i);let d=document.createElement("progress");this.append(": ",d);let c=document.
-createElement("a");c.classList.add("treatment","uri"),c.href=t.url,c.target="_blank",c.innerText=t.url.replace("http://t\
-reatment.plazi.org/id/",""),c.innerHTML+=m.link,this.append(" ",c);let p=document.createElement("div");p.classList.add("\
-indent","details"),this.append(p),t.details.then(l=>{let a=document.createElement("span"),h=document.createElement("i");
-if(d.replaceWith(a," ",h),l.creators?a.innerText=l.creators:(a.classList.add("missing"),a.innerText="No Authors"),l.title?
-h.innerText="\u201C"+l.title+"\u201D":(h.classList.add("missing"),h.innerText="No Title"),l.treats.def.size>0){let o=document.
-createElement("div");o.innerHTML=m.east,o.innerHTML+=m.def,(s==="def"||s==="cite")&&o.classList.add("hidden"),p.append(o),
-l.treats.def.forEach(u=>{let n=document.createElement("a");n.classList.add("taxon","uri");let e=u.replace("http://taxon-\
-concept.plazi.org/id/","");n.innerText=e,n.href="#"+e,n.title="show name",o.append(" ",n),I.findName(u).then(r=>{n.classList.
-remove("uri"),r.authority?n.innerText=r.displayName+" "+r.authority:n.innerText=r.displayName},()=>{n.removeAttribute("h\
-ref")})})}if(l.treats.aug.size>0||l.treats.treattn.size>0){let o=document.createElement("div");o.innerHTML=m.east,o.innerHTML+=
-m.aug,(s==="aug"||s==="cite")&&o.classList.add("hidden"),p.append(o),l.treats.aug.forEach(u=>{let n=document.createElement(
-"a");n.classList.add("taxon","uri");let e=u.replace("http://taxon-concept.plazi.org/id/","");n.innerText=e,n.href="#"+e,
-n.title="show name",o.append(" ",n),I.findName(u).then(r=>{n.classList.remove("uri"),r.authority?n.innerText=r.displayName+
-" "+r.authority:n.innerText=r.displayName},()=>{n.removeAttribute("href")})}),l.treats.treattn.forEach(u=>{let n=document.
-createElement("a");n.classList.add("taxon","uri");let e=u.replace("http://taxon-name.plazi.org/id/","");n.innerText=e,n.
-href="#"+e,n.title="show name",o.append(" ",n),I.findName(u).then(r=>{n.classList.remove("uri"),r.authority?n.innerText=
-r.displayName+" "+r.authority:n.innerText=r.displayName},()=>{n.removeAttribute("href")})})}if(l.treats.dpr.size>0){let o=document.
-createElement("div");o.innerHTML=m.west,o.innerHTML+=m.dpr,(s==="dpr"||s==="cite")&&o.classList.add("hidden"),p.append(o),
-l.treats.dpr.forEach(u=>{let n=document.createElement("a");n.classList.add("taxon","uri");let e=u.replace("http://taxon-\
-concept.plazi.org/id/","");n.innerText=e,n.href="#"+e,n.title="show name",o.append(" ",n),I.findName(u).then(r=>{n.classList.
-remove("uri"),r.authority?n.innerText=r.displayName+" "+r.authority:n.innerText=r.displayName},()=>{n.removeAttribute("h\
-ref")})})}if(l.treats.citetc.size>0||l.treats.citetn.size>0){let o=document.createElement("div");o.innerHTML=m.empty+m.cite,
-o.classList.add("hidden"),p.append(o),l.treats.citetc.forEach(u=>{let n=document.createElement("a");n.classList.add("tax\
-on","uri");let e=u.replace("http://taxon-concept.plazi.org/id/","");n.innerText=e,n.href="#"+e,n.title="show name",o.append(
-" ",n),I.findName(u).then(r=>{n.classList.remove("uri"),r.authority?n.innerText=r.displayName+" "+r.authority:n.innerText=
-r.displayName},()=>{n.removeAttribute("href")})}),l.treats.citetn.forEach(u=>{let n=document.createElement("a");n.classList.
-add("taxon","uri");let e=u.replace("http://taxon-name.plazi.org/id/","");n.innerText=e,n.href="#"+e,n.title="show name",
-o.append(" ",n),I.findName(u).then(r=>{n.classList.remove("uri"),r.authority?n.innerText=r.displayName+" "+r.authority:n.
-innerText=r.displayName},()=>{n.removeAttribute("href")})})}if(l.materialCitations.length>0){let o=document.createElement(
-"div");o.innerHTML=m.empty+m.cite+" Material Citations:<br>",o.classList.add("hidden"),p.append(o),o.innerText+=l.materialCitations.
-map(u=>JSON.stringify(u)).join(`
-`)}if(l.figureCitations.length>0){let o=document.createElement("div");o.innerHTML=m.empty+m.cite+" Figures:<br>",o.classList.
-add("hidden"),p.append(o),o.innerText+=l.figureCitations.map(u=>JSON.stringify(u)).join(`
-`)}})}};customElements.define("syno-treatment",E);var y=class extends HTMLElement{constructor(t){super();let s=document.
-createElement("h2"),i=document.createElement("i");i.innerText=t.displayName,s.append(i),this.append(s);let d=document.createElement(
-"span");if(d.classList.add("rank"),d.innerText=t.rank,s.append(" ",d),t.taxonNameURI){let a=document.createElement("a");
-a.classList.add("taxon","uri");let h=t.taxonNameURI.replace("http://taxon-name.plazi.org/id/","");a.innerText=h,a.id=h,a.
-href=t.taxonNameURI,a.target="_blank",a.innerHTML+=m.link,s.append(" ",a)}let c=document.createElement("div");c.classList.
-add("vernacular"),t.vernacularNames.then(a=>{a.size>0&&(c.innerText="\u201C"+R([...a.values()].flat()).join("\u201D, \u201C")+
-"\u201D")}),this.append(c);let p=document.createElement("ul");if(this.append(p),t.colURI){let a=document.createElement("\
-a");a.classList.add("col","uri");let h=t.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");a.innerText=h,
-a.id=h,a.href=t.colURI,a.target="_blank",a.innerHTML+=m.link,s.append(" ",a);let o=document.createElement("div");o.classList.
-add("treatmentline"),o.innerHTML=t.acceptedColURI!==t.colURI?m.dpr:m.aug,p.append(o);let u=document.createElement("span");
-u.innerText="Catalogue of Life",o.append(u);let n=document.createElement("div");if(n.classList.add("indent"),o.append(n),
-t.acceptedColURI!==t.colURI){let e=document.createElement("div");e.innerHTML=m.east+m.aug,n.append(e);let r=document.createElement(
-"a");r.classList.add("col","uri");let g=t.acceptedColURI.replace("https://www.catalogueoflife.org/data/taxon/","");r.innerText=
-g,r.href=`#${g}`,r.title="show name",e.append(r),I.findName(t.acceptedColURI).then(N=>{N.authority?r.innerText=N.displayName+
-" "+N.authority:r.innerText=N.displayName},()=>{r.removeAttribute("href")})}}if(t.treatments.treats.size>0||t.treatments.
-cite.size>0){for(let a of t.treatments.treats){let h=new E(a,"aug");p.append(h)}for(let a of t.treatments.cite){let h=new E(
-a,"cite");p.append(h)}}let l=document.createElement("abbr");l.classList.add("justification"),l.innerText="...?",P(t).then(
-a=>l.title=`This ${a}`),s.append(" ",l);for(let a of t.authorizedNames){let h=document.createElement("h3"),o=document.createElement(
-"i");o.innerText=a.displayName,o.classList.add("gray"),h.append(o),h.append(" ",a.authority),this.append(h);let u=document.
-createElement("ul");if(this.append(u),a.taxonConceptURI){let e=document.createElement("a");e.classList.add("taxon","uri");
-let r=a.taxonConceptURI.replace("http://taxon-concept.plazi.org/id/","");e.innerText=r,e.id=r,e.href=a.taxonConceptURI,e.
-target="_blank",e.innerHTML+=m.link,h.append(" ",e)}if(a.colURI){let e=document.createElement("a");e.classList.add("col",
-"uri");let r=a.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");e.innerText=r,e.id=r,e.href=a.colURI,e.target=
-"_blank",e.innerHTML+=m.link,h.append(" ",e);let g=document.createElement("div");g.classList.add("treatmentline"),g.innerHTML=
-a.acceptedColURI!==a.colURI?m.dpr:m.aug,u.append(g);let N=document.createElement("span");N.innerText="Catalogue of Life",
-g.append(N);let C=document.createElement("div");if(C.classList.add("indent"),g.append(C),a.acceptedColURI!==a.colURI){let S=document.
-createElement("div");S.innerHTML=m.east+m.aug,C.append(S);let f=document.createElement("a");f.classList.add("col","uri");
-let b=a.acceptedColURI.replace("https://www.catalogueoflife.org/data/taxon/","");f.innerText=b,f.href=`#${b}`,f.title="s\
-how name",S.append(" ",f),I.findName(a.acceptedColURI).then(O=>{f.classList.remove("uri"),O.authority?f.innerText=O.displayName+
-" "+O.authority:f.innerText=O.displayName},()=>{f.removeAttribute("href")})}}let n=[];for(let e of a.treatments.def)n.push(
-{trt:e,status:"def"});for(let e of a.treatments.aug)n.push({trt:e,status:"aug"});for(let e of a.treatments.dpr)n.push({trt:e,
-status:"dpr"});for(let e of a.treatments.cite)n.push({trt:e,status:"cite"});z||n.sort((e,r)=>e.trt.date&&r.trt.date?e.trt.
-date-r.trt.date:e.trt.date?1:r.trt.date?-1:0);for(let{trt:e,status:r}of n){let g=new E(e,r);u.append(g)}}}};customElements.
-define("syno-name",y);async function P(T){if(T.justification.searchTerm)return T.justification.subTaxon?"is a sub-taxon \
-of the search term.":"is the search term.";if(T.justification.treatment){let t=await T.justification.treatment.details,s=await P(
-T.justification.parent);return`is, according to ${t.creators} ${T.justification.treatment.date},
-     a synonym of ${T.justification.parent.displayName} which ${s}`}else{let t=await P(T.justification.parent);return`is\
+} `,u=(await this.sparqlEndpoint.getSparqlResultSet(c,{signal:this.controller.signal},`TreatmentDetails/Figures ${t}`)).
+results.bindings.filter(a=>a.url?.value).map(a=>({url:a.url.value,description:a.description?.value}));return{creators:s.
+results.bindings[0]?.creators?.value,title:s.results.bindings[0]?.title?.value,materialCitations:l,figureCitations:u,treats:{
+def:new Set(s.results.bindings[0]?.defs?.value?s.results.bindings[0].defs.value.split("|"):void 0),aug:new Set(s.results.
+bindings[0]?.augs?.value?s.results.bindings[0].augs.value.split("|"):void 0),dpr:new Set(s.results.bindings[0]?.dprs?.value?
+s.results.bindings[0].dprs.value.split("|"):void 0),citetc:new Set(s.results.bindings[0]?.cites?.value?s.results.bindings[0].
+cites.value.split("|"):void 0),treattn:new Set(s.results.bindings[0]?.trttns?.value?s.results.bindings[0].trttns.value.split(
+"|"):void 0),citetn:new Set(s.results.bindings[0]?.citetns?.value?s.results.bindings[0].citetns.value.split("|"):void 0)}}}catch(s){
+return console.warn("SPARQL Error: "+s),{materialCitations:[],figureCitations:[],treats:{def:new Set,aug:new Set,dpr:new Set,
+citetc:new Set,treattn:new Set,citetn:new Set}}}}[Symbol.asyncIterator](){let t=0;return{next:()=>new Promise((i,s)=>{let l=()=>{
+if(this.controller.signal.aborted)s(new Error("SynyonymGroup has been aborted"));else if(t<this.names.length)i({value:this.
+names[t++]});else if(this.isFinished)i({done:!0,value:!0});else{let c=()=>{this.monitor.removeEventListener("updated",c),
+l()};this.monitor.addEventListener("updated",c)}};l()})}}};function F(h){let t=new Set(h);return Array.from(t)}var E=new URLSearchParams(document.location.search),M=!E.has("show_col"),$=E.has("subtaxa"),H=E.has("sort_treatments_by_\
+type"),Q=E.get("server")||"https://treatment.ld.plazi.org/sparql",z=E.get("q")||"https://www.catalogueoflife.org/data/ta\
+xon/3WD9M",D=document.getElementById("root");var g={def:'<svg class="green" viewBox="0 -960 960 960"><path fill="currentcolor" d="M444-288h72v-156h156v-72H516v-156h-\
+72v156H288v72h156v156Zm36.28 192Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-1\
+22T330.96-834q69.96-30 149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-15\
+6 629.28-126q-69.73 30-149 30Z"/></svg>',aug:'<svg class="blue" viewBox="0 -960 960 960"><path fill="currentcolor" d="M4\
+80.28-96Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-122T330.96-834q69.96-30 1\
+49.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-156 629.28-126q-69.73 30-1\
+49 30Z"/></svg>',dpr:'<svg class="red" viewBox="0 -960 960 960"><path fill="currentcolor" d="m339-288 141-141 141 141 51\
+-51-141-141 141-141-51-51-141 141-141-141-51 51 141 141-141 141 51 51ZM480-96q-79 0-149-30t-122.5-82.5Q156-261 126-331T9\
+6-480q0-80 30-149.5t82.5-122Q261-804 331-834t149-30q80 0 149.5 30t122 82.5Q804-699 834-629.5T864-480q0 79-30 149t-82.5 1\
+22.5Q699-156 629.5-126T480-96Z"/></svg>',cite:'<svg class="gray" viewBox="0 -960 960 960"><path fill="currentcolor" d="M\
+480.28-96Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-122T330.96-834q69.96-30 \
+149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-156 629.28-126q-69.73 30-\
+149 30Zm-.28-72q130 0 221-91t91-221q0-130-91-221t-221-91q-130 0-221 91t-91 221q0 130 91 221t221 91Zm0-312Z"/></svg>',unknown:'\
+<svg class="gray" viewBox="0 -960 960 960"><path fill="currentcolor" d="M480-240q20 0 34-14t14-34q0-20-14-34t-34-14q-20 \
+0-34 14t-14 34q0 20 14 34t34 14Zm-36-153h73q0-37 6.5-52.5T555-485q35-34 48.5-58t13.5-53q0-55-37.5-89.5T484-720q-51 0-88.\
+5 27T343-620l65 27q9-28 28.5-43.5T482-652q28 0 46 16t18 42q0 23-15.5 41T496-518q-35 32-43.5 52.5T444-393Zm36 297q-79 0-1\
+49-30t-122.5-82.5Q156-261 126-331T96-480q0-80 30-149.5t82.5-122Q261-804 331-834t149-30q80 0 149.5 30t122 82.5Q804-699 83\
+4-629.5T864-480q0 79-30 149t-82.5 122.5Q699-156 629.5-126T480-96Zm0-72q130 0 221-91t91-221q0-130-91-221t-221-91q-130 0-2\
+21 91t-91 221q0 130 91 221t221 91Zm0-312Z"/></svg>',col_aug:'<svg class="blue" viewBox="0 -960 960 960"><path fill="curr\
+entcolor" d="m429-336 238-237-51-51-187 186-85-84-51 51 136 135ZM216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29\
+.7 21.15-50.85Q186.3-816 216-816h528q29.7 0 50.85 21.15Q816-773.7 816-744v528q0 29.7-21.15 50.85Q773.7-144 744-144H216Z"\
+/></svg>',col_dpr:'<svg class="red" viewBox="0 -960 960 960"><path fill="currentcolor" d="m350-300 129.77-129.77L609.53-\
+300 660-350.47 530.23-480.23 660-610l-50-50-129.77 129.77L350.47-660 300-609.53l129.77 129.76L300-350l50 50ZM216-144q-29\
+.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h528q29.7 0 50.85 21.15Q816-773.7 816-744v52\
+8q0 29.7-21.15 50.85Q773.7-144 744-144H216Z"/></svg>',link:'<svg class="gray" viewBox="0 -960 960 960"><path fill="curre\
+ntColor" d="M216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h264v72H216v528h528v\
+-264h72v264q0 29.7-21.15 50.85Q773.7-144 744-144H216Zm171-192-51-51 357-357H576v-72h240v240h-72v-117L387-336Z"/></svg>',
+expand:'<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M240-240v-240h72v168h168v72H240Zm408-240\
+v-168H480v-72h240v240h-72Z"/></svg>',collapse:'<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M\
+432-432v240h-72v-168H192v-72h240Zm168-336v168h168v72H528v-240h72Z"/></svg>',east:'<svg class="gray" viewBox="0 -960 960 \
+960"><path fill="currentColor" d="m600-216-51-51 177-177H96v-72h630L549-693l51-51 264 264-264 264Z"/></svg>',west:'<svg \
+class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M360-216 96-480l264-264 51 51-177 177h630v72H234l177 \
+177-51 51Z"/></svg>',empty:'<svg viewBox="0 -960 960 960"></svg>'},L=document.createElement("div");D.insertAdjacentElement(
+"beforebegin",L);L.append(`Finding Synonyms for ${z} `);var X=document.createElement("progress");L.append(X);var Z=performance.
+now(),W=new A(Q),I=new O(W,z,M,$),C=class extends HTMLElement{constructor(t,i){super(),this.innerHTML=g[i]??g.unknown;let s=document.
+createElement("button");s.classList.add("icon","button"),s.innerHTML=g.expand,s.addEventListener("click",()=>{this.classList.
+toggle("expanded")?s.innerHTML=g.collapse:s.innerHTML=g.expand});let l=document.createElement("span");t.date?l.innerText=
+""+t.date:(l.classList.add("missing"),l.innerText="No Date"),this.append(l);let c=document.createElement("progress");this.
+append(": ",c);let d=document.createElement("a");d.classList.add("treatment","uri"),d.href=t.url,d.target="_blank",d.innerText=
+t.url.replace("http://treatment.plazi.org/id/",""),d.innerHTML+=g.link,this.append(" ",d),this.append(s);let u=document.
+createElement("div");u.classList.add("indent","details"),this.append(u),t.details.then(a=>{let m=document.createElement(
+"span"),T=document.createElement("i");if(c.replaceWith(m," ",T),a.creators?m.innerText=a.creators:(m.classList.add("miss\
+ing"),m.innerText="No Authors"),a.title?T.innerText="\u201C"+a.title+"\u201D":(T.classList.add("missing"),T.innerText="N\
+o Title"),a.treats.def.size>0){let o=document.createElement("div");o.innerHTML=g.east,o.innerHTML+=g.def,(i==="def"||i===
+"cite")&&o.classList.add("hidden"),u.append(o),a.treats.def.forEach(p=>{let e=document.createElement("a");e.classList.add(
+"taxon","uri");let n=p.replace("http://taxon-concept.plazi.org/id/","");e.innerText=n,e.href="#"+n,e.title="show name",o.
+append(" ",e),I.findName(p).then(r=>{e.classList.remove("uri"),r.authority?e.innerText=r.displayName+" "+r.authority:e.innerText=
+r.displayName},()=>{e.removeAttribute("href")})})}if(a.treats.aug.size>0||a.treats.treattn.size>0){let o=document.createElement(
+"div");o.innerHTML=g.east,o.innerHTML+=g.aug,(i==="aug"||i==="cite")&&o.classList.add("hidden"),u.append(o),a.treats.aug.
+forEach(p=>{let e=document.createElement("a");e.classList.add("taxon","uri");let n=p.replace("http://taxon-concept.plazi\
+.org/id/","");e.innerText=n,e.href="#"+n,e.title="show name",o.append(" ",e),I.findName(p).then(r=>{e.classList.remove("\
+uri"),r.authority?e.innerText=r.displayName+" "+r.authority:e.innerText=r.displayName},()=>{e.removeAttribute("href")})}),
+a.treats.treattn.forEach(p=>{let e=document.createElement("a");e.classList.add("taxon","uri");let n=p.replace("http://ta\
+xon-name.plazi.org/id/","");e.innerText=n,e.href="#"+n,e.title="show name",o.append(" ",e),I.findName(p).then(r=>{e.classList.
+remove("uri"),r.authority?e.innerText=r.displayName+" "+r.authority:e.innerText=r.displayName},()=>{e.removeAttribute("h\
+ref")})})}if(a.treats.dpr.size>0){let o=document.createElement("div");o.innerHTML=g.west,o.innerHTML+=g.dpr,(i==="dpr"||
+i==="cite")&&o.classList.add("hidden"),u.append(o),a.treats.dpr.forEach(p=>{let e=document.createElement("a");e.classList.
+add("taxon","uri");let n=p.replace("http://taxon-concept.plazi.org/id/","");e.innerText=n,e.href="#"+n,e.title="show nam\
+e",o.append(" ",e),I.findName(p).then(r=>{e.classList.remove("uri"),r.authority?e.innerText=r.displayName+" "+r.authority:
+e.innerText=r.displayName},()=>{e.removeAttribute("href")})})}if(a.treats.citetc.size>0||a.treats.citetn.size>0){let o=document.
+createElement("div");o.innerHTML=g.empty+g.cite,o.classList.add("hidden"),u.append(o),a.treats.citetc.forEach(p=>{let e=document.
+createElement("a");e.classList.add("taxon","uri");let n=p.replace("http://taxon-concept.plazi.org/id/","");e.innerText=n,
+e.href="#"+n,e.title="show name",o.append(" ",e),I.findName(p).then(r=>{e.classList.remove("uri"),r.authority?e.innerText=
+r.displayName+" "+r.authority:e.innerText=r.displayName},()=>{e.removeAttribute("href")})}),a.treats.citetn.forEach(p=>{
+let e=document.createElement("a");e.classList.add("taxon","uri");let n=p.replace("http://taxon-name.plazi.org/id/","");e.
+innerText=n,e.href="#"+n,e.title="show name",o.append(" ",e),I.findName(p).then(r=>{e.classList.remove("uri"),r.authority?
+e.innerText=r.displayName+" "+r.authority:e.innerText=r.displayName},()=>{e.removeAttribute("href")})})}if(a.figureCitations.
+length>0){let o=document.createElement("div");o.classList.add("figures","hidden"),u.append(o);for(let p of a.figureCitations){
+let e=document.createElement("figure");o.append(e);let n=document.createElement("img");n.src=p.url,n.loading="lazy",n.alt=
+p.description??"Cited Figure without caption",e.append(n);let r=document.createElement("figcaption");r.innerText=p.description??
+"",e.append(r)}}if(a.materialCitations.length>0){let o=document.createElement("div");o.innerHTML=g.empty+g.cite+" Materi\
+al Citations:<br> -",o.classList.add("hidden"),u.append(o),o.innerText+=a.materialCitations.map(p=>JSON.stringify(p).replaceAll(
+"{","").replaceAll("}","").replaceAll('":',": ").replaceAll(",",", ").replaceAll('"',"")).join(`
+ -`)}})}};customElements.define("syno-treatment",C);var b=class extends HTMLElement{constructor(t){super();let i=document.
+createElement("h2"),s=document.createElement("i");s.innerText=t.displayName,i.append(s),this.append(i);let l=document.createElement(
+"span");if(l.classList.add("rank"),l.innerText=t.rank,i.append(" ",l),t.taxonNameURI){let a=document.createElement("a");
+a.classList.add("taxon","uri");let m=t.taxonNameURI.replace("http://taxon-name.plazi.org/id/","");a.innerText=m,a.id=m,a.
+href=t.taxonNameURI,a.target="_blank",a.innerHTML+=g.link,i.append(" ",a)}let c=document.createElement("div");c.classList.
+add("vernacular"),t.vernacularNames.then(a=>{a.size>0&&(c.innerText="\u201C"+F([...a.values()].flat()).join("\u201D, \u201C")+
+"\u201D")}),this.append(c);let d=document.createElement("ul");if(this.append(d),t.colURI){let a=document.createElement("\
+a");a.classList.add("col","uri");let m=t.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");a.innerText=m,
+a.id=m,a.href=t.colURI,a.target="_blank",a.innerHTML+=g.link,i.append(" ",a);let T=document.createElement("div");T.classList.
+add("treatmentline"),T.innerHTML=t.acceptedColURI!==t.colURI?g.col_dpr:g.col_aug,d.append(T);let o=document.createElement(
+"span");o.innerText="Catalogue of Life",T.append(o);let p=document.createElement("div");if(p.classList.add("indent"),T.append(
+p),t.acceptedColURI!==t.colURI){let e=document.createElement("div");e.innerHTML=g.east+g.col_aug,p.append(e);let n=document.
+createElement("a");n.classList.add("col","uri");let r=t.acceptedColURI.replace("https://www.catalogueoflife.org/data/tax\
+on/","");n.innerText=r,n.href=`#${r}`,n.title="show name",e.append(n),I.findName(t.acceptedColURI).then(f=>{f.authority?
+n.innerText=f.displayName+" "+f.authority:n.innerText=f.displayName},()=>{n.removeAttribute("href")})}}if(t.treatments.treats.
+size>0||t.treatments.cite.size>0){for(let a of t.treatments.treats){let m=new C(a,"aug");d.append(m)}for(let a of t.treatments.
+cite){let m=new C(a,"cite");d.append(m)}}let u=document.createElement("abbr");u.classList.add("justification"),u.innerText=
+"...?",R(t).then(a=>u.title=`This ${a}`),i.append(" ",u);for(let a of t.authorizedNames){let m=document.createElement("h\
+3"),T=document.createElement("i");T.innerText=a.displayName,T.classList.add("gray"),m.append(T),m.append(" ",a.authority),
+this.append(m);let o=document.createElement("ul");if(this.append(o),a.taxonConceptURI){let e=document.createElement("a");
+e.classList.add("taxon","uri");let n=a.taxonConceptURI.replace("http://taxon-concept.plazi.org/id/","");e.innerText=n,e.
+id=n,e.href=a.taxonConceptURI,e.target="_blank",e.innerHTML+=g.link,m.append(" ",e)}if(a.colURI){let e=document.createElement(
+"a");e.classList.add("col","uri");let n=a.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");e.innerText=n,
+e.id=n,e.href=a.colURI,e.target="_blank",e.innerHTML+=g.link,m.append(" ",e);let r=document.createElement("div");r.classList.
+add("treatmentline"),r.innerHTML=a.acceptedColURI!==a.colURI?g.col_dpr:g.col_aug,o.append(r);let f=document.createElement(
+"span");f.innerText="Catalogue of Life",r.append(f);let S=document.createElement("div");if(S.classList.add("indent"),r.append(
+S),a.acceptedColURI!==a.colURI){let w=document.createElement("div");w.innerHTML=g.east+g.col_aug,S.append(w);let N=document.
+createElement("a");N.classList.add("col","uri");let v=a.acceptedColURI.replace("https://www.catalogueoflife.org/data/tax\
+on/","");N.innerText=v,N.href=`#${v}`,N.title="show name",w.append(" ",N),I.findName(a.acceptedColURI).then(y=>{N.classList.
+remove("uri"),y.authority?N.innerText=y.displayName+" "+y.authority:N.innerText=y.displayName},()=>{N.removeAttribute("h\
+ref")})}}let p=[];for(let e of a.treatments.def)p.push({trt:e,status:"def"});for(let e of a.treatments.aug)p.push({trt:e,
+status:"aug"});for(let e of a.treatments.dpr)p.push({trt:e,status:"dpr"});for(let e of a.treatments.cite)p.push({trt:e,status:"\
+cite"});H||p.sort((e,n)=>e.trt.date&&n.trt.date?e.trt.date-n.trt.date:e.trt.date?1:n.trt.date?-1:0);for(let{trt:e,status:n}of p){
+let r=new C(e,n);o.append(r)}}}};customElements.define("syno-name",b);async function R(h){if(h.justification.searchTerm)
+return h.justification.subTaxon?"is a sub-taxon of the search term.":"is the search term.";if(h.justification.treatment){
+let t=await h.justification.treatment.details,i=await R(h.justification.parent);return`is, according to ${t.creators} ${h.
+justification.treatment.date},
+     a synonym of ${h.justification.parent.displayName} which ${i}`}else{let t=await R(h.justification.parent);return`is\
 , according to the Catalogue of Life,
-     a synonym of ${T.justification.parent.displayName} which ${t}`}}for await(let T of I){let t=new y(T);x.append(t)}var q=performance.
-now();L.innerHTML="";L.innerText=`Found ${I.names.length} names with ${I.treatments.size} treatments. This took ${(q-M)/
-1e3} seconds.`;I.names.length===0&&x.append(":[");
+     a synonym of ${h.justification.parent.displayName} which ${t}`}}for await(let h of I){let t=new b(h);D.append(t)}var J=performance.
+now();L.innerHTML="";L.innerText=`Found ${I.names.length} names with ${I.treatments.size} treatments. This took ${(J-Z)/
+1e3} seconds.`;I.names.length===0&&D.append(":[");
 //# sourceMappingURL=index.js.map

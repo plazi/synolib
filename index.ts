@@ -24,30 +24,38 @@ enum SynoStatus {
   Aug = "aug",
   Dpr = "dpr",
   Cite = "cite",
-  Full = "full",
 }
 
 const icons = {
   def:
-    `<svg class="green" viewBox="0 0 24 24"><path fill="currentcolor" d="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+    `<svg class="green" viewBox="0 -960 960 960"><path fill="currentcolor" d="M444-288h72v-156h156v-72H516v-156h-72v156H288v72h156v156Zm36.28 192Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-122T330.96-834q69.96-30 149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-156 629.28-126q-69.73 30-149 30Z"/></svg>`,
   aug:
-    `<svg class="blue" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+    `<svg class="blue" viewBox="0 -960 960 960"><path fill="currentcolor" d="M480.28-96Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-122T330.96-834q69.96-30 149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-156 629.28-126q-69.73 30-149 30Z"/></svg>`,
   dpr:
-    `<svg class="red" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z"/></svg>`,
+    `<svg class="red" viewBox="0 -960 960 960"><path fill="currentcolor" d="m339-288 141-141 141 141 51-51-141-141 141-141-51-51-141 141-141-141-51 51 141 141-141 141 51 51ZM480-96q-79 0-149-30t-122.5-82.5Q156-261 126-331T96-480q0-80 30-149.5t82.5-122Q261-804 331-834t149-30q80 0 149.5 30t122 82.5Q804-699 834-629.5T864-480q0 79-30 149t-82.5 122.5Q699-156 629.5-126T480-96Z"/></svg>`,
   cite:
-    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentcolor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>`,
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentcolor" d="M480.28-96Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-122T330.96-834q69.96-30 149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-156 629.28-126q-69.73 30-149 30Zm-.28-72q130 0 221-91t91-221q0-130-91-221t-221-91q-130 0-221 91t-91 221q0 130 91 221t221 91Zm0-312Z"/></svg>`,
   unknown:
-    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentcolor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>`,
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentcolor" d="M480-240q20 0 34-14t14-34q0-20-14-34t-34-14q-20 0-34 14t-14 34q0 20 14 34t34 14Zm-36-153h73q0-37 6.5-52.5T555-485q35-34 48.5-58t13.5-53q0-55-37.5-89.5T484-720q-51 0-88.5 27T343-620l65 27q9-28 28.5-43.5T482-652q28 0 46 16t18 42q0 23-15.5 41T496-518q-35 32-43.5 52.5T444-393Zm36 297q-79 0-149-30t-122.5-82.5Q156-261 126-331T96-480q0-80 30-149.5t82.5-122Q261-804 331-834t149-30q80 0 149.5 30t122 82.5Q804-699 834-629.5T864-480q0 79-30 149t-82.5 122.5Q699-156 629.5-126T480-96Zm0-72q130 0 221-91t91-221q0-130-91-221t-221-91q-130 0-221 91t-91 221q0 130 91 221t221 91Zm0-312Z"/></svg>`,
+
+  col_aug:
+    `<svg class="blue" viewBox="0 -960 960 960"><path fill="currentcolor" d="m429-336 238-237-51-51-187 186-85-84-51 51 136 135ZM216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h528q29.7 0 50.85 21.15Q816-773.7 816-744v528q0 29.7-21.15 50.85Q773.7-144 744-144H216Z"/></svg>`,
+  col_dpr:
+    `<svg class="red" viewBox="0 -960 960 960"><path fill="currentcolor" d="m350-300 129.77-129.77L609.53-300 660-350.47 530.23-480.23 660-610l-50-50-129.77 129.77L350.47-660 300-609.53l129.77 129.76L300-350l50 50ZM216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h528q29.7 0 50.85 21.15Q816-773.7 816-744v528q0 29.7-21.15 50.85Q773.7-144 744-144H216Z"/></svg>`,
 
   link:
-    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>`,
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h264v72H216v528h528v-264h72v264q0 29.7-21.15 50.85Q773.7-144 744-144H216Zm171-192-51-51 357-357H576v-72h240v240h-72v-117L387-336Z"/></svg>`,
+
+  expand:
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M240-240v-240h72v168h168v72H240Zm408-240v-168H480v-72h240v240h-72Z"/></svg>`,
+  collapse:
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M432-432v240h-72v-168H192v-72h240Zm168-336v168h168v72H528v-240h72Z"/></svg>`,
+
   east:
-    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M15,5l-1.41,1.41L18.17,11H2V13h16.17l-4.59,4.59L15,19l7-7L15,5z"/></svg>`,
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="m600-216-51-51 177-177H96v-72h630L549-693l51-51 264 264-264 264Z"/></svg>`,
   west:
-    `<svg class="gray" viewBox="0 0 24 24"><path fill="currentColor" d="M9,19l1.41-1.41L5.83,13H22V11H5.83l4.59-4.59L9,5l-7,7L9,19z"/></svg>`,
-  line:
-    `<svg class="gray" viewBox="0 0 24 24"><rect fill="currentColor" height="2" width="16" x="4" y="11"/></svg>`,
-  empty: `<svg viewBox="0 0 24 24"></svg>`,
+    `<svg class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M360-216 96-480l264-264 51 51-177 177h630v72H234l177 177-51 51Z"/></svg>`,
+  empty: `<svg viewBox="0 -960 960 960"></svg>`,
 };
 
 const indicator = document.createElement("div");
@@ -70,16 +78,18 @@ class SynoTreatment extends HTMLElement {
   constructor(trt: Treatment, status: SynoStatus) {
     super();
 
-    if (status === SynoStatus.Full) this.classList.add("expanded");
-    else {
-      this.innerHTML = icons[status] ?? icons.unknown;
-      this.addEventListener("click", () => {
-        // const expanded = new SynoTreatment(trt, SynoStatus.Full);
-        // this.prepend(expanded);
-        // expanded.addEventListener("click", () => expanded.remove());
-        this.classList.toggle("expanded");
-      });
-    }
+    this.innerHTML = icons[status] ?? icons.unknown;
+
+    const button = document.createElement("button");
+    button.classList.add("icon", "button");
+    button.innerHTML = icons.expand;
+    button.addEventListener("click", () => {
+      if (this.classList.toggle("expanded")) {
+        button.innerHTML = icons.collapse;
+      } else {
+        button.innerHTML = icons.expand;
+      }
+    });
 
     const date = document.createElement("span");
     if (trt.date) date.innerText = "" + trt.date;
@@ -99,6 +109,8 @@ class SynoTreatment extends HTMLElement {
     url.innerText = trt.url.replace("http://treatment.plazi.org/id/", "");
     url.innerHTML += icons.link;
     this.append(" ", url);
+
+    this.append(button);
 
     const names = document.createElement("div");
     names.classList.add("indent", "details");
@@ -271,22 +283,37 @@ class SynoTreatment extends HTMLElement {
           });
         });
       }
+      if (details.figureCitations.length > 0) {
+        const line = document.createElement("div");
+        line.classList.add("figures", "hidden");
+        names.append(line);
+        for (const figure of details.figureCitations) {
+          const el = document.createElement("figure");
+          line.append(el);
+          const img = document.createElement("img");
+          img.src = figure.url;
+          img.loading = "lazy";
+          img.alt = figure.description ?? "Cited Figure without caption";
+          el.append(img);
+          const caption = document.createElement("figcaption");
+          caption.innerText = figure.description ?? "";
+          el.append(caption);
+        }
+      }
       if (details.materialCitations.length > 0) {
         const line = document.createElement("div");
-        line.innerHTML = icons.empty + icons.cite + " Material Citations:<br>";
+        line.innerHTML = icons.empty + icons.cite +
+          " Material Citations:<br> -";
         line.classList.add("hidden");
         names.append(line);
         line.innerText += details.materialCitations.map((c) =>
           JSON.stringify(c)
-        ).join("\n");
-      }
-      if (details.figureCitations.length > 0) {
-        const line = document.createElement("div");
-        line.innerHTML = icons.empty + icons.cite + " Figures:<br>";
-        line.classList.add("hidden");
-        names.append(line);
-        line.innerText += details.figureCitations.map((c) => JSON.stringify(c))
-          .join("\n");
+            .replaceAll("{", "")
+            .replaceAll("}", "")
+            .replaceAll('":', ": ")
+            .replaceAll(",", ", ")
+            .replaceAll('"', "")
+        ).join("\n -");
       }
     });
   }
@@ -353,8 +380,8 @@ class SynoName extends HTMLElement {
       const li = document.createElement("div");
       li.classList.add("treatmentline");
       li.innerHTML = name.acceptedColURI !== name.colURI
-        ? icons.dpr
-        : icons.aug;
+        ? icons.col_dpr
+        : icons.col_aug;
       treatments.append(li);
 
       const creators = document.createElement("span");
@@ -367,7 +394,7 @@ class SynoName extends HTMLElement {
 
       if (name.acceptedColURI !== name.colURI) {
         const line = document.createElement("div");
-        line.innerHTML = icons.east + icons.aug;
+        line.innerHTML = icons.east + icons.col_aug;
         names.append(line);
 
         const col_uri = document.createElement("a");
@@ -450,8 +477,8 @@ class SynoName extends HTMLElement {
         const li = document.createElement("div");
         li.classList.add("treatmentline");
         li.innerHTML = authorizedName.acceptedColURI !== authorizedName.colURI
-          ? icons.dpr
-          : icons.aug;
+          ? icons.col_dpr
+          : icons.col_aug;
         treatments.append(li);
 
         const creators = document.createElement("span");
@@ -464,7 +491,7 @@ class SynoName extends HTMLElement {
 
         if (authorizedName.acceptedColURI !== authorizedName.colURI) {
           const line = document.createElement("div");
-          line.innerHTML = icons.east + icons.aug;
+          line.innerHTML = icons.east + icons.col_aug;
           names.append(line);
 
           const col_uri = document.createElement("a");
