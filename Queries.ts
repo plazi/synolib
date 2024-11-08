@@ -39,14 +39,17 @@ BIND(<${colUri}> as ?col)
   ?col dwc:scientificName ?name .
   ?col dwc:genericName ?genus .
   OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
-  BIND(COALESCE(?colkingdom, "") AS ?kingdom)
   OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
-  BIND(COALESCE(?colsubgenus, "") AS ?subgenus)
   OPTIONAL {
-    ?col dwc:specificEpithet ?species .
-    OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
+    ?col dwc:specificEpithet ?colspecies .
+    OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
   }
   OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
+
+  BIND(COALESCE(?colkingdom, "") AS ?kingdom)
+  BIND(COALESCE(?colsubgenus, "") AS ?subgenus)
+  BIND(COALESCE(?colspecies, "") AS ?species)
+  BIND(COALESCE(?colinfrasp, "") AS ?infrasp)
 
   OPTIONAL {
     ?tn dwc:rank ?trank ;
