@@ -114,10 +114,6 @@ syno-treatment,
     max-height: 0;
     overflow: hidden;
     transition: all 200ms;
-
-    & img {
-      display: none;
-    }
   }
 
   &.expanded {
@@ -131,10 +127,6 @@ syno-treatment,
     .hidden {
       max-height: 200rem;
       overflow: auto;
-
-      & img {
-        display: unset;
-      }
     }
   }
 }

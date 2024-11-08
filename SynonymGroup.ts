@@ -408,6 +408,7 @@ LIMIT 500`;
     treats.forEach((t) => treatmentPromises.push(t));
 
     const name: Name = {
+      kingdom: json.results.bindings[0].kingdom!.value,
       displayName,
       rank: json.results.bindings[0].rank!.value,
       taxonNameURI,
@@ -830,8 +831,10 @@ SELECT DISTINCT ?url ?description WHERE {
  * Each `Name` is uniquely determined by its human-readable latin name (for taxa ranking below genus, this is a multi-part name — binomial or trinomial) and kingdom.
  */
 export type Name = {
-  /** taxonomic kingdom */
-  // kingdom: string;
+  /** taxonomic kingdom
+   * 
+   * may be empty for some CoL-taxa with missing ancestors */
+  kingdom: string;
   /** Human-readable name */
   displayName: string;
   /** taxonomic rank */
