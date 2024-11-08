@@ -40,6 +40,8 @@ BIND(<${colUri}> as ?col)
   ?col dwc:genericName ?genus .
   OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
   BIND(COALESCE(?colkingdom, "") AS ?kingdom)
+  OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
+  BIND(COALESCE(?colsubgenus, "") AS ?subgenus)
   OPTIONAL {
     ?col dwc:specificEpithet ?species .
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
@@ -52,7 +54,9 @@ BIND(<${colUri}> as ?col)
     FILTER(LCASE(?rank) = LCASE(?trank))
     ?tn dwc:kingdom ?kingdom .
     ?tn dwc:genus ?genus .
-    
+
+    OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
+    FILTER(?subgenus = COALESCE(?tnsubgenus, ""))
     OPTIONAL { ?tn dwc:species ?tnspecies . }
     FILTER(?species = COALESCE(?tnspecies, ""))
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -108,13 +112,14 @@ export const getNameFromTC = (tcUri: string) =>
   ?tn dwc:rank ?tnrank .
   ?tn dwc:kingdom ?kingdom .
   ?tn dwc:genus ?genus .
-  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
   }
   
   BIND(LCASE(?tnrank) AS ?rank)
+  BIND(COALESCE(?tnsubgenus, "") AS ?subgenus)
   BIND(COALESCE(?tnspecies, "") AS ?species)
   BIND(COALESCE(?tninfrasp, "") AS ?infrasp)
   
@@ -125,6 +130,8 @@ export const getNameFromTC = (tcUri: string) =>
     OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
+    OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
+    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
@@ -173,13 +180,14 @@ export const getNameFromTN = (tnUri: string) =>
   ?tn dwc:rank ?tnrank .
   ?tn dwc:genus ?genus .
   ?tn dwc:kingdom ?kingdom .
-  OPTIONAL { ?tn dwc:subGenus ?subgenus . }
+  OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
   }
   
   BIND(LCASE(?tnrank) AS ?rank)
+  BIND(COALESCE(?tnsubgenus, "") AS ?subgenus)
   BIND(COALESCE(?tnspecies, "") AS ?species)
   BIND(COALESCE(?tninfrasp, "") AS ?infrasp)
   
@@ -190,6 +198,8 @@ export const getNameFromTN = (tnUri: string) =>
     OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
+    OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
+    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }

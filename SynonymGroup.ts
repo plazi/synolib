@@ -832,7 +832,7 @@ SELECT DISTINCT ?url ?description WHERE {
  */
 export type Name = {
   /** taxonomic kingdom
-   * 
+   *
    * may be empty for some CoL-taxa with missing ancestors */
   kingdom: string;
   /** Human-readable name */
