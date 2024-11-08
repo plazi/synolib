@@ -96,13 +96,13 @@ syno-treatment,
   transition: all 200ms;
   clear: both;
 
-  &>svg {
+  & > svg {
     height: 1rem;
     vertical-align: sub;
     margin: 0 0.2rem 0 -1.2rem;
   }
 
-  >.icon.button {
+  > .icon.button {
     float: right;
   }
 
@@ -114,10 +114,6 @@ syno-treatment,
     max-height: 0;
     overflow: hidden;
     transition: all 200ms;
-
-    & img {
-      display: none;
-    }
   }
 
   &.expanded {
@@ -131,17 +127,13 @@ syno-treatment,
     .hidden {
       max-height: 200rem;
       overflow: auto;
-
-      & img {
-        display: unset;
-      }
     }
   }
 }
 
 .figures {
   display: grid;
-  grid-template-columns: repeat( auto-fill, minmax(12rem, 1fr) );
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
   grid-template-rows: masonry;
   margin: 0.2rem 0 0.2rem 2.2rem;
   gap: 1rem;
@@ -155,7 +147,6 @@ syno-treatment,
   }
 }
 
-
 .icon.button {
   border-radius: 1rem;
   border: none;
@@ -166,7 +157,7 @@ syno-treatment,
   padding: 0;
   position: relative;
 
-  &>svg {
+  & > svg {
     height: 1rem;
     margin: 0;
   }
