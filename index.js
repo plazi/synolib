@@ -1,7 +1,7 @@
 async function U(f){return await new Promise(r=>{setTimeout(r,f)})}var O=class{constructor(t){this.sparqlEnpointUri=t}async getSparqlResultSet(t,r={},s=""){
 r.headers=r.headers||{},r.headers.Accept="application/sparql-results+json";let u=0,o=async()=>{try{let l=await fetch(this.
 sparqlEnpointUri+"?query="+encodeURIComponent(t),r);if(!l.ok)throw new Error("Response not ok. Status "+l.status);return await l.
-json()}catch(l){if(r.signal?.aborted)throw l;if(u<10){let m=50*(1<<u++);return console.warn(`!! Fetch Error. Retrying in\
+json()}catch(l){if(r.signal?.aborted)throw l;if(u<10){let m=50*(1<<u++);return console.info(`!! Fetch Error. Retrying in\
  ${m}ms (${u})`),await U(m),await o()}throw console.warn("!! Fetch Error:",t,`
 ---
 `,l),l}};return await o()}};var x=`PREFIX dc: <http://purl.org/dc/elements/1.1/>
