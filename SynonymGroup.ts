@@ -453,6 +453,7 @@ LIMIT 500`;
       }),
     );
 
+    // TODO: make "acceptedCol" be a promise so we can move this above the this.getAcceptedCol-awaits, to show names sooner.
     this.pushName(name);
 
     /** Map<synonymUri, Treatment> */
