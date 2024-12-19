@@ -10,7 +10,6 @@ such synonymity and treatments about these taxon names or the respective taxa.
 For a command line example using the library see: `example/cli.ts`.
 
 You can try it locally using Deno with
-
 ```sh
 deno run --allow-net ./example/cli.ts Ludwigia adscendens
 # or
@@ -22,6 +21,41 @@ deno run --allow-net ./example/cli.ts https://www.catalogueoflife.org/data/taxon
 ```
 
 (replace the argument with whatever name interests you)
+
+Params:
+```
+deno run --allow-net ./example/cli.ts [--json] [--ignore-deprecated-col] [--subtaxa] [--server=<url>] <query>
+```
+
+#### JSON-Lines output
+The example CLI also outputs information about the names in JSON-Lines format to *stderr* if given the `--json` flag.
+
+(Output to stdout is the same, human-readable output. Having JSON on stderr is mainly to avoid picking up other log messages from synolib, such as "Skipping known" and "failed fetch. Retrying")
+
+Example usage:
+```sh
+deno run --allow-net ./example/cli.ts --json --ignore-deprecated-col Sadayoshia acamar 2>&1 >/dev/null | jq
+```
+
+Format: Each line represents a name or authorized name, using the following fields:
+```ts
+type name = {
+  "name": string,
+  "taxonNameURI"?: string (url),
+  "colURI"?: string (url),
+  "acceptedColURI"?: string (url),
+  "treatments": { "treatment": string (url), "year": number, "kind": "aug"|"cite" }[],
+}
+type authorizedName = {
+  "name": string,
+  "taxonConceptURI"?: string (url),
+  "colURI"?: string (url),
+  "acceptedColURI"?: string (url),
+  "treatments": { "treatment": string (url), "year": number, "kind": "def"|"aug"|"dpr"|"cite" }[],
+}
+```
+
+The array of treatments is sorted bythe year.
 
 ### Web
 

@@ -69,7 +69,7 @@ export class SparqlEndpoint {
           throw error;
         } else if (retryCount < 10) {
           const wait = 50 * (1 << retryCount++);
-          console.warn(`!! Fetch Error. Retrying in ${wait}ms (${retryCount})`);
+          console.info(`!! Fetch Error. Retrying in ${wait}ms (${retryCount})`);
           await sleep(wait);
           return await sendRequest();
         }
