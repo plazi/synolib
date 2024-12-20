@@ -285,11 +285,12 @@ displayName:o,rank:t.results.bindings[0].rank.value,taxonNameURI:i,authorizedNam
 treats:m,cite:this.makeTreatmentSet(t.results.bindings[0].tncites?.value.split("|"))},vernacularNames:i?this.getVernacular(
 i):Promise.resolve(new Map)};for(let e of l.authorizedNames){e.colURI&&this.expanded.add(e.colURI);for(let s of e.taxonConceptURIs)
 this.expanded.add(s)}let g=[];if(u){let[e,s]=await this.getAcceptedCol(u,l);l.acceptedColURI=e,g.push(...s)}await Promise.
-all(p.map(async e=>{let[s,T]=await this.getAcceptedCol(e.colURI,l);e.acceptedColURI=s,g.push(...T)})),this.pushName(l);let r=new Map;
-(await Promise.all(n.map(e=>e.details.then(s=>[e,s])))).map(([e,s])=>{s.treats.aug.difference(this.expanded).forEach(T=>r.
-set(T,e)),s.treats.def.difference(this.expanded).forEach(T=>r.set(T,e)),s.treats.dpr.difference(this.expanded).forEach(T=>r.
-set(T,e)),s.treats.treattn.difference(this.expanded).forEach(T=>r.set(T,e))}),await Promise.allSettled([...g,...[...r].map(
-([e,s])=>this.getName(e,{searchTerm:!1,parent:l,treatment:s}))])}async getAcceptedCol(t,a){let n=`
+all(p.filter(e=>e.colURI).map(async e=>{let[s,T]=await this.getAcceptedCol(e.colURI,l);e.acceptedColURI=s,g.push(...T)})),
+this.pushName(l);let r=new Map;(await Promise.all(n.map(e=>e.details.then(s=>[e,s])))).map(([e,s])=>{s.treats.aug.difference(
+this.expanded).forEach(T=>r.set(T,e)),s.treats.def.difference(this.expanded).forEach(T=>r.set(T,e)),s.treats.dpr.difference(
+this.expanded).forEach(T=>r.set(T,e)),s.treats.treattn.difference(this.expanded).forEach(T=>r.set(T,e))}),await Promise.
+allSettled([...g,...[...r].map(([e,s])=>this.getName(e,{searchTerm:!1,parent:l,treatment:s}))])}async getAcceptedCol(t,a){
+let n=`
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
   BIND(<${t}> AS ?col)
