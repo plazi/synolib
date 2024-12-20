@@ -104,14 +104,24 @@ for await (const name of synoGroup) {
           authorizedName.displayName + " " +
             Colors.italic(authorizedName.authority),
         ) +
-        colorizeIfPresent(authorizedName.taxonConceptURI, "yellow") +
+        colorizeIfPresent(authorizedName.taxonConceptURIs.join(), "yellow") +
         colorizeIfPresent(authorizedName.colURI, "cyan"),
     );
+    const auths = authorizedName.authorities.filter((auth) =>
+      auth != authorizedName.authority
+    );
+    if (auths.length > 1) {
+      console.log(
+        Colors.dim(
+          `      (Authority also given as: “${auths.join("”, “")}”)`,
+        ),
+      );
+    }
 
     if (args.json) {
       outputStderr(JSON.stringify({
         name: authorizedName.displayName + " " + authorizedName.authority,
-        taxonNameURI: authorizedName.taxonConceptURI,
+        taxonNameURIs: authorizedName.taxonConceptURIs,
         colURI: authorizedName.colURI,
         acceptedColURI: authorizedName.acceptedColURI,
         treatments: [

@@ -1,5 +1,6 @@
 import type { SparqlEndpoint, SparqlJson } from "./mod.ts";
 import * as Queries from "./Queries.ts";
+import { unifyAuthorithy } from "./UnifyAuthorities.ts";
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -127,7 +128,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         break;
       }
       const an = n.authorizedNames.find((an) =>
-        an.taxonConceptURI === uri || an.colURI === uri
+        an.colURI === uri || an.taxonConceptURIs.includes(uri)
       );
       if (an) {
         name = an;
@@ -144,7 +145,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
           return;
         }
         const an = n.authorizedNames.find((an) =>
-          an.taxonConceptURI === uri || an.colURI === uri
+          an.colURI === uri || an.taxonConceptURIs.includes(uri)
         );
         if (an) {
           resolve(an);
@@ -321,8 +322,7 @@ LIMIT 500`;
     let unathorizedCol: string | undefined;
 
     // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
-    const authorizedCoLNames: AuthorizedName[] = [];
-    const authorizedTCNames: AuthorizedName[] = [];
+    const authorizedNames: AuthorizedName[] = [];
 
     const taxonNameURI = json.results.bindings[0].tn?.value;
     if (taxonNameURI) {
@@ -344,17 +344,22 @@ LIMIT 500`;
             console.log("Duplicate unathorized COL:", unathorizedCol, colURI);
           }
           unathorizedCol = colURI;
-        } else if (!authorizedCoLNames.find((e) => e.colURI === colURI)) {
+        } else if (!authorizedNames.find((e) => e.colURI === colURI)) {
           if (this.expanded.has(colURI)) {
             console.log("Skipping known", colURI);
             return;
           }
           if (!expandedHere.has(colURI)) {
             expandedHere.add(colURI);
-            authorizedCoLNames.push({
+            // TODO: handle unification of names
+            // might not be neccessary, assuming all CoL-taxa are non-unifiable and
+            // they are always handled first
+            authorizedNames.push({
               displayName,
               authority: t.authority!.value,
+              authorities: [t.authority!.value],
               colURI: t.col.value,
+              taxonConceptURIs: [],
               treatments: {
                 def: new Set(),
                 aug: new Set(),
@@ -367,33 +372,48 @@ LIMIT 500`;
       }
 
       if (t.tc && t.tcAuth && t.tcAuth.value) {
-        const def = this.makeTreatmentSet(t.defs?.value.split("|"));
-        const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
-        const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
-        const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
-
-        const colName = authorizedCoLNames.find((e) =>
-          t.tcAuth!.value.split(" / ").includes(e.authority)
-        );
-        if (colName) {
-          colName.authority = t.tcAuth?.value;
-          colName.taxonConceptURI = t.tc.value;
-          colName.treatments = {
-            def,
-            aug,
-            dpr,
-            cite,
-          };
-        } else if (this.expanded.has(t.tc.value)) {
+        if (this.expanded.has(t.tc.value)) {
           console.log("Skipping known", t.tc.value);
           return;
-        } else {
-          if (!expandedHere.has(t.tc.value)) {
-            expandedHere.add(t.tc.value);
-            authorizedTCNames.push({
+        } else if (!expandedHere.has(t.tc.value)) {
+          expandedHere.add(t.tc.value);
+
+          const def = this.makeTreatmentSet(t.defs?.value.split("|"));
+          const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
+          const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
+          const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
+
+          def.forEach((t) => treatmentPromises.push(t));
+          aug.forEach((t) => treatmentPromises.push(t));
+          dpr.forEach((t) => treatmentPromises.push(t));
+
+          const prevName = authorizedNames.find((e) =>
+            unifyAuthorithy(e.authority, t.tcAuth!.value) !== null
+            // t.tcAuth!.value.split(" / ").some((auth) =>
+            //   unifyAuthorithy(e.authority, auth) !== null
+            // )
+          );
+          if (prevName) {
+            // TODO: I feel like this could be made much more efficient -- we are unifying repeatedly
+            const best = t.tcAuth!.value; // .split(" / ").find((auth) =>
+            //  unifyAuthorithy(prevName.authority, auth) !== null
+            // )!;
+
+            prevName.authority = unifyAuthorithy(prevName.authority, best)!;
+            prevName.authorities.push(...t.tcAuth.value.split(" / "));
+            prevName.taxonConceptURIs.push(t.tc.value);
+            prevName.treatments = {
+              def: prevName.treatments.def.union(def),
+              aug: prevName.treatments.aug.union(aug),
+              dpr: prevName.treatments.dpr.union(dpr),
+              cite: prevName.treatments.cite.union(cite),
+            };
+          } else {
+            authorizedNames.push({
               displayName,
               authority: t.tcAuth.value,
-              taxonConceptURI: t.tc.value,
+              authorities: t.tcAuth.value.split(" / "),
+              taxonConceptURIs: [t.tc.value],
               treatments: {
                 def,
                 aug,
@@ -403,10 +423,6 @@ LIMIT 500`;
             });
           }
         }
-
-        def.forEach((t) => treatmentPromises.push(t));
-        aug.forEach((t) => treatmentPromises.push(t));
-        dpr.forEach((t) => treatmentPromises.push(t));
       }
     }
 
@@ -420,7 +436,7 @@ LIMIT 500`;
       displayName,
       rank: json.results.bindings[0].rank!.value,
       taxonNameURI,
-      authorizedNames: [...authorizedCoLNames, ...authorizedTCNames],
+      authorizedNames: authorizedNames,
       colURI: unathorizedCol,
       justification,
       treatments: {
@@ -436,7 +452,7 @@ LIMIT 500`;
 
     for (const authName of name.authorizedNames) {
       if (authName.colURI) this.expanded.add(authName.colURI);
-      if (authName.taxonConceptURI) this.expanded.add(authName.taxonConceptURI);
+      for (const tc of authName.taxonConceptURIs) this.expanded.add(tc);
     }
 
     const colPromises: Promise<void>[] = [];
@@ -451,7 +467,7 @@ LIMIT 500`;
     }
 
     await Promise.all(
-      authorizedCoLNames.map(async (n) => {
+      authorizedNames.map(async (n) => {
         const [acceptedColURI, promises] = await this.getAcceptedCol(
           n.colURI!,
           name,
@@ -917,9 +933,13 @@ export type AuthorizedName = {
   displayName: string;
   /** Human-readable authority */
   authority: string;
+  /**
+   * Human-readable authorities as given in the Data.
+   */
+  authorities: string[];
 
-  /** The URI of the respective `dwcFP:TaxonConcept` if it exists */
-  taxonConceptURI?: string;
+  /** The URIs of the respective `dwcFP:TaxonConcept` if it exists */
+  taxonConceptURIs: string[];
 
   /** The URI of the respective CoL-taxon if it exists */
   colURI?: string;
