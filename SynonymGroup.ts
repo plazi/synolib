@@ -467,7 +467,7 @@ LIMIT 500`;
     }
 
     await Promise.all(
-      authorizedNames.map(async (n) => {
+      authorizedNames.filter((n) => n.colURI).map(async (n) => {
         const [acceptedColURI, promises] = await this.getAcceptedCol(
           n.colURI!,
           name,
