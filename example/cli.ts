@@ -81,11 +81,12 @@ for await (const name of synoGroup) {
   await logJustification(name);
 
   if (name.colURI) {
-    if (name.acceptedColURI !== name.colURI) {
+    const acceptedColURI = await name.acceptedColURI;
+    if (acceptedColURI !== name.colURI) {
       console.log(
         `    ${trtColor.dpr("●")} Catalogue of Life\n      → ${
           trtColor.aug("●")
-        } ${Colors.cyan(name.acceptedColURI!)}`,
+        } ${Colors.cyan(acceptedColURI!)}`,
       );
     } else {
       console.log(
@@ -142,11 +143,12 @@ for await (const name of synoGroup) {
     }
 
     if (authorizedName.colURI) {
-      if (authorizedName.acceptedColURI !== authorizedName.colURI) {
+      const acceptedColURI = await authorizedName.acceptedColURI;
+      if (acceptedColURI !== authorizedName.colURI) {
         console.log(
           `    ${trtColor.dpr("●")} Catalogue of Life\n      → ${
             trtColor.aug("●")
-          } ${Colors.cyan(authorizedName.acceptedColURI!)}`,
+          } ${Colors.cyan(acceptedColURI!)}`,
         );
       } else {
         console.log(

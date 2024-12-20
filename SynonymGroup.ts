@@ -456,28 +456,28 @@ LIMIT 500`;
     }
 
     const colPromises: Promise<void>[] = [];
+    const authorizedColPromises: Promise<string>[] = authorizedNames
+      .filter((n) => n.colURI)
+      .map((n) => {
+        n.acceptedColURI = this.getAcceptedCol(n.colURI!, name).then(
+          ([acceptedColURI, promises]) => {
+            colPromises.push(...promises);
+            return acceptedColURI;
+          },
+        );
+        return n.acceptedColURI;
+      });
 
     if (unathorizedCol) {
-      const [acceptedColURI, promises] = await this.getAcceptedCol(
-        unathorizedCol,
-        name,
+      name.acceptedColURI = this.getAcceptedCol(unathorizedCol, name).then(
+        ([acceptedColURI, promises]) => {
+          colPromises.push(...promises);
+          return acceptedColURI;
+        },
       );
-      name.acceptedColURI = acceptedColURI;
-      colPromises.push(...promises);
+      authorizedColPromises.push(name.acceptedColURI);
     }
 
-    await Promise.all(
-      authorizedNames.filter((n) => n.colURI).map(async (n) => {
-        const [acceptedColURI, promises] = await this.getAcceptedCol(
-          n.colURI!,
-          name,
-        );
-        n.acceptedColURI = acceptedColURI;
-        colPromises.push(...promises);
-      }),
-    );
-
-    // TODO: make "acceptedCol" be a promise so we can move this above the this.getAcceptedCol-awaits, to show names sooner.
     this.pushName(name);
 
     /** Map<synonymUri, Treatment> */
@@ -505,12 +505,14 @@ LIMIT 500`;
 
     await Promise.allSettled(
       [
-        ...colPromises,
+        ...authorizedColPromises,
         ...[...newSynonyms].map(([n, treatment]) =>
           this.getName(n, { searchTerm: false, parent: name, treatment })
         ),
       ],
     );
+    // nedd to await after awaiting all authorizedColPromises as those will push colPromises
+    await Promise.allSettled(colPromises);
   }
 
   /** @internal */
@@ -890,7 +892,7 @@ export type Name = {
    *
    * May be the string "INVALID COL" if the colURI is not valid.
    */
-  acceptedColURI?: string;
+  acceptedColURI?: Promise<string>;
 
   /** All `AuthorizedName`s with this name */
   authorizedNames: AuthorizedName[];
@@ -949,7 +951,7 @@ export type AuthorizedName = {
    *
    * May be the string "INVALID COL" if the colURI is not valid.
    */
-  acceptedColURI?: string;
+  acceptedColURI?: Promise<string>;
 
   // TODO: sensible?
   // /** these are CoL-taxa linked in the rdf, which differ lexically */
