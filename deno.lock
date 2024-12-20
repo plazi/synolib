@@ -6,6 +6,7 @@
     "jsr:@std/bytes@^1.0.2": "1.0.2",
     "jsr:@std/cli@*": "1.0.9",
     "jsr:@std/encoding@^1.0.5": "1.0.5",
+    "jsr:@std/fmt@0.214.0": "0.214.0",
     "jsr:@std/internal@^1.0.5": "1.0.5",
     "jsr:@std/path@^1.0.6": "1.0.7",
     "npm:esbuild@0.24": "0.24.0"
@@ -33,6 +34,9 @@
     },
     "@std/encoding@1.0.5": {
       "integrity": "ecf363d4fc25bd85bd915ff6733a7e79b67e0e7806334af15f4645c569fefc04"
+    },
+    "@std/fmt@0.214.0": {
+      "integrity": "40382cff88a0783b347b4d69b94cf931ab8e549a733916718cb866c08efac4d4"
     },
     "@std/internal@1.0.5": {
       "integrity": "54a546004f769c1ac9e025abd15a76b6671ddc9687e2313b67376125650dc7ba"
@@ -143,9 +147,6 @@
         "@esbuild/win32-x64"
       ]
     }
-  },
-  "remote": {
-    "https://deno.land/std@0.214.0/fmt/colors.ts": "aeaee795471b56fc62a3cb2e174ed33e91551b535f44677f6320336aabb54fbb"
   },
   "workspace": {
     "dependencies": [

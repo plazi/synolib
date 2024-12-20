@@ -1,4 +1,4 @@
-import * as Colors from "https://deno.land/std@0.214.0/fmt/colors.ts";
+import * as Colors from "jsr:@std/fmt@0.214.0/colors";
 import { parseArgs } from "jsr:@std/cli";
 
 import {
