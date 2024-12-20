@@ -330,6 +330,8 @@ LIMIT 500`;
       this.expanded.add(taxonNameURI); //, NameStatus.madeName);
     }
 
+    const expandedHere = new Set<string>();
+
     for (const t of json.results.bindings) {
       if (t.col) {
         const colURI = t.col.value;
@@ -347,17 +349,20 @@ LIMIT 500`;
             console.log("Skipping known", colURI);
             return;
           }
-          authorizedCoLNames.push({
-            displayName,
-            authority: t.authority!.value,
-            colURI: t.col.value,
-            treatments: {
-              def: new Set(),
-              aug: new Set(),
-              dpr: new Set(),
-              cite: new Set(),
-            },
-          });
+          if (!expandedHere.has(colURI)) {
+            expandedHere.add(colURI);
+            authorizedCoLNames.push({
+              displayName,
+              authority: t.authority!.value,
+              colURI: t.col.value,
+              treatments: {
+                def: new Set(),
+                aug: new Set(),
+                dpr: new Set(),
+                cite: new Set(),
+              },
+            });
+          }
         }
       }
 
@@ -380,20 +385,23 @@ LIMIT 500`;
             cite,
           };
         } else if (this.expanded.has(t.tc.value)) {
-          // console.log("Skipping known", t.tc.value);
+          console.log("Skipping known", t.tc.value);
           return;
         } else {
-          authorizedTCNames.push({
-            displayName,
-            authority: t.tcAuth.value,
-            taxonConceptURI: t.tc.value,
-            treatments: {
-              def,
-              aug,
-              dpr,
-              cite,
-            },
-          });
+          if (!expandedHere.has(t.tc.value)) {
+            expandedHere.add(t.tc.value);
+            authorizedTCNames.push({
+              displayName,
+              authority: t.tcAuth.value,
+              taxonConceptURI: t.tc.value,
+              treatments: {
+                def,
+                aug,
+                dpr,
+                cite,
+              },
+            });
+          }
         }
 
         def.forEach((t) => treatmentPromises.push(t));
