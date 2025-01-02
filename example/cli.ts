@@ -52,7 +52,7 @@ const timeStart = performance.now();
 for await (const name of synoGroup) {
   console.log(
     "\n" +
-      Colors.underline(name.displayName) +
+      Colors.bold(Colors.underline(name.displayName)) +
       colorizeIfPresent(name.taxonNameURI, "yellow") +
       colorizeIfPresent(name.colURI, "yellow"),
   );

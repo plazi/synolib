@@ -73,7 +73,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /**
    * if set to true, subTaxa of the search term are also considered as starting points.
    *
-   * Not that "weird" ranks like subGenus are always included when searching for a genus by latin name.
+   * Note that "intermediate" ranks like subGenus and section are always included when searching for a genus by latin name.
    */
   startWithSubTaxa: boolean;
 
@@ -306,6 +306,9 @@ LIMIT 500`;
           : json.results.bindings[0].name.value
       )
       : json.results.bindings[0].genus!.value +
+        (json.results.bindings[0].section?.value
+          ? ` sect. ${json.results.bindings[0].section.value}`
+          : "") +
         (json.results.bindings[0].subgenus?.value
           ? ` (${json.results.bindings[0].subgenus.value})`
           : "") +

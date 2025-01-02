@@ -8,7 +8,7 @@ PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?infrasp ?name ?authority
+SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
@@ -23,9 +23,7 @@ SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?infrasp ?
  * As its own variable to ensure consistency in the resturned bindings.
  */
 const postamble =
-  `GROUP BY ?kingdom ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?infrasp ?name ?authority`;
-
-// For unclear reasons, the queries breaks if the limit is removed.
+  `GROUP BY ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority`;
 
 /**
  * Note: this query assumes that there is no sub-species taxa with missing dwc:species
@@ -59,7 +57,8 @@ BIND(<${colUri}> as ?col)
     ?tn dwc:genus ?genus .
 
     OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
-    FILTER(?subgenus = COALESCE(?tnsubgenus, ""))
+    FILTER(?subgenus = COALESCE(?tnsubgenus, COALESCE(?section, "")))
+    OPTIONAL { ?tn dwc:section ?section . }
     OPTIONAL { ?tn dwc:species ?tnspecies . }
     FILTER(?species = COALESCE(?tnspecies, ""))
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -116,6 +115,7 @@ export const getNameFromTC = (tcUri: string) =>
   ?tn dwc:kingdom ?kingdom .
   ?tn dwc:genus ?genus .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
+  OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -134,7 +134,7 @@ export const getNameFromTC = (tcUri: string) =>
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
-    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
+    FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
@@ -184,6 +184,7 @@ export const getNameFromTN = (tnUri: string) =>
   ?tn dwc:genus ?genus .
   ?tn dwc:kingdom ?kingdom .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
+  OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -202,7 +203,7 @@ export const getNameFromTN = (tnUri: string) =>
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
-    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
+    FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
