@@ -9,15 +9,15 @@ PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?subgenus ?species ?infrasp ?name ?authority
+SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
   (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
   (group_concat(DISTINCT ?cite;separator="|") as ?cites)
   (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites)`,R="GROUP BY ?kingdom ?tn ?tc ?col ?rank ?genus ?subgenus ?\
-species ?infrasp ?name ?authority",F=f=>`${P} WHERE {
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites)`,R="GROUP BY ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?s\
+ubgenus ?species ?infrasp ?name ?authority",F=f=>`${P} WHERE {
 BIND(<${f}> as ?col)
   ?col dwc:taxonRank ?rank .
   ?col dwc:scientificName ?name .
@@ -43,7 +43,8 @@ BIND(<${f}> as ?col)
     ?tn dwc:genus ?genus .
 
     OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
-    FILTER(?subgenus = COALESCE(?tnsubgenus, ""))
+    FILTER(?subgenus = COALESCE(?tnsubgenus, COALESCE(?section, "")))
+    OPTIONAL { ?tn dwc:section ?section . }
     OPTIONAL { ?tn dwc:species ?tnspecies . }
     FILTER(?species = COALESCE(?tnspecies, ""))
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -92,6 +93,7 @@ LIMIT 500`,_=f=>`${P} WHERE {
   ?tn dwc:kingdom ?kingdom .
   ?tn dwc:genus ?genus .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
+  OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -110,7 +112,7 @@ LIMIT 500`,_=f=>`${P} WHERE {
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
-    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
+    FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
@@ -152,6 +154,7 @@ LIMIT 500`,B=f=>`${P} WHERE {
   ?tn dwc:genus ?genus .
   ?tn dwc:kingdom ?kingdom .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
+  OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
     ?tn dwc:species ?tnspecies .
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?tninfrasp . }
@@ -170,7 +173,7 @@ LIMIT 500`,B=f=>`${P} WHERE {
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
-    FILTER(?subgenus = COALESCE(?colsubgenus, ""))
+    FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
     OPTIONAL { ?col dwc:specificEpithet ?colspecies . }
     FILTER(?species = COALESCE(?colspecies, ""))
     OPTIONAL { ?col dwc:infraspecificEpithet ?colinfrasp . }
@@ -212,9 +215,9 @@ ${R}
 LIMIT 500`;function D(f,t){let a=f.split(/\s*[,]\s*/),n=t.split(/\s*[,]\s*/),d=a.length>0&&/\d{4}/.test(a.at(-1))?a.pop():null,i=n.
 length>0&&/\d{4}/.test(n.at(-1))?n.pop():null,u=a.length>0&&/\s*et\.?\s*al\.?/.test(a.at(-1)),p=n.length>0&&/\s*et\.?\s*al\.?/.
 test(n.at(-1));if(u&&(a[a.length-1]=a[a.length-1].replace(/\s*et\.?\s*al\.?/,"")),p&&(n[n.length-1]=n[n.length-1].replace(
-/\s*et\.?\s*al\.?/,"")),!u&&!p&&a.length!=n.length)return null;let s=[],o=0;for(;o<a.length&&o<n.length;o++){let g=$(a[o],
+/\s*et\.?\s*al\.?/,"")),!u&&!p&&a.length!=n.length)return null;let s=[],o=0;for(;o<a.length&&o<n.length;o++){let g=H(a[o],
 n[o]);if(g!==null)s.push(g);else return null}for(let g=o;g<a.length;g++)a[g]&&s.push(a[g]);for(let g=o;g<n.length;g++)n[g]&&
-s.push(n[g]);if(d&&i)if(d===i)s.push(d);else return null;else d?s.push(d):i&&s.push(i);return s.join(", ")}function $(f,t){
+s.push(n[g]);if(d&&i)if(d===i)s.push(d);else return null;else d?s.push(d):i&&s.push(i);return s.join(", ")}function H(f,t){
 let a=f.replaceAll("-"," "),n=t.replaceAll("-"," ");if(a.endsWith(".")||n.endsWith(".")){let d=a.normalize("NFKC"),i=n.normalize(
 "NFKC"),u=d.lastIndexOf("."),p=i.lastIndexOf("."),s=u!==-1?p!==-1?Math.min(u,p):u:p;a=d.substring(0,s),n=i.substring(0,s)}
 if(Q(a,n)){let d=f.normalize("NFD"),i=t.normalize("NFD");return d.length>=i.length?f:t}return null}function Q(f,t){return f.
@@ -264,33 +267,34 @@ i,{signal:this.controller.signal},`NameFromLatin ${t} ${a} ${n}`)).results.bindi
 expanded.has(s));await Promise.allSettled(p.map(s=>this.getName(s,d)))}async handleName(t,a){let n=[],d=e=>{switch(e){case"\
 variety":return"var.";case"subspecies":return"subsp.";case"form":return"f.";default:return e}},i=(t.results.bindings[0].
 name?t.results.bindings[0].authority?t.results.bindings[0].name.value.replace(t.results.bindings[0].authority.value,""):
-t.results.bindings[0].name.value:t.results.bindings[0].genus.value+(t.results.bindings[0].subgenus?.value?` (${t.results.
-bindings[0].subgenus.value})`:"")+(t.results.bindings[0].species?.value?` ${t.results.bindings[0].species.value}`:"")+(t.
-results.bindings[0].infrasp?.value?` ${d(t.results.bindings[0].rank.value)} ${t.results.bindings[0].infrasp.value}`:"")).
-trim(),u,p=[],s=t.results.bindings[0].tn?.value;if(s){if(this.expanded.has(s))return;this.expanded.add(s)}let o=new Set;
-for(let e of t.results.bindings){if(e.col){let m=e.col.value;if(e.authority?.value){if(!p.find(N=>N.colURI===m)){if(this.
-expanded.has(m)){console.log("Skipping known",m);return}o.has(m)||(o.add(m),p.push({displayName:i,authority:e.authority.
-value,authorities:[e.authority.value],colURI:e.col.value,taxonConceptURIs:[],treatments:{def:new Set,aug:new Set,dpr:new Set,
-cite:new Set}}))}}else{if(this.expanded.has(m)){console.log("Skipping known",m);return}u&&u!==m&&console.log("Duplicate \
-unathorized COL:",u,m),u=m}}if(e.tc&&e.tcAuth&&e.tcAuth.value){if(this.expanded.has(e.tc.value)){console.log("Skipping k\
-nown",e.tc.value);return}else if(!o.has(e.tc.value)){o.add(e.tc.value);let m=this.makeTreatmentSet(e.defs?.value.split("\
-|")),N=this.makeTreatmentSet(e.augs?.value.split("|")),w=this.makeTreatmentSet(e.dprs?.value.split("|")),C=this.makeTreatmentSet(
-e.cites?.value.split("|"));m.forEach(v=>n.push(v)),N.forEach(v=>n.push(v)),w.forEach(v=>n.push(v));let I=p.find(v=>D(v.authority,
-e.tcAuth.value)!==null);if(I){let v=e.tcAuth.value;I.authority=D(I.authority,v),I.authorities.push(...e.tcAuth.value.split(
-" / ")),I.taxonConceptURIs.push(e.tc.value),I.treatments={def:I.treatments.def.union(m),aug:I.treatments.aug.union(N),dpr:I.
-treatments.dpr.union(w),cite:I.treatments.cite.union(C)}}else p.push({displayName:i,authority:e.tcAuth.value,authorities:e.
-tcAuth.value.split(" / "),taxonConceptURIs:[e.tc.value],treatments:{def:m,aug:N,dpr:w,cite:C}})}}}let g=this.makeTreatmentSet(
-t.results.bindings[0].tntreats?.value.split("|"));g.forEach(e=>n.push(e));let l={kingdom:t.results.bindings[0].kingdom.value,
-displayName:i,rank:t.results.bindings[0].rank.value,taxonNameURI:s,authorizedNames:p,colURI:u,justification:a,treatments:{
-treats:g,cite:this.makeTreatmentSet(t.results.bindings[0].tncites?.value.split("|"))},vernacularNames:s?this.getVernacular(
-s):Promise.resolve(new Map)};for(let e of l.authorizedNames){e.colURI&&this.expanded.add(e.colURI);for(let m of e.taxonConceptURIs)
-this.expanded.add(m)}let h=[],r=p.filter(e=>e.colURI).map(e=>(e.acceptedColURI=this.getAcceptedCol(e.colURI,l).then(([m,
-N])=>(h.push(...N),m)),e.acceptedColURI));u&&(l.acceptedColURI=this.getAcceptedCol(u,l).then(([e,m])=>(h.push(...m),e)),
-r.push(l.acceptedColURI)),this.pushName(l);let c=new Map;(await Promise.all(n.map(e=>e.details.then(m=>[e,m])))).map(([e,
-m])=>{m.treats.aug.difference(this.expanded).forEach(N=>c.set(N,e)),m.treats.def.difference(this.expanded).forEach(N=>c.
-set(N,e)),m.treats.dpr.difference(this.expanded).forEach(N=>c.set(N,e)),m.treats.treattn.difference(this.expanded).forEach(
-N=>c.set(N,e))}),await Promise.allSettled([...r,...[...c].map(([e,m])=>this.getName(e,{searchTerm:!1,parent:l,treatment:m}))]),
-await Promise.allSettled(h)}async getAcceptedCol(t,a){let n=`
+t.results.bindings[0].name.value:t.results.bindings[0].genus.value+(t.results.bindings[0].section?.value?` sect. ${t.results.
+bindings[0].section.value}`:"")+(t.results.bindings[0].subgenus?.value?` (${t.results.bindings[0].subgenus.value})`:"")+
+(t.results.bindings[0].species?.value?` ${t.results.bindings[0].species.value}`:"")+(t.results.bindings[0].infrasp?.value?
+` ${d(t.results.bindings[0].rank.value)} ${t.results.bindings[0].infrasp.value}`:"")).trim(),u,p=[],s=t.results.bindings[0].
+tn?.value;if(s){if(this.expanded.has(s))return;this.expanded.add(s)}let o=new Set;for(let e of t.results.bindings){if(e.
+col){let m=e.col.value;if(e.authority?.value){if(!p.find(N=>N.colURI===m)){if(this.expanded.has(m)){console.log("Skippin\
+g known",m);return}o.has(m)||(o.add(m),p.push({displayName:i,authority:e.authority.value,authorities:[e.authority.value],
+colURI:e.col.value,taxonConceptURIs:[],treatments:{def:new Set,aug:new Set,dpr:new Set,cite:new Set}}))}}else{if(this.expanded.
+has(m)){console.log("Skipping known",m);return}u&&u!==m&&console.log("Duplicate unathorized COL:",u,m),u=m}}if(e.tc&&e.tcAuth&&
+e.tcAuth.value){if(this.expanded.has(e.tc.value)){console.log("Skipping known",e.tc.value);return}else if(!o.has(e.tc.value)){
+o.add(e.tc.value);let m=this.makeTreatmentSet(e.defs?.value.split("|")),N=this.makeTreatmentSet(e.augs?.value.split("|")),
+w=this.makeTreatmentSet(e.dprs?.value.split("|")),C=this.makeTreatmentSet(e.cites?.value.split("|"));m.forEach(v=>n.push(
+v)),N.forEach(v=>n.push(v)),w.forEach(v=>n.push(v));let I=p.find(v=>D(v.authority,e.tcAuth.value)!==null);if(I){let v=e.
+tcAuth.value;I.authority=D(I.authority,v),I.authorities.push(...e.tcAuth.value.split(" / ")),I.taxonConceptURIs.push(e.tc.
+value),I.treatments={def:I.treatments.def.union(m),aug:I.treatments.aug.union(N),dpr:I.treatments.dpr.union(w),cite:I.treatments.
+cite.union(C)}}else p.push({displayName:i,authority:e.tcAuth.value,authorities:e.tcAuth.value.split(" / "),taxonConceptURIs:[
+e.tc.value],treatments:{def:m,aug:N,dpr:w,cite:C}})}}}let g=this.makeTreatmentSet(t.results.bindings[0].tntreats?.value.
+split("|"));g.forEach(e=>n.push(e));let l={kingdom:t.results.bindings[0].kingdom.value,displayName:i,rank:t.results.bindings[0].
+rank.value,taxonNameURI:s,authorizedNames:p,colURI:u,justification:a,treatments:{treats:g,cite:this.makeTreatmentSet(t.results.
+bindings[0].tncites?.value.split("|"))},vernacularNames:s?this.getVernacular(s):Promise.resolve(new Map)};for(let e of l.
+authorizedNames){e.colURI&&this.expanded.add(e.colURI);for(let m of e.taxonConceptURIs)this.expanded.add(m)}let h=[],r=p.
+filter(e=>e.colURI).map(e=>(e.acceptedColURI=this.getAcceptedCol(e.colURI,l).then(([m,N])=>(h.push(...N),m)),e.acceptedColURI));
+u&&(l.acceptedColURI=this.getAcceptedCol(u,l).then(([e,m])=>(h.push(...m),e)),r.push(l.acceptedColURI)),this.pushName(l);
+let c=new Map;(await Promise.all(n.map(e=>e.details.then(m=>[e,m])))).map(([e,m])=>{m.treats.aug.difference(this.expanded).
+forEach(N=>c.set(N,e)),m.treats.def.difference(this.expanded).forEach(N=>c.set(N,e)),m.treats.dpr.difference(this.expanded).
+forEach(N=>c.set(N,e)),m.treats.treattn.difference(this.expanded).forEach(N=>c.set(N,e))}),await Promise.allSettled([...r,
+...[...c].map(([e,m])=>this.getName(e,{searchTerm:!1,parent:l,treatment:m}))]),await Promise.allSettled(h)}async getAcceptedCol(t,a){
+let n=`
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
   BIND(<${t}> AS ?col)
@@ -447,7 +451,7 @@ v-168H480v-72h240v240h-72Z"/></svg>',collapse:'<svg class="gray" viewBox="0 -960
 960"><path fill="currentColor" d="m600-216-51-51 177-177H96v-72h630L549-693l51-51 264 264-264 264Z"/></svg>',west:'<svg \
 class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M360-216 96-480l264-264 51 51-177 177h630v72H234l177 \
 177-51 51Z"/></svg>',empty:'<svg viewBox="0 -960 960 960"></svg>'},A=document.createElement("div");k.insertAdjacentElement(
-"beforebegin",A);A.append(`Finding Synonyms for ${U} `);var j=document.createElement("progress");A.append(j);var G=performance.
+"beforebegin",A);A.append(`Finding Synonyms for ${U} `);var G=document.createElement("progress");A.append(G);var j=performance.
 now(),Y=new b(J),S=new y(Y,U,Z,W),E=class extends HTMLElement{constructor(t,a){super(),this.innerHTML=T[a]??T.unknown;let n=document.
 createElement("button");n.classList.add("icon","button"),n.innerHTML=T.expand,n.addEventListener("click",()=>{this.classList.
 toggle("expanded")?n.innerHTML=T.collapse:n.innerHTML=T.expand});let d=document.createElement("span");t.date?d.innerText=
@@ -527,6 +531,6 @@ details,a=await q(f.justification.parent);return`is, according to ${t.creators} 
      a synonym of ${f.justification.parent.displayName} which ${a}`}else{let t=await q(f.justification.parent);return`is\
 , according to the Catalogue of Life,
      a synonym of ${f.justification.parent.displayName} which ${t}`}}for await(let f of S){let t=new x(f);k.append(t)}var V=performance.
-now();A.innerHTML="";A.innerText=`Found ${S.names.length} names with ${S.treatments.size} treatments. This took ${(V-G)/
+now();A.innerHTML="";A.innerText=`Found ${S.names.length} names with ${S.treatments.size} treatments. This took ${(V-j)/
 1e3} seconds.`;S.names.length===0&&k.append(":[");
 //# sourceMappingURL=index.js.map
