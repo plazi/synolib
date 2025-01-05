@@ -60,8 +60,8 @@ BIND(<${colUri}> as ?col)
     ?tn dwc:rank ?trank ;
        a dwcFP:TaxonName .
     FILTER(LCASE(?rank) = LCASE(?trank))
-    ?tn dwc:kingdom ?kingdom .
     ?tn dwc:genus ?genus .
+    { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
 
     OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
     FILTER(?subgenus = COALESCE(?tnsubgenus, COALESCE(?section, "")))
@@ -119,7 +119,7 @@ export const getNameFromTC = (tcUri: string) =>
 
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?tnrank .
-  ?tn dwc:kingdom ?kingdom .
+  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
   ?tn dwc:genus ?genus .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL { ?tn dwc:section ?section . }
@@ -196,7 +196,7 @@ export const getNameFromTN = (tnUri: string) =>
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?tnrank .
   ?tn dwc:genus ?genus .
-  ?tn dwc:kingdom ?kingdom .
+  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
