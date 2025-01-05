@@ -47,7 +47,7 @@ BIND(<${h}> as ?col)
        a dwcFP:TaxonName .
     FILTER(LCASE(?rank) = LCASE(?trank))
     ?tn dwc:genus ?genus .
-    { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
+    { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
 
     OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
     FILTER(?subgenus = COALESCE(?tnsubgenus, COALESCE(?section, "")))
@@ -97,7 +97,7 @@ LIMIT 500`,F=h=>`${x} WHERE {
 
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?tnrank .
-  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
+  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
   ?tn dwc:genus ?genus .
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL { ?tn dwc:section ?section . }
@@ -166,7 +166,7 @@ LIMIT 500`,B=h=>`${x} WHERE {
   ?tn a dwcFP:TaxonName .
   ?tn dwc:rank ?tnrank .
   ?tn dwc:genus ?genus .
-  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?p . ?p dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
+  { ?tn dwc:kingdom ?kingdom . } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
   OPTIONAL { ?tn dwc:subGenus ?tnsubgenus . }
   OPTIONAL { ?tn dwc:section ?section . }
   OPTIONAL {
