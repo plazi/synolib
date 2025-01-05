@@ -531,8 +531,8 @@ size>0||t.treatments.cite.size>0){for(let o of t.treatments.treats){let m=new E(
 cite){let m=new E(o,"cite");p.append(m)}}let r=document.createElement("abbr");r.classList.add("justification"),r.innerText=
 "...?",D(t).then(o=>r.title=`This ${o}`),a.append(" ",r);for(let o of t.authorizedNames){let m=document.createElement("h\
 3"),d=document.createElement("i");d.innerText=o.displayName,d.classList.add("gray"),m.append(d),m.append(" ",o.authority),
-this.append(m);let g=document.createElement("ul");if(this.append(g),o.taxonConceptURIs){let s=document.createElement("a");
-s.classList.add("taxon","uri");let i=o.taxonConceptURIs[0].replace("http://taxon-concept.plazi.org/id/","");s.innerText=
+this.append(m);let g=document.createElement("ul");if(this.append(g),o.taxonConceptURIs[0]){let s=document.createElement(
+"a");s.classList.add("taxon","uri");let i=o.taxonConceptURIs[0].replace("http://taxon-concept.plazi.org/id/","");s.innerText=
 i,s.id=i,s.href=o.taxonConceptURIs[0],s.target="_blank",s.innerHTML+=f.link,m.append(" ",s)}if(o.col){let s=document.createElement(
 "a");s.classList.add("col","uri");let i=o.col.colURI.replace("https://www.catalogueoflife.org/data/taxon/","");s.innerText=
 i,s.id=i,s.href=o.col.colURI,s.target="_blank",s.innerHTML+=f.link,m.append(" ",s);let T=document.createElement("div");T.

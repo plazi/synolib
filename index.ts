@@ -449,7 +449,7 @@ class SynoName extends HTMLElement {
       const treatments = document.createElement("ul");
       this.append(treatments);
 
-      if (authorizedName.taxonConceptURIs) {
+      if (authorizedName.taxonConceptURIs[0]) {
         const name_uri = document.createElement("a");
         name_uri.classList.add("taxon", "uri");
         // TODO handle other URIs
