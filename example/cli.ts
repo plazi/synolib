@@ -54,7 +54,7 @@ for await (const name of synoGroup) {
     "\n" +
       Colors.bold(Colors.underline(name.displayName)) +
       colorizeIfPresent(name.taxonNameURI, "yellow") +
-      colorizeIfPresent(name.colURI, "yellow"),
+      colorizeIfPresent(name.col?.colURI, "yellow"),
   );
   const vernacular = await name.vernacularNames;
   if (vernacular.size > 0) {
@@ -65,8 +65,8 @@ for await (const name of synoGroup) {
     outputStderr(JSON.stringify({
       name: name.displayName,
       taxonNameURI: name.taxonNameURI,
-      colURI: name.colURI,
-      acceptedColURI: name.acceptedColURI,
+      colURI: name.col?.colURI,
+      acceptedColURI: name.col?.acceptedURI,
       treatments: [
         ...name.treatments.treats.values().map((trt) => {
           return { treatment: trt.url, year: trt.date ?? 0, kind: "aug" };
@@ -80,13 +80,13 @@ for await (const name of synoGroup) {
 
   await logJustification(name);
 
-  if (name.colURI) {
-    const acceptedColURI = await name.acceptedColURI;
-    if (acceptedColURI !== name.colURI) {
+  if (name.col) {
+    const acceptedColURI = name.col.acceptedURI;
+    if (acceptedColURI !== name.col.colURI) {
       console.log(
         `    ${trtColor.dpr("●")} Catalogue of Life\n      → ${
           trtColor.aug("●")
-        } ${Colors.cyan(acceptedColURI!)}`,
+        } ${Colors.cyan(acceptedColURI)}`,
       );
     } else {
       console.log(
@@ -106,7 +106,7 @@ for await (const name of synoGroup) {
             Colors.italic(authorizedName.authority),
         ) +
         colorizeIfPresent(authorizedName.taxonConceptURIs.join(), "yellow") +
-        colorizeIfPresent(authorizedName.colURI, "cyan"),
+        colorizeIfPresent(authorizedName.col?.colURI, "cyan"),
     );
     const auths = authorizedName.authorities.filter((auth) =>
       auth != authorizedName.authority
@@ -123,8 +123,8 @@ for await (const name of synoGroup) {
       outputStderr(JSON.stringify({
         name: authorizedName.displayName + " " + authorizedName.authority,
         taxonNameURIs: authorizedName.taxonConceptURIs,
-        colURI: authorizedName.colURI,
-        acceptedColURI: authorizedName.acceptedColURI,
+        colURI: authorizedName.col?.colURI,
+        acceptedColURI: authorizedName.col?.acceptedURI,
         treatments: [
           ...authorizedName.treatments.def.values().map((trt) => {
             return { treatment: trt.url, year: trt.date ?? 0, kind: "def" };
@@ -142,13 +142,13 @@ for await (const name of synoGroup) {
       }));
     }
 
-    if (authorizedName.colURI) {
-      const acceptedColURI = await authorizedName.acceptedColURI;
-      if (acceptedColURI !== authorizedName.colURI) {
+    if (authorizedName.col) {
+      const acceptedColURI = authorizedName.col.acceptedURI;
+      if (acceptedColURI !== authorizedName.col.colURI) {
         console.log(
           `    ${trtColor.dpr("●")} Catalogue of Life\n      → ${
             trtColor.aug("●")
-          } ${Colors.cyan(acceptedColURI!)}`,
+          } ${Colors.cyan(acceptedColURI)}`,
         );
       } else {
         console.log(

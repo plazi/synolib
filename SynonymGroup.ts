@@ -123,12 +123,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
   findName(uri: string): Promise<Name | AuthorizedName> {
     let name: Name | AuthorizedName | undefined;
     for (const n of this.names) {
-      if (n.taxonNameURI === uri || n.colURI === uri) {
+      if (n.taxonNameURI === uri || n.col?.colURI === uri) {
         name = n;
         break;
       }
       const an = n.authorizedNames.find((an) =>
-        an.colURI === uri || an.taxonConceptURIs.includes(uri)
+        an.col?.colURI === uri || an.taxonConceptURIs.includes(uri)
       );
       if (an) {
         name = an;
@@ -140,12 +140,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
       this.monitor.addEventListener("updated", () => {
         if (this.names.length === 0 || this.isFinished) reject();
         const n = this.names.at(-1)!;
-        if (n.taxonNameURI === uri || n.colURI === uri) {
+        if (n.taxonNameURI === uri || n.col?.colURI === uri) {
           resolve(n);
           return;
         }
         const an = n.authorizedNames.find((an) =>
-          an.colURI === uri || an.taxonConceptURIs.includes(uri)
+          an.col?.colURI === uri || an.taxonConceptURIs.includes(uri)
         );
         if (an) {
           resolve(an);
@@ -322,7 +322,7 @@ LIMIT 500`;
           : "")).trim();
 
     // Case where the CoL-taxon has no authority. There should only be one of these.
-    let unathorizedCol: string | undefined;
+    let unathorizedCol: { colURI: string; acceptedURI: string } | undefined;
 
     // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
     const authorizedNames: AuthorizedName[] = [];
@@ -343,11 +343,14 @@ LIMIT 500`;
             console.log("Skipping known", colURI);
             return;
           }
-          if (unathorizedCol && unathorizedCol !== colURI) {
+          if (unathorizedCol && unathorizedCol.colURI !== colURI) {
             console.log("Duplicate unathorized COL:", unathorizedCol, colURI);
           }
-          unathorizedCol = colURI;
-        } else if (!authorizedNames.find((e) => e.colURI === colURI)) {
+          unathorizedCol = {
+            colURI,
+            acceptedURI: t.acceptedcol?.value ?? "INVALID COL",
+          };
+        } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
           if (this.expanded.has(colURI)) {
             console.log("Skipping known", colURI);
             return;
@@ -361,7 +364,10 @@ LIMIT 500`;
               displayName,
               authority: t.authority!.value,
               authorities: [t.authority!.value],
-              colURI: t.col.value,
+              col: {
+                colURI: t.col.value,
+                acceptedURI: t.acceptedcol?.value ?? "INAVLID COL",
+              },
               taxonConceptURIs: [],
               treatments: {
                 def: new Set(),
@@ -440,7 +446,7 @@ LIMIT 500`;
       rank: json.results.bindings[0].rank!.value,
       taxonNameURI,
       authorizedNames: authorizedNames,
-      colURI: unathorizedCol,
+      col: unathorizedCol,
       justification,
       treatments: {
         treats,
@@ -454,31 +460,8 @@ LIMIT 500`;
     };
 
     for (const authName of name.authorizedNames) {
-      if (authName.colURI) this.expanded.add(authName.colURI);
+      if (authName.col) this.expanded.add(authName.col.colURI);
       for (const tc of authName.taxonConceptURIs) this.expanded.add(tc);
-    }
-
-    const colPromises: Promise<void>[] = [];
-    const authorizedColPromises: Promise<string>[] = authorizedNames
-      .filter((n) => n.colURI)
-      .map((n) => {
-        n.acceptedColURI = this.getAcceptedCol(n.colURI!, name).then(
-          ([acceptedColURI, promises]) => {
-            colPromises.push(...promises);
-            return acceptedColURI;
-          },
-        );
-        return n.acceptedColURI;
-      });
-
-    if (unathorizedCol) {
-      name.acceptedColURI = this.getAcceptedCol(unathorizedCol, name).then(
-        ([acceptedColURI, promises]) => {
-          colPromises.push(...promises);
-          return acceptedColURI;
-        },
-      );
-      authorizedColPromises.push(name.acceptedColURI);
     }
 
     this.pushName(name);
@@ -506,23 +489,27 @@ LIMIT 500`;
       );
     });
 
+    if (unathorizedCol) {
+      await this.findColSynonyms(unathorizedCol.colURI, name);
+    }
+
     await Promise.allSettled(
       [
-        ...authorizedColPromises,
+        ...authorizedNames
+          .filter((n) => n.col)
+          .map((n) => this.findColSynonyms(n.col!.colURI, name)),
         ...[...newSynonyms].map(([n, treatment]) =>
           this.getName(n, { searchTerm: false, parent: name, treatment })
         ),
       ],
     );
-    // nedd to await after awaiting all authorizedColPromises as those will push colPromises
-    await Promise.allSettled(colPromises);
   }
 
   /** @internal */
-  private async getAcceptedCol(
+  private async findColSynonyms(
     colUri: string,
     parent: Name,
-  ): Promise<[string, Promise<void>[]]> {
+  ): Promise<void[]> {
     const query = `
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
@@ -541,7 +528,8 @@ SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator=
 GROUP BY ?current ?current_status`;
 
     if (this.acceptedCol.has(colUri)) {
-      return [this.acceptedCol.get(colUri)!, []];
+      // we have already found this group of synonyms
+      return [];
     }
 
     const json = await this.sparqlEndpoint.getSparqlResultSet(
@@ -581,11 +569,11 @@ GROUP BY ?current ?current_status`;
       if (!this.acceptedCol.has(colUri)) {
         this.acceptedCol.set(colUri, "INVALID COL");
       }
-      return [this.acceptedCol.get(colUri)!, promises];
+      return Promise.all(promises);
     }
 
     if (!this.acceptedCol.has(colUri)) this.acceptedCol.set(colUri, colUri);
-    return [this.acceptedCol.get(colUri)!, promises];
+    return Promise.all(promises);
   }
 
   /** @internal */
@@ -883,19 +871,21 @@ export type Name = {
   /** The URI of the respective `dwcFP:TaxonName` if it exists */
   taxonNameURI?: string;
 
-  /**
-   * The URI of the respective CoL-taxon if it exists
-   *
-   * Not that this is only for CoL-taxa which do not have an authority.
-   */
-  colURI?: string;
-  /** The URI of the corresponding accepted CoL-taxon if it exists.
-   *
-   * Always present if colURI is present, they are the same if it is the accepted CoL-Taxon.
-   *
-   * May be the string "INVALID COL" if the colURI is not valid.
-   */
-  acceptedColURI?: Promise<string>;
+  /** Catalogue of Life-Data */
+  col?: {
+    /** The URI of the respective CoL-taxon if it exists
+     *
+     * Note that this is only for CoL-taxa which do not have an authority.
+     */
+    colURI: string;
+    /** The URI of the corresponding accepted CoL-taxon if it exists.
+     *
+     * The same as URI if it is the accepted CoL-Taxon.
+     *
+     * May be the string "INVALID COL" if the colURI is not valid.
+     */
+    acceptedURI: string;
+  };
 
   /** All `AuthorizedName`s with this name */
   authorizedNames: AuthorizedName[];
@@ -946,15 +936,18 @@ export type AuthorizedName = {
   /** The URIs of the respective `dwcFP:TaxonConcept` if it exists */
   taxonConceptURIs: string[];
 
-  /** The URI of the respective CoL-taxon if it exists */
-  colURI?: string;
-  /** The URI of the corresponding accepted CoL-taxon if it exists.
-   *
-   * Always present if colURI is present, they are the same if it is the accepted CoL-Taxon.
-   *
-   * May be the string "INVALID COL" if the colURI is not valid.
-   */
-  acceptedColURI?: Promise<string>;
+  /** Catalogue of Life-Data */
+  col?: {
+    /** The URI of the respective CoL-taxon if it exists */
+    colURI: string;
+    /** The URI of the corresponding accepted CoL-taxon if it exists.
+     *
+     * The same as URI if it is the accepted CoL-Taxon.
+     *
+     * May be the string "INVALID COL" if the colURI is not valid.
+     */
+    acceptedURI: string;
+  };
 
   // TODO: sensible?
   // /** these are CoL-taxa linked in the rdf, which differ lexically */

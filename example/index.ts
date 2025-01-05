@@ -366,23 +366,23 @@ class SynoName extends HTMLElement {
     const treatments = document.createElement("ul");
     this.append(treatments);
 
-    if (name.colURI) {
+    if (name.col) {
       const col_uri = document.createElement("a");
       col_uri.classList.add("col", "uri");
-      const id = name.colURI.replace(
+      const id = name.col.colURI.replace(
         "https://www.catalogueoflife.org/data/taxon/",
         "",
       );
       col_uri.innerText = id;
       col_uri.id = id;
-      col_uri.href = name.colURI;
+      col_uri.href = name.col.colURI;
       col_uri.target = "_blank";
       col_uri.innerHTML += icons.link;
       title.append(" ", col_uri);
 
       const li = document.createElement("div");
       li.classList.add("treatmentline");
-      li.innerHTML = name.acceptedColURI !== name.colURI
+      li.innerHTML = name.col.acceptedURI !== name.col.colURI
         ? icons.col_dpr
         : icons.col_aug;
       treatments.append(li);
@@ -395,14 +395,14 @@ class SynoName extends HTMLElement {
       names.classList.add("indent");
       li.append(names);
 
-      if (name.acceptedColURI !== name.colURI) {
+      if (name.col.acceptedURI !== name.col.colURI) {
         const line = document.createElement("div");
         line.innerHTML = icons.east + icons.col_aug;
         names.append(line);
 
         const col_uri = document.createElement("a");
         col_uri.classList.add("col", "uri");
-        const id = name.acceptedColURI!.replace(
+        const id = name.col.acceptedURI.replace(
           "https://www.catalogueoflife.org/data/taxon/",
           "",
         );
@@ -410,7 +410,7 @@ class SynoName extends HTMLElement {
         col_uri.href = `#${id}`;
         col_uri.title = "show name";
         line.append(col_uri);
-        synoGroup.findName(name.acceptedColURI!).then((n) => {
+        synoGroup.findName(name.col.acceptedURI).then((n) => {
           if ((n as AuthorizedName).authority) {
             col_uri.innerText = n.displayName + " " +
               (n as AuthorizedName).authority;
@@ -449,39 +449,41 @@ class SynoName extends HTMLElement {
       const treatments = document.createElement("ul");
       this.append(treatments);
 
-      if (authorizedName.taxonConceptURI) {
+      if (authorizedName.taxonConceptURIs) {
         const name_uri = document.createElement("a");
         name_uri.classList.add("taxon", "uri");
-        const short = authorizedName.taxonConceptURI.replace(
+        // TODO handle other URIs
+        const short = authorizedName.taxonConceptURIs[0].replace(
           "http://taxon-concept.plazi.org/id/",
           "",
         );
         name_uri.innerText = short;
         name_uri.id = short;
-        name_uri.href = authorizedName.taxonConceptURI;
+        name_uri.href = authorizedName.taxonConceptURIs[0];
         name_uri.target = "_blank";
         name_uri.innerHTML += icons.link;
         authName.append(" ", name_uri);
       }
-      if (authorizedName.colURI) {
+      if (authorizedName.col) {
         const col_uri = document.createElement("a");
         col_uri.classList.add("col", "uri");
-        const id = authorizedName.colURI.replace(
+        const id = authorizedName.col.colURI.replace(
           "https://www.catalogueoflife.org/data/taxon/",
           "",
         );
         col_uri.innerText = id;
         col_uri.id = id;
-        col_uri.href = authorizedName.colURI;
+        col_uri.href = authorizedName.col.colURI;
         col_uri.target = "_blank";
         col_uri.innerHTML += icons.link;
         authName.append(" ", col_uri);
 
         const li = document.createElement("div");
         li.classList.add("treatmentline");
-        li.innerHTML = authorizedName.acceptedColURI !== authorizedName.colURI
-          ? icons.col_dpr
-          : icons.col_aug;
+        li.innerHTML =
+          authorizedName.col.acceptedURI !== authorizedName.col.colURI
+            ? icons.col_dpr
+            : icons.col_aug;
         treatments.append(li);
 
         const creators = document.createElement("span");
@@ -492,14 +494,14 @@ class SynoName extends HTMLElement {
         names.classList.add("indent");
         li.append(names);
 
-        if (authorizedName.acceptedColURI !== authorizedName.colURI) {
+        if (authorizedName.col.acceptedURI !== authorizedName.col.colURI) {
           const line = document.createElement("div");
           line.innerHTML = icons.east + icons.col_aug;
           names.append(line);
 
           const col_uri = document.createElement("a");
           col_uri.classList.add("col", "uri");
-          const id = authorizedName.acceptedColURI!.replace(
+          const id = authorizedName.col.acceptedURI.replace(
             "https://www.catalogueoflife.org/data/taxon/",
             "",
           );
@@ -507,7 +509,7 @@ class SynoName extends HTMLElement {
           col_uri.href = `#${id}`;
           col_uri.title = "show name";
           line.append(" ", col_uri);
-          synoGroup.findName(authorizedName.acceptedColURI!).then((n) => {
+          synoGroup.findName(authorizedName.col.acceptedURI).then((n) => {
             col_uri.classList.remove("uri");
             if ((n as AuthorizedName).authority) {
               col_uri.innerText = n.displayName + " " +

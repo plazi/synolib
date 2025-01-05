@@ -8,7 +8,7 @@ PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority
+SELECT DISTINCT ?kingdom ?tn ?tc ?col ?acceptedcol ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority
   (group_concat(DISTINCT ?tcauth;separator=" / ") AS ?tcAuth)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
@@ -23,7 +23,7 @@ SELECT DISTINCT ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?
  * As its own variable to ensure consistency in the resturned bindings.
  */
 const postamble =
-  `GROUP BY ?kingdom ?tn ?tc ?col ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority`;
+  `GROUP BY ?kingdom ?tn ?tc ?col ?acceptedcol ?rank ?genus ?section ?subgenus ?species ?infrasp ?name ?authority`;
 
 /**
  * Note: this query assumes that there is no sub-species taxa with missing dwc:species
@@ -36,6 +36,13 @@ BIND(<${colUri}> as ?col)
   ?col dwc:taxonRank ?rank .
   ?col dwc:scientificName ?name .
   ?col dwc:genericName ?genus .
+  {
+    ?col dwc:acceptedName ?acceptedcol .
+  } UNION {
+    ?col dwc:taxonomicStatus ?col_status . # TODO: unused
+    FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
+    BIND(?col AS ?acceptedcol)
+  }
   OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
   OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
   OPTIONAL {
@@ -130,6 +137,13 @@ export const getNameFromTC = (tcUri: string) =>
     ?col dwc:taxonRank ?rank .
     ?col dwc:scientificName ?name . # Note: contains authority
     ?col dwc:genericName ?genus .
+    {
+      ?col dwc:acceptedName ?acceptedcol .
+    } UNION {
+      ?col dwc:taxonomicStatus ?col_status . # TODO: unused
+      FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
+      BIND(?col AS ?acceptedcol)
+    }
     OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
@@ -199,6 +213,13 @@ export const getNameFromTN = (tnUri: string) =>
     ?col dwc:taxonRank ?rank .
     ?col dwc:scientificName ?name . # Note: contains authority
     ?col dwc:genericName ?genus .
+    {
+      ?col dwc:acceptedName ?acceptedcol .
+    } UNION {
+      ?col dwc:taxonomicStatus ?col_status . # TODO: unused
+      FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
+      BIND(?col AS ?acceptedcol)
+    }
     OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:rank "kingdom" ; dwc:taxonName ?colkingdom . }
     FILTER(?kingdom = COALESCE(?colkingdom, ""))
 
