@@ -1,0 +1,25 @@
+{
+  "name": "@plazi/synolib",
+  "version": "3.4.2",
+  "exports": "./mod.ts",
+  "publish": {
+    "include": ["./*.ts", "README.md", "LICENSE", "./example/cli.ts"],
+    "exclude": ["./build_example.ts"]
+  },
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "deno.ns"
+    ]
+  },
+  "imports": {
+    "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@^0.11.0",
+    "esbuild": "npm:esbuild@^0.24.0"
+  },
+  "tasks": {
+    "example_serve": "deno run --allow-read --allow-env --allow-run build_example.ts serve",
+    "example_build": "deno run --allow-read --allow-env --allow-run build_example.ts build"
+  }
+}
