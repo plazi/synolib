@@ -18,7 +18,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** The SparqlEndpoint used */
   private sparqlEndpoint: SparqlEndpoint;
 
-  private fetchOptions: RequestInit = { signal: this.controller.signal };
+  private fetchOptions: RequestInit = {
+    signal: this.controller.signal,
+    cache: "force-cache",
+  };
 
   /**
    * List of names found so-far.

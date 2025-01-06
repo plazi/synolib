@@ -71,6 +71,7 @@ export class SparqlEndpoint {
           const wait = 50 * (1 << retryCount++);
           console.info(`!! Fetch Error. Retrying in ${wait}ms (${retryCount})`);
           await sleep(wait);
+          fetchOptions.cache = "no-cache"; // do not attempt to use cache on retry (this will populate the chache on success though)
           return await sendRequest();
         }
         console.warn("!! Fetch Error:", query, "\n---\n", error);
