@@ -18,6 +18,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** The SparqlEndpoint used */
   private sparqlEndpoint: SparqlEndpoint;
 
+  private fetchOptions: RequestInit = { signal: this.controller.signal };
+
   /**
    * List of names found so-far.
    *
@@ -172,19 +174,19 @@ export class SynonymGroup implements AsyncIterable<Name> {
     if (taxonName.startsWith("https://www.catalogueoflife.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromCol(taxonName),
-        { signal: this.controller.signal },
+        this.fetchOptions,
         `NameFromCol ${taxonName}`,
       );
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromTC(taxonName),
-        { signal: this.controller.signal },
+        this.fetchOptions,
         `NameFromTC ${taxonName}`,
       );
     } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromTN(taxonName),
-        { signal: this.controller.signal },
+        this.fetchOptions,
         `NameFromTN ${taxonName}`,
       );
     } else {
@@ -223,7 +225,7 @@ LIMIT 5000`;
     if (this.controller.signal?.aborted) return Promise.reject();
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
-      { signal: this.controller.signal },
+      this.fetchOptions,
       `Subtaxa ${url}`,
     );
 
@@ -261,7 +263,7 @@ LIMIT 500`;
     if (this.controller.signal?.aborted) return Promise.reject();
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
-      { signal: this.controller.signal },
+      this.fetchOptions,
       `NameFromLatin ${genus} ${species} ${infrasp}`,
     );
 
@@ -534,7 +536,7 @@ GROUP BY ?current ?current_status`;
 
     const json = await this.sparqlEndpoint.getSparqlResultSet(
       query,
-      { signal: this.controller.signal },
+      this.fetchOptions,
       `AcceptedCol ${colUri}`,
     );
 
@@ -581,9 +583,11 @@ GROUP BY ?current ?current_status`;
     const result: vernacularNames = new Map();
     const query =
       `SELECT DISTINCT ?n WHERE { <${uri}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`;
-    const bindings = (await this.sparqlEndpoint.getSparqlResultSet(query, {
-      signal: this.controller.signal,
-    }, `Vernacular ${uri}`)).results.bindings;
+    const bindings = (await this.sparqlEndpoint.getSparqlResultSet(
+      query,
+      this.fetchOptions,
+      `Vernacular ${uri}`,
+    )).results.bindings;
     for (const b of bindings) {
       if (b.n?.value) {
         if (b.n["xml:lang"]) {
@@ -708,7 +712,7 @@ GROUP BY ?date ?title ?mc`;
     try {
       const json = await this.sparqlEndpoint.getSparqlResultSet(
         query,
-        { signal: this.controller.signal },
+        this.fetchOptions,
         `TreatmentDetails ${treatmentUri}`,
       );
       const materialCitations: MaterialCitation[] = json.results.bindings
@@ -748,7 +752,7 @@ SELECT DISTINCT ?url ?description WHERE {
 } `;
       const figures = (await this.sparqlEndpoint.getSparqlResultSet(
         figureQuery,
-        { signal: this.controller.signal },
+        this.fetchOptions,
         `TreatmentDetails/Figures ${treatmentUri}`,
       )).results.bindings;
       const figureCitations = figures.filter((f) => f.url?.value).map(
