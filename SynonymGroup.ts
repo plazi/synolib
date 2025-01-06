@@ -172,26 +172,26 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
     if (this.controller.signal?.aborted) return Promise.reject();
 
-    let json: SparqlJson | undefined;
+    let json: SparqlJson<Queries.Columns> | undefined;
 
     if (taxonName.startsWith("https://www.catalogueoflife.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromCol(taxonName),
         this.fetchOptions,
         `NameFromCol ${taxonName}`,
-      );
+      ) as SparqlJson<Queries.Columns>;
     } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromTC(taxonName),
         this.fetchOptions,
         `NameFromTC ${taxonName}`,
-      );
+      ) as SparqlJson<Queries.Columns>;
     } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
       json = await this.sparqlEndpoint.getSparqlResultSet(
         Queries.getNameFromTN(taxonName),
         this.fetchOptions,
         `NameFromTN ${taxonName}`,
-      );
+      ) as SparqlJson<Queries.Columns>;
     } else {
       throw `Cannot handle name-uri <${taxonName}> !`;
     }
@@ -282,7 +282,7 @@ LIMIT 500`;
    *
    * @internal */
   private async handleName(
-    json: SparqlJson,
+    json: SparqlJson<Queries.Columns>,
     justification: Justification,
   ): Promise<void> {
     const treatmentPromises: Treatment[] = [];

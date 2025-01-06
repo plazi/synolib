@@ -6,16 +6,16 @@ async function sleep(ms: number): Promise<void> {
 }
 
 /** Describes the format of the JSON return by SPARQL endpoints */
-export type SparqlJson = {
+export type SparqlJson<T extends string> = {
   head: {
-    vars: string[];
+    vars: T[];
   };
   results: {
-    bindings: {
-      [key: string]:
-        | { type: string; value: string; "xml:lang"?: string }
-        | undefined;
-    }[];
+    bindings: Record<
+      T,
+      | { type: string; value: string; "xml:lang"?: string }
+      | undefined
+    >[];
   };
 };
 
@@ -45,7 +45,7 @@ export class SparqlEndpoint {
     query: string,
     fetchOptions: RequestInit = {},
     _reason = "",
-  ): Promise<SparqlJson> {
+  ): Promise<SparqlJson<string>> {
     // this.reasons.push(_reason);
     // DEBUG: console.info(`SPARQL ${_reason}:\n${query}`);
 
@@ -53,7 +53,7 @@ export class SparqlEndpoint {
     (fetchOptions.headers as Record<string, string>)["Accept"] =
       "application/sparql-results+json";
     let retryCount = 0;
-    const sendRequest = async (): Promise<SparqlJson> => {
+    const sendRequest = async (): Promise<SparqlJson<string>> => {
       try {
         // DEBUG: console.info(`SPARQL ${_reason} (${retryCount + 1})`);
         const response = await fetch(

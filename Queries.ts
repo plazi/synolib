@@ -1,3 +1,25 @@
+export type Columns =
+  | "kingdom"
+  | "tn"
+  | "tc"
+  | "col"
+  | "acceptedcol"
+  | "rank"
+  | "genus"
+  | "section"
+  | "subgenus"
+  | "species"
+  | "infrasp"
+  | "name"
+  | "authority"
+  | "tcAuth"
+  | "augs"
+  | "defs"
+  | "dprs"
+  | "cites"
+  | "tntreats"
+  | "tncites";
+
 /**
  * Common to all of the `getNameFrom_`-queries.
  *
