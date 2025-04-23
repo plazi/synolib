@@ -166,8 +166,7 @@ export const getNameFromTC = (tcUri: string) =>
       FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
       BIND(?col AS ?acceptedcol)
     }
-    OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?colkingdom . }
-    FILTER(?kingdom = COALESCE(?colkingdom, ""))
+    ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?kingdom .
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
     FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
@@ -242,8 +241,7 @@ export const getNameFromTN = (tnUri: string) =>
       FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
       BIND(?col AS ?acceptedcol)
     }
-    OPTIONAL { ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?colkingdom . }
-    FILTER(?kingdom = COALESCE(?colkingdom, ""))
+    ?col (dwc:parent|dwc:acceptedName)* ?p . ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?kingdom .
 
     OPTIONAL { ?col dwc:infragenericEpithet ?colsubgenus . }
     FILTER(COALESCE(?tnsubgenus, COALESCE(?section, "")) = COALESCE(?colsubgenus, ""))
