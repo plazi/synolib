@@ -83,22 +83,30 @@ export class SynonymGroup implements AsyncIterable<Name> {
   startWithSubTaxa: boolean;
 
   /**
+   * If set to true, will not look for any synonyms and only return the initial match(es)
+   */
+  noSynonyms: boolean;
+
+  /**
    * Constructs a SynonymGroup
    *
    * @param sparqlEndpoint SPARQL-Endpoint to query
    * @param taxonName either a string of the form "Genus species infraspecific" (species & infraspecific names optional), or an URI of a http://filteredpush.org/ontologies/oa/dwcFP#TaxonConcept or ...#TaxonName or a CoL taxon URI
    * @param [ignoreDeprecatedCoL=true] Whether to show taxa deprecated by CoL that would not have been found otherwise
    * @param [startWithSubTaxa=false] if set to true, subTaxa of the search term are also considered as starting points.
+   * @param [noSynonyms=false] If set to true, will not look for any synonyms and only return the initial match(es).
    */
   constructor(
     sparqlEndpoint: SparqlEndpoint,
     taxonName: string,
     ignoreDeprecatedCoL = true,
     startWithSubTaxa = false,
+    noSynonyms = false,
   ) {
     this.sparqlEndpoint = sparqlEndpoint;
     this.ignoreDeprecatedCoL = ignoreDeprecatedCoL;
     this.startWithSubTaxa = startWithSubTaxa;
+    this.noSynonyms = noSynonyms;
 
     if (taxonName.startsWith("http")) {
       this.getName(taxonName, { searchTerm: true, subTaxon: false })
@@ -165,6 +173,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
     taxonName: string,
     justification: Justification,
   ): Promise<void> {
+    if (this.noSynonyms && !justification.searchTerm) {
+      return;
+    }
+
     if (this.expanded.has(taxonName)) {
       console.log("Skipping known", taxonName);
       return;

@@ -9,7 +9,7 @@ import {
 } from "../mod.ts";
 
 const args = parseArgs(Deno.args, {
-  boolean: ["json", "ignore-deprecated-col", "subtaxa"],
+  boolean: ["json", "ignore-deprecated-col", "subtaxa", "nosynonyms"],
   string: ["server", "q"],
   negatable: ["ignore-deprecated-col"],
   default: {
@@ -37,6 +37,7 @@ const synoGroup = new SynonymGroup(
   taxonName,
   args["ignore-deprecated-col"],
   args.subtaxa,
+  args.nosynonyms,
 );
 
 const trtColor = {
