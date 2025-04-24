@@ -32,6 +32,19 @@ const unify_tests: [string, string, string][] = [
     "Bakker, Williams & Currie, 1988",
     "Bakker, Williams & Currie, 1988",
   ],
+  ["Mesibov, 2008", "R. Mesibov, 2008", "Mesibov, 2008"],
+  [
+    "A. d’Orbigny, 1835",
+    "d’Orbigny, 1835",
+    "d’Orbigny, 1835",
+  ],
+  [
+    "A. d'Orbigny, 1835",
+    "d’Orbigny, 1835",
+    "d'Orbigny, 1835",
+  ],
+  ["Name & Kulczyński, 1901", "Name & Kulczynski, 1901", "Name & Kulczyński, 1901"],
+  // ["Name, Kulczyński, 1901", "Name & Kulczynski, 1901", "Name & Kulczyński, 1901"],
 ];
 
 const incompatible_tests: [string, string][] = [
