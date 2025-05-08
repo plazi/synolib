@@ -41,21 +41,23 @@ export type ColSynonyms = {
 
 export type PlaziResult = {
     tnUri: string;
-    humanReadable: string;
+    // humanReadable: string;
     authorized: {
         tcUri: string;
-        authority: string;
+        authorities: string;
         /** treatments: uri;date|uri;date|... */
-        augs: string;
+        defs?: string;
         /** treatments: uri;date|uri;date|... */
-        dprs: string;
+        augs?: string;
         /** treatments: uri;date|uri;date|... */
-        cites: string;
+        dprs?: string;
+        /** treatments: uri;date|uri;date|... */
+        cites?: string;
     }[];
     /** treatments: uri;date|uri;date|... */
-    treats: string;
+    treats?: string;
     /** treatments: uri;date|uri;date|... */
-    cites: string;
+    cites?: string;
     latinName: LatinName;
 };
 
@@ -233,14 +235,14 @@ export async function getPlaziFromName(
     name: LatinName,
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
-): Promise<PlaziResult> {
+): Promise<Set<PlaziResult>> {
     const query = `
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
 PREFIX cito: <http://purl.org/spar/cito/>
 PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?tn ?tc ?name ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+SELECT DISTINCT ?tn ?tc ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
   (group_concat(DISTINCT ?authority;separator=" / ") AS ?authorities)
   (group_concat(DISTINCT ?aug;separator="|") as ?augs)
   (group_concat(DISTINCT ?def;separator="|") as ?defs)
@@ -325,5 +327,45 @@ LIMIT 500`;
         fetchOptions,
         "getPlaziFromName",
     );
-    throw new Error("Not yet implemented");
+    const results: Map<string, PlaziResult> = new Map();
+
+    for (const result of json.results.bindings) {
+        const tnUri = result.tn?.value;
+        const genericName = result.generic?.value;
+        if (!tnUri || !genericName) continue;
+
+        const tcUri = result.tc?.value;
+        const authorities = result.authorities?.value;
+
+        let tc = !tcUri || !authorities ? undefined : {
+            tcUri,
+            authorities,
+            defs: result.augs?.value,
+            augs: result.augs?.value,
+            dprs: result.dprs?.value,
+            cites: result.cites?.value,
+        };
+
+        const r = results.get(tnUri);
+        if (!r) {
+            results.set(tnUri, {
+                tnUri,
+                authorized: !tc ? [] : [tc],
+                treats: result.tntreats?.value,
+                cites: result.tncites?.value,
+                latinName: {
+                    rank: result.rank?.value,
+                    kingdom: result.kingdom?.value,
+                    genericName,
+                    infragenericEpithet: result.infrag?.value,
+                    specificEpithet: result.specific?.value,
+                    infraspecificEpithet: result.infrasp?.value,
+                },
+            });
+        } else if (tc) {
+            r.authorized.push(tc);
+        }
+    }
+
+    return new Set(results.values());
 }
