@@ -1,6 +1,20 @@
 import type { SparqlEndpoint, SparqlJson } from "./mod.ts";
 import * as Queries from "./Queries.ts";
+import * as SQueries from "./SimpleQueries.ts";
 import { unifyAuthorithy } from "./UnifyAuthorities.ts";
+
+const abbreviateRank = (rank: string) => {
+  switch (rank) {
+    case "variety":
+      return "var.";
+    case "subspecies":
+      return "subsp.";
+    case "form":
+      return "f.";
+    default:
+      return rank;
+  }
+};
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
@@ -51,7 +65,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.monitor.dispatchEvent(new CustomEvent("updated"));
   }
 
-  /** contains TN, TC, CoL uris of synonyms which are in-flight somehow or are done already */
+  /** contains stringified LatinNames, TN, TC, CoL uris of synonyms which are in-flight somehow or are done already */
   private expanded = new Set<string>(); // new Map<string, NameStatus>();
 
   /** contains CoL uris where we don't need to check for Col "acceptedName" links
@@ -109,6 +123,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.noSynonyms = noSynonyms;
 
     if (taxonName.startsWith("http")) {
+      // TODO !!
+      console.log("TODO");
+      this.controller.abort("SynoGroup Failed");
+      return;
+
       this.getName(taxonName, { searchTerm: true, subTaxon: false })
         .catch((e) => {
           console.log("SynoGroup Failure: ", e);
@@ -116,16 +135,213 @@ export class SynonymGroup implements AsyncIterable<Name> {
         })
         .finally(() => this.finish());
     } else {
-      const name = [
-        ...taxonName.split(" ").filter((n) => !!n),
-        undefined,
-        undefined,
-      ] as [string, string | undefined, string | undefined];
-      this.getNameFromLatin(name, { searchTerm: true, subTaxon: false })
+      const match =
+        /^(\w+)(?:\s+\((\w+)\))?(?:\s+×?\s*(\w+)(?:(?:\s+\w+\.\s*\w*)*?\s+(\w+))?)?$/
+          .exec(taxonName);
+      if (match === null) {
+        console.log("SynoGroup Failure: Could not parse", taxonName);
+        this.controller.abort("SynoGroup Failed");
+        this.finish();
+        return;
+      }
+      const name: SQueries.LatinName = {
+        genericName: match[1],
+        infragenericEpithet: match[2],
+        specificEpithet: match[3],
+        infraspecificEpithet: match[4],
+        noMissing: false,
+      };
+
+      this.handleLatinName(name, { searchTerm: true, subTaxon: false })
         .finally(
           () => this.finish(),
         );
     }
+  }
+
+  private async handleLatinName(
+    name: SQueries.LatinName,
+    justification: Justification,
+  ) {
+    const [col, plazi] = await Promise.all([
+      SQueries.getColFromName(name, this.sparqlEndpoint, this.fetchOptions),
+      SQueries.getPlaziFromName(name, this.sparqlEndpoint, this.fetchOptions),
+    ]);
+
+    const treatmentPromises: Treatment[] = [];
+
+    const newNames: Set<string> = new Set();
+    const newCol: Map<string, Set<SQueries.ColResult>> = new Map();
+    const newPlazi: Map<string, SQueries.PlaziResult> = new Map();
+
+    for (const r of col) {
+      const key = SQueries.stringifyLN(r.latinName);
+      const prev = newCol.get(key);
+      if (prev) {
+        prev.add(r);
+      } else {
+        newNames.add(key);
+        newCol.set(key, new Set([r]));
+      }
+    }
+    for (const r of plazi) {
+      const key = SQueries.stringifyLN(r.latinName);
+      if (newPlazi.has(key)) {
+        console.warn("Found duplicate Plazi-LN: ${key}");
+      }
+      newNames.add(key);
+      newPlazi.set(key, r);
+    }
+
+    for (const key of newNames) {
+      if (this.expanded.has(key)) continue;
+      else this.expanded.add(key);
+
+      const plazi = newPlazi.get(key);
+      const cols = newCol.get(key);
+
+      console.log(key, cols, plazi);
+
+      let unauthorizedCol: { colURI: string; acceptedURI: string } | undefined;
+      const authorizedNames: AuthorizedName[] = [];
+
+      let kingdom: string | undefined;
+      let displayName: string | undefined;
+      let rank: string | undefined;
+
+      if (cols) {
+        for (const col of cols.values()) {
+          const colURI = col.colUri;
+          if (!kingdom) kingdom = col.latinName.kingdom;
+          if (!displayName) displayName = col.humanReadable;
+          if (!rank) rank = col.latinName.rank;
+          if (col.authority) {
+            if (unauthorizedCol && unauthorizedCol.colURI !== colURI) {
+              console.log("Duplicate unathorized COL:", colURI);
+            }
+            unauthorizedCol = {
+              colURI,
+              acceptedURI: "TODO",
+            };
+          } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
+            // if (!expandedHere.has(colURI)) {
+            //   expandedHere.add(colURI);
+            // TODO: handle unification of names
+            // might not be neccessary, assuming all CoL-taxa are mutually non-unifiable and
+            // they are always handled first
+            authorizedNames.push({
+              displayName: col.humanReadable,
+              authority: col.authority!,
+              authorities: [col.authority!],
+              col: {
+                colURI,
+                acceptedURI: "TODO",
+              },
+              taxonConceptURIs: [],
+              treatments: {
+                def: new Set(),
+                aug: new Set(),
+                dpr: new Set(),
+                cite: new Set(),
+              },
+            });
+            //}
+          }
+        }
+      }
+
+      displayName = displayName ?? `TODO. ${key}`
+
+      if (plazi) {
+        for (const authName of plazi.authorized) {
+          const def = this.makeTreatmentSet(authName.defs?.split("|"));
+          const aug = this.makeTreatmentSet(authName.augs?.split("|"));
+          const dpr = this.makeTreatmentSet(authName.dprs?.split("|"));
+          const cite = this.makeTreatmentSet(authName.cites?.split("|"));
+
+          def.forEach((t) => treatmentPromises.push(t));
+          aug.forEach((t) => treatmentPromises.push(t));
+          dpr.forEach((t) => treatmentPromises.push(t));
+
+          const prevName = authorizedNames.find((e) =>
+            unifyAuthorithy(e.authority, authName.authorities) !== null
+            // authName.authorities.split(" / ").some((auth) =>
+            //   unifyAuthorithy(e.authority, auth) !== null
+            // )
+          );
+          if (prevName) {
+            // TODO: I feel like this could be made much more efficient -- we are unifying repeatedly
+            const best = authName.authorities; // .split(" / ").find((auth) =>
+            //  unifyAuthorithy(prevName.authority, auth) !== null
+            // )!;
+
+            prevName.authority = unifyAuthorithy(prevName.authority, best)!;
+            prevName.authorities.push(...authName.authorities.split(" / "));
+            prevName.taxonConceptURIs.push(authName.tcUri);
+            prevName.treatments = {
+              def: prevName.treatments.def.union(def),
+              aug: prevName.treatments.aug.union(aug),
+              dpr: prevName.treatments.dpr.union(dpr),
+              cite: prevName.treatments.cite.union(cite),
+            };
+          } else {
+            authorizedNames.push({
+              displayName,
+              authority: authName.authorities,
+              authorities: authName.authorities.split(" / "),
+              taxonConceptURIs: [authName.tcUri],
+              treatments: {
+                def,
+                aug,
+                dpr,
+                cite,
+              },
+            });
+          }
+        }
+      }
+
+      // TODO plazi-names
+
+      const name: Name = {
+        kingdom: kingdom ?? plazi?.latinName.kingdom ?? "",
+        displayName,
+        rank: rank ?? plazi?.latinName.rank ?? "",
+        vernacularNames: plazi
+          ? this.getVernacular(plazi.tnUri)
+          : Promise.resolve(new Map()),
+        taxonNameURI: plazi?.tnUri,
+        col: unauthorizedCol,
+        authorizedNames,
+        justification,
+        treatments: {
+          treats: plazi?.treats
+            ? this.makeTreatmentSet(plazi.treats.split("|"))
+            : new Set(),
+          cite: plazi?.cites
+            ? this.makeTreatmentSet(plazi.cites.split("|"))
+            : new Set(),
+        },
+      };
+
+      this.pushName(name);
+    }
+
+      // TODO: actually find synoyms
+  }
+
+  private async handleColResult(
+    result: SQueries.ColResult,
+    justification: Justification,
+  ) {
+    // TODO
+  }
+
+  private async handlePlaziResult(
+    result: SQueries.PlaziResult,
+    justification: Justification,
+  ) {
+    // TODO
   }
 
   /**

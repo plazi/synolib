@@ -23,8 +23,12 @@ export type LatinName = {
      *
      * TODO: this seems rather slow
      */
-    // noMissing: boolean;
+    noMissing: boolean;
 };
+
+export function stringifyLN(name: LatinName): string {
+    return `${name.noMissing}|${name.rank}|${name.kingdom}|${name.genericName}|${name.infragenericEpithet}|${name.specificEpithet}|${name.infraspecificEpithet}`;
+}
 
 export type ColResult = {
     colUri: string;
@@ -108,7 +112,7 @@ WHERE {
     OPTIONAL { ?col dwc:specificEpithet ?specific . }
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
     OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
-    ?col dwc:parent* ?p .
+    ?col dwc:acceptedName?/dwc:parent* ?p .
     ?p dwc:taxonRank "kingdom" ;
        dwc:scientificName ?kingdom .
 }
@@ -142,6 +146,7 @@ LIMIT 500`;
                     infragenericEpithet: result.infrag?.value,
                     specificEpithet: result.specific?.value,
                     infraspecificEpithet: result.infrasp?.value,
+                    noMissing: true,
                 },
             };
         }).filter((r) => r !== undefined),
@@ -175,7 +180,8 @@ WHERE {
     ?col dwc:taxonomicStatus ?status ;
         dwc:scientificName ?name ;
         dwc:taxonRank ?rank .
-    ?col dwc:parent* ?p . ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?kingdom .
+    ?col dwc:acceptedName?/dwc:parent* ?p .
+    ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?kingdom .
     OPTIONAL { ?col dwc:genericName ?generic . }
     OPTIONAL { ?col dwc:infragenericEpithet ?infrag . }
     OPTIONAL { ?col dwc:specificEpithet ?specific . }
@@ -215,6 +221,7 @@ WHERE {
                 infragenericEpithet: result.infrag?.value,
                 specificEpithet: result.specific?.value,
                 infraspecificEpithet: result.infrasp?.value,
+                noMissing: true,
             },
         };
         if (colUri === result.acceptedcol?.value) {
@@ -285,7 +292,7 @@ WHERE {
        a dwcFP:TaxonName .
     OPTIONAL {?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
-    OPTIONAL { ?tn dwc:genus ?genus . }
+    OPTIONAL { ?tn dwc:genus ?generic . }
     OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
     OPTIONAL { ?tn dwc:species ?specific . }
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
@@ -360,6 +367,7 @@ LIMIT 500`;
                     infragenericEpithet: result.infrag?.value,
                     specificEpithet: result.specific?.value,
                     infraspecificEpithet: result.infrasp?.value,
+                    noMissing: true,
                 },
             });
         } else if (tc) {
