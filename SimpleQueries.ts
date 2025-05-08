@@ -165,6 +165,10 @@ WHERE {
         <${colUri}> dwc:taxonomicStatus "accepted" .
         BIND(<${colUri}> AS ?col)
         BIND(<${colUri}> AS ?acceptedcol)
+    } UNION {
+        <${colUri}> dwc:taxonomicStatus "provisionally accepted" .
+        BIND(<${colUri}> AS ?col)
+        BIND(<${colUri}> AS ?acceptedcol)
     }
     ?col dwc:taxonomicStatus ?status ;
         dwc:scientificName ?name ;
@@ -225,10 +229,101 @@ WHERE {
     return { accepted, synonyms };
 }
 
-export function getPlaziFromName(
+export async function getPlaziFromName(
     name: LatinName,
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
 ): Promise<PlaziResult> {
+    const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tn ?tc ?name ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+  (group_concat(DISTINCT ?authority;separator=" / ") AS ?authorities)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites)
+WHERE {
+    ${name.rank ? `?tn dwc:rank "${name.rank}" .` : ""}
+    ${
+        name.genericName
+            ? `?tn dwc:genus "${name.genericName}" .`
+            // : name.noMissing
+            // ? `FILTER NOT EXISTS { ?col dwc:genericName ?_generic . }`
+            : ""
+    }
+    ${
+        name.infragenericEpithet
+            ? `?tn dwc:subGenus|dwc:section "${name.infragenericEpithet}" .`
+            // : name.noMissing
+            // ? `FILTER NOT EXISTS { ?col dwc:infragenericEpithet ?_infrag . }`
+            : ""
+    }
+    ${
+        name.specificEpithet
+            ? `?tn dwc:species "${name.specificEpithet}" .`
+            // : name.noMissing
+            // ? `FILTER NOT EXISTS { ?col dwc:specificEpithet ?_specific . }`
+            : ""
+    }
+    ${
+        name.infraspecificEpithet
+            ? `?tn dwc:subSpecies|dwc:variety|dwc:form "${name.infraspecificEpithet}" .`
+            // : name.noMissing
+            // ? `FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?_infrasp . }`
+            : ""
+    }
+    ${name.kingdom ? `?tn dwc:kingdom "${name.kingdom}" .` : ""}
+    ?tn dwc:rank ?rank ;
+       a dwcFP:TaxonName .
+    OPTIONAL {?tn dwc:kingdom ?kingdom . }
+    # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
+    OPTIONAL { ?tn dwc:genus ?genus . }
+    OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
+    OPTIONAL { ?tn dwc:species ?specific . }
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
+
+    OPTIONAL {
+      ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+      BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
+    }
+    OPTIONAL {
+      ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+      BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
+    }
+
+    OPTIONAL {
+      ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?authority ; a dwcFP:TaxonConcept .
+
+      OPTIONAL {
+        ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+        BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
+      }
+      OPTIONAL {
+        ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+        BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
+      }
+      OPTIONAL {
+        ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+        BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
+      }
+      OPTIONAL {
+        ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+        BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
+      }
+    }
+}
+GROUP BY ?tn ?tc ?name ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+LIMIT 500`;
+    const json = await endpoint.getSparqlResultSet(
+        query,
+        fetchOptions,
+        "getPlaziFromName",
+    );
     throw new Error("Not yet implemented");
 }
