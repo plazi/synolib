@@ -122,13 +122,22 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.startWithSubTaxa = startWithSubTaxa;
     this.noSynonyms = noSynonyms;
 
-    if (taxonName.startsWith("http")) {
-      // TODO !!
-      console.log("TODO");
-      this.controller.abort("SynoGroup Failed");
-      return;
-
-      this.getName(taxonName, { searchTerm: true, subTaxon: false })
+    if (taxonName.startsWith("https://www.catalogueoflife.org/")) {
+      this.findColSynonyms(taxonName, { searchTerm: true, subTaxon: false })
+        .catch((e) => {
+          console.log("SynoGroup Failure: ", e);
+          this.controller.abort("SynoGroup Failed");
+        })
+        .finally(() => this.finish());
+    } else if (taxonName.startsWith("http://taxon-concept.plazi.org/id/")) {
+      this.tcSynonyms(taxonName, { searchTerm: true, subTaxon: false })
+        .catch((e) => {
+          console.log("SynoGroup Failure: ", e);
+          this.controller.abort("SynoGroup Failed");
+        })
+        .finally(() => this.finish());
+    } else if (taxonName.startsWith("http://taxon-name.plazi.org/id/")) {
+      this.tnSynonyms(taxonName, { searchTerm: true, subTaxon: false })
         .catch((e) => {
           console.log("SynoGroup Failure: ", e);
           this.controller.abort("SynoGroup Failed");
@@ -153,9 +162,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
       };
 
       this.handleLatinName(name, { searchTerm: true, subTaxon: false })
-        .finally(
-          () => this.finish(),
-        );
+        .catch((e) => {
+          console.log("SynoGroup Failure: ", e);
+          this.controller.abort("SynoGroup Failed");
+        })
+        .finally(() => this.finish());
     }
   }
 
@@ -175,8 +186,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.expanded.add(key0);
 
     const [col, plazi] = await Promise.all([
-      SQueries.getColFromName(name, this.sparqlEndpoint, this.fetchOptions),
-      SQueries.getPlaziFromName(name, this.sparqlEndpoint, this.fetchOptions),
+      SQueries.getColFromName(name, justification.searchTerm, this.sparqlEndpoint, this.fetchOptions),
+      SQueries.getPlaziFromName(name, justification.searchTerm, this.sparqlEndpoint, this.fetchOptions),
     ]);
     await this.handleColAndPlaziResult(col, plazi, key0, justification);
   }
@@ -282,9 +293,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
         }
       }
 
-      displayName = displayName ?? `TODO. ${key}`;
-
       if (plazi) {
+        if (!displayName) displayName = SQueries.prettyPrintLN(plazi.latinName);
         for (const authName of plazi.authorized) {
           const def = this.makeTreatmentSet(authName.defs?.split("|"));
           const aug = this.makeTreatmentSet(authName.augs?.split("|"));
@@ -333,6 +343,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
         }
       }
 
+      if (!displayName) displayName = key;
+
       const treats: Set<Treatment> = plazi?.treats
         ? this.makeTreatmentSet(plazi.treats.split("|"))
         : new Set();
@@ -361,13 +373,19 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
       if (unauthorizedCol) {
         colPromises.push(
-          this.findColSynonyms(unauthorizedCol.acceptedURI, name),
+          this.findColSynonyms(unauthorizedCol.acceptedURI, {
+            searchTerm: false,
+            parent: name,
+          }),
         );
       }
       for (const authName of authorizedNames) {
         if (authName.col) {
           colPromises.push(
-            this.findColSynonyms(authName.col.acceptedURI, name),
+            this.findColSynonyms(authName.col.acceptedURI, {
+              searchTerm: false,
+              parent: name,
+            }),
           );
         }
       }
@@ -410,12 +428,11 @@ export class SynonymGroup implements AsyncIterable<Name> {
         ...colPromises,
       ],
     );
-
-    // TODO: actually find synoyms
   }
 
   /** @internal */
   async tcSynonyms(tcUri: string, justification: Justification) {
+    if (this.noSynonyms && !justification.searchTerm) return;
     this.expanded.add(tcUri);
     const plazi = await SQueries.getNameFromTC(
       tcUri,
@@ -424,6 +441,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
     const cols = await SQueries.getColFromName(
       plazi.latinName,
+      justification.searchTerm,
       this.sparqlEndpoint,
       this.fetchOptions,
     );
@@ -436,6 +454,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
   }
   /** @internal */
   async tnSynonyms(tnUri: string, justification: Justification) {
+    if (this.noSynonyms && !justification.searchTerm) return;
     this.expanded.add(tnUri);
     const plazi = await SQueries.getNameFromTN(
       tnUri,
@@ -444,6 +463,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
     const cols = await SQueries.getColFromName(
       plazi.latinName,
+      justification.searchTerm,
       this.sparqlEndpoint,
       this.fetchOptions,
     );
@@ -496,329 +516,329 @@ export class SynonymGroup implements AsyncIterable<Name> {
   }
 
   /** @internal */
-  private async getName(
-    taxonName: string,
-    justification: Justification,
-  ): Promise<void> {
-    if (this.noSynonyms && !justification.searchTerm) {
-      return;
-    }
+  // private async getName(
+  //   taxonName: string,
+  //   justification: Justification,
+  // ): Promise<void> {
+  //   if (this.noSynonyms && !justification.searchTerm) {
+  //     return;
+  //   }
 
-    if (this.expanded.has(taxonName)) {
-      console.log("Skipping known", taxonName);
-      return;
-    }
+  //   if (this.expanded.has(taxonName)) {
+  //     console.log("Skipping known", taxonName);
+  //     return;
+  //   }
 
-    if (this.controller.signal?.aborted) return Promise.reject();
+  //   if (this.controller.signal?.aborted) return Promise.reject();
 
-    let json: SparqlJson<Queries.Columns> | undefined;
+  //   let json: SparqlJson<Queries.Columns> | undefined;
 
-    if (taxonName.startsWith("https://www.catalogueoflife.org")) {
-      json = await this.sparqlEndpoint.getSparqlResultSet(
-        Queries.getNameFromCol(taxonName),
-        this.fetchOptions,
-        `NameFromCol ${taxonName}`,
-      ) as SparqlJson<Queries.Columns>;
-    } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
-      json = await this.sparqlEndpoint.getSparqlResultSet(
-        Queries.getNameFromTC(taxonName),
-        this.fetchOptions,
-        `NameFromTC ${taxonName}`,
-      ) as SparqlJson<Queries.Columns>;
-    } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
-      json = await this.sparqlEndpoint.getSparqlResultSet(
-        Queries.getNameFromTN(taxonName),
-        this.fetchOptions,
-        `NameFromTN ${taxonName}`,
-      ) as SparqlJson<Queries.Columns>;
-    } else {
-      throw `Cannot handle name-uri <${taxonName}> !`;
-    }
+  //   if (taxonName.startsWith("https://www.catalogueoflife.org")) {
+  //     json = await this.sparqlEndpoint.getSparqlResultSet(
+  //       Queries.getNameFromCol(taxonName),
+  //       this.fetchOptions,
+  //       `NameFromCol ${taxonName}`,
+  //     ) as SparqlJson<Queries.Columns>;
+  //   } else if (taxonName.startsWith("http://taxon-concept.plazi.org")) {
+  //     json = await this.sparqlEndpoint.getSparqlResultSet(
+  //       Queries.getNameFromTC(taxonName),
+  //       this.fetchOptions,
+  //       `NameFromTC ${taxonName}`,
+  //     ) as SparqlJson<Queries.Columns>;
+  //   } else if (taxonName.startsWith("http://taxon-name.plazi.org")) {
+  //     json = await this.sparqlEndpoint.getSparqlResultSet(
+  //       Queries.getNameFromTN(taxonName),
+  //       this.fetchOptions,
+  //       `NameFromTN ${taxonName}`,
+  //     ) as SparqlJson<Queries.Columns>;
+  //   } else {
+  //     throw `Cannot handle name-uri <${taxonName}> !`;
+  //   }
 
-    await this.handleName(json!, justification);
+  //   // await this.handleName(json!, justification);
 
-    if (
-      this.startWithSubTaxa && justification.searchTerm &&
-      !justification.subTaxon
-    ) {
-      await this.getSubtaxa(taxonName);
-    }
-  }
+  //   if (
+  //     this.startWithSubTaxa && justification.searchTerm &&
+  //     !justification.subTaxon
+  //   ) {
+  //     await this.getSubtaxa(taxonName);
+  //   }
+  // }
 
-  /** @internal */
-  private async getSubtaxa(url: string): Promise<void> {
-    const query = url.startsWith("http://taxon-concept.plazi.org")
-      ? `
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?sub WHERE {
-  BIND(<${url}> as ?url)
-  ?sub trt:hasParentName*/^trt:hasTaxonName ?url .
-}
-LIMIT 5000`
-      : `
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-PREFIX trt: <http://plazi.org/vocab/treatment#>
-SELECT DISTINCT ?sub WHERE {
-  BIND(<${url}> as ?url)
-  ?sub (dwc:parent|trt:hasParentName)* ?url .
-}
-LIMIT 5000`;
+  //   /** @internal */
+  //   private async getSubtaxa(url: string): Promise<void> {
+  //     const query = url.startsWith("http://taxon-concept.plazi.org")
+  //       ? `
+  // PREFIX trt: <http://plazi.org/vocab/treatment#>
+  // SELECT DISTINCT ?sub WHERE {
+  //   BIND(<${url}> as ?url)
+  //   ?sub trt:hasParentName*/^trt:hasTaxonName ?url .
+  // }
+  // LIMIT 5000`
+  //       : `
+  // PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+  // PREFIX trt: <http://plazi.org/vocab/treatment#>
+  // SELECT DISTINCT ?sub WHERE {
+  //   BIND(<${url}> as ?url)
+  //   ?sub (dwc:parent|trt:hasParentName)* ?url .
+  // }
+  // LIMIT 5000`;
 
-    if (this.controller.signal?.aborted) return Promise.reject();
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      this.fetchOptions,
-      `Subtaxa ${url}`,
-    );
+  //     if (this.controller.signal?.aborted) return Promise.reject();
+  //     const json = await this.sparqlEndpoint.getSparqlResultSet(
+  //       query,
+  //       this.fetchOptions,
+  //       `Subtaxa ${url}`,
+  //     );
 
-    const names = json.results.bindings
-      .map((n) => n.sub?.value)
-      .filter((n) => n && !this.expanded.has(n)) as string[];
+  //     const names = json.results.bindings
+  //       .map((n) => n.sub?.value)
+  //       .filter((n) => n && !this.expanded.has(n)) as string[];
 
-    await Promise.allSettled(
-      names.map((n) => this.getName(n, { searchTerm: true, subTaxon: true })),
-    );
-  }
+  //     await Promise.allSettled(
+  //       names.map((n) => this.getName(n, { searchTerm: true, subTaxon: true })),
+  //     );
+  //   }
 
   /**
    * Note this makes some assumptions on which variables are present in the bindings
    *
    * @internal */
-  private async handleName(
-    json: SparqlJson<Queries.Columns>,
-    justification: Justification,
-  ): Promise<void> {
-    const treatmentPromises: Treatment[] = [];
+  // private async handleName(
+  //   json: SparqlJson<Queries.Columns>,
+  //   justification: Justification,
+  // ): Promise<void> {
+  //   const treatmentPromises: Treatment[] = [];
 
-    const abbreviateRank = (rank: string) => {
-      switch (rank) {
-        case "variety":
-          return "var.";
-        case "subspecies":
-          return "subsp.";
-        case "form":
-          return "f.";
-        default:
-          return rank;
-      }
-    };
+  //   const abbreviateRank = (rank: string) => {
+  //     switch (rank) {
+  //       case "variety":
+  //         return "var.";
+  //       case "subspecies":
+  //         return "subsp.";
+  //       case "form":
+  //         return "f.";
+  //       default:
+  //         return rank;
+  //     }
+  //   };
 
-    const displayName: string = (json.results.bindings[0].name
-      ? (
-        json.results.bindings[0].authority
-          ? json.results.bindings[0].name.value
-            .replace(
-              json.results.bindings[0].authority.value,
-              "",
-            )
-          : json.results.bindings[0].name.value
-      )
-      : json.results.bindings[0].genus!.value +
-        (json.results.bindings[0].section?.value
-          ? ` sect. ${json.results.bindings[0].section.value}`
-          : "") +
-        (json.results.bindings[0].subgenus?.value
-          ? ` (${json.results.bindings[0].subgenus.value})`
-          : "") +
-        (json.results.bindings[0].species?.value
-          ? ` ${json.results.bindings[0].species.value}`
-          : "") +
-        (json.results.bindings[0].infrasp?.value
-          ? ` ${abbreviateRank(json.results.bindings[0].rank!.value)} ${
-            json.results.bindings[0].infrasp.value
-          }`
-          : "")).trim();
+  //   const displayName: string = (json.results.bindings[0].name
+  //     ? (
+  //       json.results.bindings[0].authority
+  //         ? json.results.bindings[0].name.value
+  //           .replace(
+  //             json.results.bindings[0].authority.value,
+  //             "",
+  //           )
+  //         : json.results.bindings[0].name.value
+  //     )
+  //     : json.results.bindings[0].genus!.value +
+  //       (json.results.bindings[0].section?.value
+  //         ? ` sect. ${json.results.bindings[0].section.value}`
+  //         : "") +
+  //       (json.results.bindings[0].subgenus?.value
+  //         ? ` (${json.results.bindings[0].subgenus.value})`
+  //         : "") +
+  //       (json.results.bindings[0].species?.value
+  //         ? ` ${json.results.bindings[0].species.value}`
+  //         : "") +
+  //       (json.results.bindings[0].infrasp?.value
+  //         ? ` ${abbreviateRank(json.results.bindings[0].rank!.value)} ${
+  //           json.results.bindings[0].infrasp.value
+  //         }`
+  //         : "")).trim();
 
-    // Case where the CoL-taxon has no authority. There should only be one of these.
-    let unathorizedCol: { colURI: string; acceptedURI: string } | undefined;
+  //   // Case where the CoL-taxon has no authority. There should only be one of these.
+  //   let unathorizedCol: { colURI: string; acceptedURI: string } | undefined;
 
-    // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
-    const authorizedNames: AuthorizedName[] = [];
+  //   // there can be multiple CoL-taxa with same latin name, e.g. Leontopodium alpinum has 3T6ZY and 3T6ZX.
+  //   const authorizedNames: AuthorizedName[] = [];
 
-    const taxonNameURI = json.results.bindings[0].tn?.value;
-    if (taxonNameURI) {
-      if (this.expanded.has(taxonNameURI)) return;
-      this.expanded.add(taxonNameURI); //, NameStatus.madeName);
-    }
+  //   const taxonNameURI = json.results.bindings[0].tn?.value;
+  //   if (taxonNameURI) {
+  //     if (this.expanded.has(taxonNameURI)) return;
+  //     this.expanded.add(taxonNameURI); //, NameStatus.madeName);
+  //   }
 
-    const expandedHere = new Set<string>();
+  //   const expandedHere = new Set<string>();
 
-    for (const t of json.results.bindings) {
-      if (t.col) {
-        const colURI = t.col.value;
-        if (!t.authority?.value) {
-          if (this.expanded.has(colURI)) {
-            console.log("Skipping known", colURI);
-            return;
-          }
-          if (unathorizedCol && unathorizedCol.colURI !== colURI) {
-            console.log("Duplicate unathorized COL:", unathorizedCol, colURI);
-          }
-          unathorizedCol = {
-            colURI,
-            acceptedURI: t.acceptedcol?.value ?? "INVALID COL",
-          };
-        } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
-          if (this.expanded.has(colURI)) {
-            console.log("Skipping known", colURI);
-            return;
-          }
-          if (!expandedHere.has(colURI)) {
-            expandedHere.add(colURI);
-            // TODO: handle unification of names
-            // might not be neccessary, assuming all CoL-taxa are non-unifiable and
-            // they are always handled first
-            authorizedNames.push({
-              displayName,
-              authority: t.authority!.value,
-              authorities: [t.authority!.value],
-              col: {
-                colURI: t.col.value,
-                acceptedURI: t.acceptedcol?.value ?? "INAVLID COL",
-              },
-              taxonConceptURIs: [],
-              treatments: {
-                def: new Set(),
-                aug: new Set(),
-                dpr: new Set(),
-                cite: new Set(),
-              },
-            });
-          }
-        }
-      }
+  //   for (const t of json.results.bindings) {
+  //     if (t.col) {
+  //       const colURI = t.col.value;
+  //       if (!t.authority?.value) {
+  //         if (this.expanded.has(colURI)) {
+  //           console.log("Skipping known", colURI);
+  //           return;
+  //         }
+  //         if (unathorizedCol && unathorizedCol.colURI !== colURI) {
+  //           console.log("Duplicate unathorized COL:", unathorizedCol, colURI);
+  //         }
+  //         unathorizedCol = {
+  //           colURI,
+  //           acceptedURI: t.acceptedcol?.value ?? "INVALID COL",
+  //         };
+  //       } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
+  //         if (this.expanded.has(colURI)) {
+  //           console.log("Skipping known", colURI);
+  //           return;
+  //         }
+  //         if (!expandedHere.has(colURI)) {
+  //           expandedHere.add(colURI);
+  //           // TODO: handle unification of names
+  //           // might not be neccessary, assuming all CoL-taxa are non-unifiable and
+  //           // they are always handled first
+  //           authorizedNames.push({
+  //             displayName,
+  //             authority: t.authority!.value,
+  //             authorities: [t.authority!.value],
+  //             col: {
+  //               colURI: t.col.value,
+  //               acceptedURI: t.acceptedcol?.value ?? "INAVLID COL",
+  //             },
+  //             taxonConceptURIs: [],
+  //             treatments: {
+  //               def: new Set(),
+  //               aug: new Set(),
+  //               dpr: new Set(),
+  //               cite: new Set(),
+  //             },
+  //           });
+  //         }
+  //       }
+  //     }
 
-      if (t.tc && t.tcAuth && t.tcAuth.value) {
-        if (this.expanded.has(t.tc.value)) {
-          console.log("Skipping known", t.tc.value);
-          return;
-        } else if (!expandedHere.has(t.tc.value)) {
-          expandedHere.add(t.tc.value);
+  //     if (t.tc && t.tcAuth && t.tcAuth.value) {
+  //       if (this.expanded.has(t.tc.value)) {
+  //         console.log("Skipping known", t.tc.value);
+  //         return;
+  //       } else if (!expandedHere.has(t.tc.value)) {
+  //         expandedHere.add(t.tc.value);
 
-          const def = this.makeTreatmentSet(t.defs?.value.split("|"));
-          const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
-          const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
-          const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
+  //         const def = this.makeTreatmentSet(t.defs?.value.split("|"));
+  //         const aug = this.makeTreatmentSet(t.augs?.value.split("|"));
+  //         const dpr = this.makeTreatmentSet(t.dprs?.value.split("|"));
+  //         const cite = this.makeTreatmentSet(t.cites?.value.split("|"));
 
-          def.forEach((t) => treatmentPromises.push(t));
-          aug.forEach((t) => treatmentPromises.push(t));
-          dpr.forEach((t) => treatmentPromises.push(t));
+  //         def.forEach((t) => treatmentPromises.push(t));
+  //         aug.forEach((t) => treatmentPromises.push(t));
+  //         dpr.forEach((t) => treatmentPromises.push(t));
 
-          const prevName = authorizedNames.find((e) =>
-            unifyAuthorithy(e.authority, t.tcAuth!.value) !== null
-            // t.tcAuth!.value.split(" / ").some((auth) =>
-            //   unifyAuthorithy(e.authority, auth) !== null
-            // )
-          );
-          if (prevName) {
-            // TODO: I feel like this could be made much more efficient -- we are unifying repeatedly
-            const best = t.tcAuth!.value; // .split(" / ").find((auth) =>
-            //  unifyAuthorithy(prevName.authority, auth) !== null
-            // )!;
+  //         const prevName = authorizedNames.find((e) =>
+  //           unifyAuthorithy(e.authority, t.tcAuth!.value) !== null
+  //           // t.tcAuth!.value.split(" / ").some((auth) =>
+  //           //   unifyAuthorithy(e.authority, auth) !== null
+  //           // )
+  //         );
+  //         if (prevName) {
+  //           // TODO: I feel like this could be made much more efficient -- we are unifying repeatedly
+  //           const best = t.tcAuth!.value; // .split(" / ").find((auth) =>
+  //           //  unifyAuthorithy(prevName.authority, auth) !== null
+  //           // )!;
 
-            prevName.authority = unifyAuthorithy(prevName.authority, best)!;
-            prevName.authorities.push(...t.tcAuth.value.split(" / "));
-            prevName.taxonConceptURIs.push(t.tc.value);
-            prevName.treatments = {
-              def: prevName.treatments.def.union(def),
-              aug: prevName.treatments.aug.union(aug),
-              dpr: prevName.treatments.dpr.union(dpr),
-              cite: prevName.treatments.cite.union(cite),
-            };
-          } else {
-            authorizedNames.push({
-              displayName,
-              authority: t.tcAuth.value,
-              authorities: t.tcAuth.value.split(" / "),
-              taxonConceptURIs: [t.tc.value],
-              treatments: {
-                def,
-                aug,
-                dpr,
-                cite,
-              },
-            });
-          }
-        }
-      }
-    }
+  //           prevName.authority = unifyAuthorithy(prevName.authority, best)!;
+  //           prevName.authorities.push(...t.tcAuth.value.split(" / "));
+  //           prevName.taxonConceptURIs.push(t.tc.value);
+  //           prevName.treatments = {
+  //             def: prevName.treatments.def.union(def),
+  //             aug: prevName.treatments.aug.union(aug),
+  //             dpr: prevName.treatments.dpr.union(dpr),
+  //             cite: prevName.treatments.cite.union(cite),
+  //           };
+  //         } else {
+  //           authorizedNames.push({
+  //             displayName,
+  //             authority: t.tcAuth.value,
+  //             authorities: t.tcAuth.value.split(" / "),
+  //             taxonConceptURIs: [t.tc.value],
+  //             treatments: {
+  //               def,
+  //               aug,
+  //               dpr,
+  //               cite,
+  //             },
+  //           });
+  //         }
+  //       }
+  //     }
+  //   }
 
-    const treats = this.makeTreatmentSet(
-      json.results.bindings[0].tntreats?.value.split("|"),
-    );
-    treats.forEach((t) => treatmentPromises.push(t));
+  //   const treats = this.makeTreatmentSet(
+  //     json.results.bindings[0].tntreats?.value.split("|"),
+  //   );
+  //   treats.forEach((t) => treatmentPromises.push(t));
 
-    const name: Name = {
-      kingdom: json.results.bindings[0].kingdom!.value,
-      displayName,
-      rank: json.results.bindings[0].rank!.value,
-      taxonNameURI,
-      authorizedNames: authorizedNames,
-      col: unathorizedCol,
-      justification,
-      treatments: {
-        treats,
-        cite: this.makeTreatmentSet(
-          json.results.bindings[0].tncites?.value.split("|"),
-        ),
-      },
-      vernacularNames: taxonNameURI
-        ? this.getVernacular(taxonNameURI)
-        : Promise.resolve(new Map()),
-    };
+  //   const name: Name = {
+  //     kingdom: json.results.bindings[0].kingdom!.value,
+  //     displayName,
+  //     rank: json.results.bindings[0].rank!.value,
+  //     taxonNameURI,
+  //     authorizedNames: authorizedNames,
+  //     col: unathorizedCol,
+  //     justification,
+  //     treatments: {
+  //       treats,
+  //       cite: this.makeTreatmentSet(
+  //         json.results.bindings[0].tncites?.value.split("|"),
+  //       ),
+  //     },
+  //     vernacularNames: taxonNameURI
+  //       ? this.getVernacular(taxonNameURI)
+  //       : Promise.resolve(new Map()),
+  //   };
 
-    for (const authName of name.authorizedNames) {
-      if (authName.col) this.expanded.add(authName.col.colURI);
-      for (const tc of authName.taxonConceptURIs) this.expanded.add(tc);
-    }
+  //   for (const authName of name.authorizedNames) {
+  //     if (authName.col) this.expanded.add(authName.col.colURI);
+  //     for (const tc of authName.taxonConceptURIs) this.expanded.add(tc);
+  //   }
 
-    this.pushName(name);
+  //   this.pushName(name);
 
-    /** Map<synonymUri, Treatment> */
-    const newSynonyms = new Map<string, Treatment>();
-    (await Promise.all(
-      treatmentPromises.map((treat) =>
-        treat.details.then((d): [Treatment, TreatmentDetails] => {
-          return [treat, d];
-        })
-      ),
-    )).map(([treat, d]) => {
-      d.treats.aug.difference(this.expanded).forEach((s) =>
-        newSynonyms.set(s, treat)
-      );
-      d.treats.def.difference(this.expanded).forEach((s) =>
-        newSynonyms.set(s, treat)
-      );
-      d.treats.dpr.difference(this.expanded).forEach((s) =>
-        newSynonyms.set(s, treat)
-      );
-      d.treats.treattn.difference(this.expanded).forEach((s) =>
-        newSynonyms.set(s, treat)
-      );
-    });
+  //   /** Map<synonymUri, Treatment> */
+  //   const newSynonyms = new Map<string, Treatment>();
+  //   (await Promise.all(
+  //     treatmentPromises.map((treat) =>
+  //       treat.details.then((d): [Treatment, TreatmentDetails] => {
+  //         return [treat, d];
+  //       })
+  //     ),
+  //   )).map(([treat, d]) => {
+  //     d.treats.aug.difference(this.expanded).forEach((s) =>
+  //       newSynonyms.set(s, treat)
+  //     );
+  //     d.treats.def.difference(this.expanded).forEach((s) =>
+  //       newSynonyms.set(s, treat)
+  //     );
+  //     d.treats.dpr.difference(this.expanded).forEach((s) =>
+  //       newSynonyms.set(s, treat)
+  //     );
+  //     d.treats.treattn.difference(this.expanded).forEach((s) =>
+  //       newSynonyms.set(s, treat)
+  //     );
+  //   });
 
-    if (unathorizedCol) {
-      await this.findColSynonyms(unathorizedCol.colURI, name);
-    }
+  //   if (unathorizedCol) {
+  //     await this.findColSynonyms(unathorizedCol.colURI, name);
+  //   }
 
-    await Promise.allSettled(
-      [
-        ...authorizedNames
-          .filter((n) => n.col)
-          .map((n) => this.findColSynonyms(n.col!.colURI, name)),
-        ...[...newSynonyms].map(([n, treatment]) =>
-          this.getName(n, { searchTerm: false, parent: name, treatment })
-        ),
-      ],
-    );
-  }
+  //   await Promise.allSettled(
+  //     [
+  //       ...authorizedNames
+  //         .filter((n) => n.col)
+  //         .map((n) => this.findColSynonyms(n.col!.colURI, name)),
+  //       ...[...newSynonyms].map(([n, treatment]) =>
+  //         this.getName(n, { searchTerm: false, parent: name, treatment })
+  //       ),
+  //     ],
+  //   );
+  // }
 
   /** @internal */
   private async findColSynonyms(
     colUri: string,
-    parent: Name,
+    justification: Justification,
   ): Promise<void[]> {
-    console.log("COLSYN", colUri, this.acceptedCol.get(colUri));
+    if (this.noSynonyms && !justification.searchTerm) return [];
     if (this.acceptedCol.has(colUri)) {
       // we have already found this group of synonyms
       return [];
@@ -833,16 +853,14 @@ LIMIT 5000`;
         this.fetchOptions,
       );
 
-      console.log("COLSYN", colUri, "≡", synonyms, this.ignoreDeprecatedCoL);
-
       if (!this.acceptedCol.has(accepted.colUri)) {
         this.acceptedCol.set(accepted.colUri, accepted.colUri);
-        promises.push(
-          this.handleLatinName(accepted.latinName, {
-            parent,
-            searchTerm: false,
-          }),
-        );
+        const searchTerm = justification.searchTerm && colUri === accepted.colUri;
+        if (!this.noSynonyms || searchTerm) {
+          promises.push(
+            this.handleLatinName(accepted.latinName, justification),
+          );
+        }
       }
 
       const plaziPromises: Promise<Set<SQueries.PlaziResult>>[] = [];
@@ -850,13 +868,15 @@ LIMIT 5000`;
 
       for (const synonym of synonyms) {
         this.acceptedCol.set(synonym.colUri, accepted.colUri);
-        if (!this.ignoreDeprecatedCoL) {
+        const searchTerm = justification.searchTerm && colUri === synonym.colUri;
+        if (searchTerm || (!this.ignoreDeprecatedCoL && !this.noSynonyms)) {
           const key = SQueries.stringifyLN(synonym.latinName);
           if (!keys.has(key)) {
             keys.add(key);
             plaziPromises.push(
               SQueries.getPlaziFromName(
                 synonym.latinName,
+                searchTerm,
                 this.sparqlEndpoint,
                 this.fetchOptions,
               ),
@@ -871,10 +891,7 @@ LIMIT 5000`;
           synonyms,
           plazis.reduce((prev, set) => prev.union(set)),
           "",
-          {
-            parent,
-            searchTerm: false,
-          },
+          justification,
         ),
       );
 

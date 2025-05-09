@@ -7,8 +7,13 @@ import type { SparqlEndpoint } from "./SparqlEndpoint.ts";
 // Latin Name → CoL
 // Latin Name → TN + TC (with treatments)
 // CoL → CoL synonyms + Latin Names
-// TN/TC → TN + TCs + Latin Name
-// TODO: treatment → TN + TC + Latin Name (with relationship to treatment)
+// TN → TN + TCs + Latin Name
+// TC → TN + TCs + Latin Name
+
+// TODO: subtaxa
+// TODO: no synonyms
+// TODO: (in synonym group) start with URL
+// TODO: factour out common code from plazi-queries
 
 /** Latin Name, split up into parts. */
 export type LatinName = {
@@ -29,6 +34,33 @@ export type LatinName = {
 
 export function stringifyLN(name: LatinName): string {
     return `${name.noMissing}|${name.rank}|${name.kingdom}|${name.genericName}|${name.infragenericEpithet}|${name.specificEpithet}|${name.infraspecificEpithet}`;
+}
+
+function abbreviateRank(rank: string): string {
+    switch (rank) {
+        case "variety":
+            return "var.";
+        case "subspecies":
+            return "subsp.";
+        case "form":
+            return "f.";
+        default:
+            return rank;
+    }
+}
+
+export function prettyPrintLN(name: LatinName): string {
+    return name.genericName +
+        //   (json.results.bindings[0].section?.value
+        //     ? ` sect. ${json.results.bindings[0].section.value}`
+        //     : "") +
+        (name.infragenericEpithet ? ` (${name.infragenericEpithet})` : "") +
+        (name.specificEpithet ? ` ${name.specificEpithet}` : "") +
+        (name.infraspecificEpithet
+            ? name.rank
+                ? ` ${abbreviateRank(name.rank)} ${name.infraspecificEpithet}`
+                : ` ${name.infraspecificEpithet}`
+            : "");
 }
 
 export type ColResult = {
@@ -67,9 +99,9 @@ export type PlaziResult = {
     latinName: LatinName;
 };
 
-// TODO: this needs to give us acceptedCol directly
 export async function getColFromName(
     name: LatinName,
+    searchTerm: boolean,
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
 ): Promise<Set<ColResult>> {
@@ -88,7 +120,7 @@ WHERE {
     ${
         name.infragenericEpithet
             ? `?col dwc:infragenericEpithet "${name.infragenericEpithet}" .`
-            : name.noMissing
+            : name.noMissing // && !searchTerm
             ? `FILTER NOT EXISTS { ?col dwc:infragenericEpithet ?_infrag . }`
             : ""
     }
@@ -106,7 +138,13 @@ WHERE {
             ? `FILTER NOT EXISTS { ?col dwc:infraspecificEpithet ?_infrasp . }`
             : ""
     }
-    ${name.kingdom ? `?p dwc:scientificName "${name.kingdom}" .` : ""}
+    ${
+        name.kingdom
+            ? `?col dwc:kingdom "${name.kingdom}" .`
+            : name.noMissing && !searchTerm
+            ? `FILTER NOT EXISTS { ?col dwc:kingdom ?_kingdom . }`
+            : ""
+    }
     ?col dwc:taxonomicStatus ?status ;
          dwc:scientificName ?name ;
          dwc:taxonRank ?rank .
@@ -115,9 +153,7 @@ WHERE {
     OPTIONAL { ?col dwc:specificEpithet ?specific . }
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
     OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
-    ?col dwc:acceptedName?/dwc:parent* ?p .
-    ?p dwc:taxonRank "kingdom" ;
-       dwc:scientificName ?kingdom .
+    OPTIONAL { ?col dwc:kingdom ?kingdom . }
     {
         ?col dwc:acceptedName ?acceptedcol .
     } UNION {
@@ -197,13 +233,12 @@ WHERE {
     ?col dwc:taxonomicStatus ?status ;
         dwc:scientificName ?name ;
         dwc:taxonRank ?rank .
-    ?col dwc:acceptedName?/dwc:parent* ?p .
-    ?p dwc:taxonRank "kingdom" ; dwc:scientificName ?kingdom .
     OPTIONAL { ?col dwc:genericName ?generic . }
     OPTIONAL { ?col dwc:infragenericEpithet ?infrag . }
     OPTIONAL { ?col dwc:specificEpithet ?specific . }
     OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
     OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
+    OPTIONAL { ?col dwc:kingdom ?kingdom . }
 }`;
     const json = await endpoint.getSparqlResultSet(
         query,
@@ -262,6 +297,7 @@ WHERE {
 
 export async function getPlaziFromName(
     name: LatinName,
+    searchTerm: boolean,
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
 ): Promise<Set<PlaziResult>> {
@@ -291,7 +327,7 @@ WHERE {
     ${
         name.infragenericEpithet
             ? `?tn dwc:subGenus|dwc:section "${name.infragenericEpithet}" .`
-            : name.noMissing
+            : name.noMissing && !(searchTerm && name.specificEpithet)
             ? `FILTER NOT EXISTS { ?tn dwc:subGenus|dwc:section ?_infrag . }`
             : ""
     }
@@ -309,10 +345,16 @@ WHERE {
             ? `FILTER NOT EXISTS { ?tn dwc:subSpecies|dwc:variety|dwc:form ?_infrasp . }`
             : ""
     }
-    ${name.kingdom ? `?tn dwc:kingdom "${name.kingdom}" .` : ""}
+    ${
+        name.kingdom
+            ? `?tn dwc:kingdom "${name.kingdom}" .`
+            : name.noMissing && !searchTerm
+            ? `FILTER NOT EXISTS { ?tn dwc:kingdom ?_kingdom . }`
+            : ""
+    }
     ?tn dwc:rank ?rank ;
        a dwcFP:TaxonName .
-    OPTIONAL {?tn dwc:kingdom ?kingdom . }
+    OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
     OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
@@ -423,7 +465,7 @@ WHERE {
     BIND(<${tnUri}> AS ?tn)
     ?tn dwc:rank ?rank ;
        a dwcFP:TaxonName .
-    OPTIONAL {?tn dwc:kingdom ?kingdom . }
+    OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
     OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
@@ -509,12 +551,11 @@ LIMIT 500`;
     }
 
     if (results.size !== 1) {
-        throw new Error(`Got multiple latin names for ${tnUri}`)
+        throw new Error(`Got multiple latin names for ${tnUri}`);
     }
 
     return results.values().next().value!;
 }
-
 
 export async function getNameFromTC(
     tcUri: string,
@@ -539,7 +580,7 @@ WHERE {
     <${tcUri}> trt:hasTaxonName ?tn .
     ?tn dwc:rank ?rank ;
        a dwcFP:TaxonName .
-    OPTIONAL {?tn dwc:kingdom ?kingdom . }
+    OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
     OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
@@ -625,7 +666,7 @@ LIMIT 500`;
     }
 
     if (results.size !== 1) {
-        throw new Error(`Got multiple latin names for ${tcUri}`)
+        throw new Error(`Got multiple latin names for ${tcUri}`);
     }
 
     return results.values().next().value!;

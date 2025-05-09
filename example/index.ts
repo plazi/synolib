@@ -10,6 +10,7 @@ import { distinct } from "jsr:@std/collections/distinct";
 
 const params = new URLSearchParams(document.location.search);
 const HIDE_COL_ONLY_SYNONYMS = !params.has("show_col");
+const NO_SYNONYMS = params.has("nosynonyms");
 const START_WITH_SUBTAXA = params.has("subtaxa");
 const SORT_TREATMENTS_BY_TYPE = params.has("sort_treatments_by_type");
 const ENDPOINT_URL = params.get("server") ||
@@ -72,6 +73,7 @@ const synoGroup = new SynonymGroup(
   NAME,
   HIDE_COL_ONLY_SYNONYMS,
   START_WITH_SUBTAXA,
+  NO_SYNONYMS,
 );
 
 class SynoTreatment extends HTMLElement {
