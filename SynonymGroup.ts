@@ -149,7 +149,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         infragenericEpithet: match[2],
         specificEpithet: match[3],
         infraspecificEpithet: match[4],
-        noMissing: false,
+        noMissing: !this.startWithSubTaxa,
       };
 
       this.handleLatinName(name, { searchTerm: true, subTaxon: false })
@@ -159,16 +159,41 @@ export class SynonymGroup implements AsyncIterable<Name> {
     }
   }
 
+  /** @internal */
   private async handleLatinName(
     name: SQueries.LatinName,
     justification: Justification,
   ) {
+    const key0 = SQueries.stringifyLN(name);
+    if (this.expanded.has(key0)) {
+      console.log(`Skipping known (${key0})`);
+      return;
+    }
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+
+    this.expanded.add(key0);
+
     const [col, plazi] = await Promise.all([
       SQueries.getColFromName(name, this.sparqlEndpoint, this.fetchOptions),
       SQueries.getPlaziFromName(name, this.sparqlEndpoint, this.fetchOptions),
     ]);
+    await this.handleColAndPlaziResult(col, plazi, key0, justification);
+  }
 
-    const treatmentPromises: Treatment[] = [];
+  /** @internal
+   *
+   * @param key0 stringified LN which should not be skipped even if it is in this.expanded.
+   */
+  private async handleColAndPlaziResult(
+    col: Set<SQueries.ColResult>,
+    plazi: Set<SQueries.PlaziResult>,
+    key0: string,
+    justification: Justification,
+  ) {
+    const treatmentPromises: Promise<[Name, Treatment, TreatmentDetails]>[] =
+      [];
+    const colPromises: Promise<void[]>[] = [];
 
     const newNames: Set<string> = new Set();
     const newCol: Map<string, Set<SQueries.ColResult>> = new Map();
@@ -193,12 +218,19 @@ export class SynonymGroup implements AsyncIterable<Name> {
       newPlazi.set(key, r);
     }
 
+    console.log(newNames, newCol, newPlazi);
+
     for (const key of newNames) {
-      if (this.expanded.has(key)) continue;
-      else this.expanded.add(key);
+      if (key != key0 && this.expanded.has(key)) {
+        console.log(`Skipping known (${key})`);
+        continue;
+      }
+      this.expanded.add(key);
 
       const plazi = newPlazi.get(key);
       const cols = newCol.get(key);
+
+      const treatments: Treatment[] = [];
 
       console.log(key, cols, plazi);
 
@@ -215,13 +247,13 @@ export class SynonymGroup implements AsyncIterable<Name> {
           if (!kingdom) kingdom = col.latinName.kingdom;
           if (!displayName) displayName = col.humanReadable;
           if (!rank) rank = col.latinName.rank;
-          if (col.authority) {
+          if (!col.authority) {
             if (unauthorizedCol && unauthorizedCol.colURI !== colURI) {
               console.log("Duplicate unathorized COL:", colURI);
             }
             unauthorizedCol = {
               colURI,
-              acceptedURI: "TODO",
+              acceptedURI: col.acceptedColUri,
             };
           } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
             // if (!expandedHere.has(colURI)) {
@@ -235,7 +267,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
               authorities: [col.authority!],
               col: {
                 colURI,
-                acceptedURI: "TODO",
+                acceptedURI: col.acceptedColUri,
               },
               taxonConceptURIs: [],
               treatments: {
@@ -250,7 +282,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         }
       }
 
-      displayName = displayName ?? `TODO. ${key}`
+      displayName = displayName ?? `TODO. ${key}`;
 
       if (plazi) {
         for (const authName of plazi.authorized) {
@@ -259,9 +291,9 @@ export class SynonymGroup implements AsyncIterable<Name> {
           const dpr = this.makeTreatmentSet(authName.dprs?.split("|"));
           const cite = this.makeTreatmentSet(authName.cites?.split("|"));
 
-          def.forEach((t) => treatmentPromises.push(t));
-          aug.forEach((t) => treatmentPromises.push(t));
-          dpr.forEach((t) => treatmentPromises.push(t));
+          def.forEach((t) => treatments.push(t));
+          aug.forEach((t) => treatments.push(t));
+          dpr.forEach((t) => treatments.push(t));
 
           const prevName = authorizedNames.find((e) =>
             unifyAuthorithy(e.authority, authName.authorities) !== null
@@ -301,7 +333,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
         }
       }
 
-      // TODO plazi-names
+      const treats: Set<Treatment> = plazi?.treats
+        ? this.makeTreatmentSet(plazi.treats.split("|"))
+        : new Set();
+      treats.forEach((t) => treatments.push(t));
 
       const name: Name = {
         kingdom: kingdom ?? plazi?.latinName.kingdom ?? "",
@@ -315,9 +350,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         authorizedNames,
         justification,
         treatments: {
-          treats: plazi?.treats
-            ? this.makeTreatmentSet(plazi.treats.split("|"))
-            : new Set(),
+          treats,
           cite: plazi?.cites
             ? this.makeTreatmentSet(plazi.cites.split("|"))
             : new Set(),
@@ -325,23 +358,101 @@ export class SynonymGroup implements AsyncIterable<Name> {
       };
 
       this.pushName(name);
+
+      if (unauthorizedCol) {
+        colPromises.push(
+          this.findColSynonyms(unauthorizedCol.acceptedURI, name),
+        );
+      }
+      for (const authName of authorizedNames) {
+        if (authName.col) {
+          colPromises.push(
+            this.findColSynonyms(authName.col.acceptedURI, name),
+          );
+        }
+      }
+
+      treatmentPromises.push(
+        ...treatments.map((treat) =>
+          treat.details.then((d): [Name, Treatment, TreatmentDetails] => {
+            return [name, treat, d];
+          })
+        ),
+      );
     }
 
-      // TODO: actually find synoyms
+    /** Map<synonymUri, Treatment> */
+    const newTC = new Map<string, [Name, Treatment]>();
+    const newTN = new Map<string, [Name, Treatment]>();
+    (await Promise.all(treatmentPromises)).map(([name, treat, d]) => {
+      d.treats.aug.difference(this.expanded).forEach((s) =>
+        newTC.set(s, [name, treat])
+      );
+      d.treats.def.difference(this.expanded).forEach((s) =>
+        newTC.set(s, [name, treat])
+      );
+      d.treats.dpr.difference(this.expanded).forEach((s) =>
+        newTC.set(s, [name, treat])
+      );
+      d.treats.treattn.difference(this.expanded).forEach((s) =>
+        newTN.set(s, [name, treat])
+      );
+    });
+
+    await Promise.allSettled(
+      [
+        ...[...newTC].map(([tcUri, [name, treatment]]) =>
+          this.tcSynonyms(tcUri, { searchTerm: false, parent: name, treatment })
+        ),
+        ...[...newTN].map(([tnUri, [name, treatment]]) =>
+          this.tnSynonyms(tnUri, { searchTerm: false, parent: name, treatment })
+        ),
+        ...colPromises,
+      ],
+    );
+
+    // TODO: actually find synoyms
   }
 
-  private async handleColResult(
-    result: SQueries.ColResult,
-    justification: Justification,
-  ) {
-    // TODO
+  /** @internal */
+  async tcSynonyms(tcUri: string, justification: Justification) {
+    this.expanded.add(tcUri);
+    const plazi = await SQueries.getNameFromTC(
+      tcUri,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+    const cols = await SQueries.getColFromName(
+      plazi.latinName,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+    return this.handleColAndPlaziResult(
+      cols,
+      new Set([plazi]),
+      "",
+      justification,
+    );
   }
-
-  private async handlePlaziResult(
-    result: SQueries.PlaziResult,
-    justification: Justification,
-  ) {
-    // TODO
+  /** @internal */
+  async tnSynonyms(tnUri: string, justification: Justification) {
+    this.expanded.add(tnUri);
+    const plazi = await SQueries.getNameFromTN(
+      tnUri,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+    const cols = await SQueries.getColFromName(
+      plazi.latinName,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+    return this.handleColAndPlaziResult(
+      cols,
+      new Set([plazi]),
+      "",
+      justification,
+    );
   }
 
   /**
@@ -467,42 +578,6 @@ LIMIT 5000`;
     await Promise.allSettled(
       names.map((n) => this.getName(n, { searchTerm: true, subTaxon: true })),
     );
-  }
-
-  /** @internal */
-  private async getNameFromLatin(
-    [genus, species, infrasp]: [string, string | undefined, string | undefined],
-    justification: Justification,
-  ): Promise<void> {
-    const query = `
-    PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-SELECT DISTINCT ?uri WHERE {
-  ?uri dwc:genus|dwc:genericName "${genus}" .
-  ${
-      species
-        ? `?uri dwc:species|dwc:specificEpithet "${species}" .`
-        : "FILTER NOT EXISTS { ?uri dwc:species|dwc:specificEpithet ?species . }"
-    }
-  ${
-      infrasp
-        ? `?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet "${infrasp}" .`
-        : "FILTER NOT EXISTS { ?uri dwc:subSpecies|dwc:variety|dwc:form|dwc:infraspecificEpithet ?infrasp . }"
-    }
-}
-LIMIT 500`;
-
-    if (this.controller.signal?.aborted) return Promise.reject();
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      this.fetchOptions,
-      `NameFromLatin ${genus} ${species} ${infrasp}`,
-    );
-
-    const names = json.results.bindings
-      .map((n) => n.uri?.value)
-      .filter((n) => n && !this.expanded.has(n)) as string[];
-
-    await Promise.allSettled(names.map((n) => this.getName(n, justification)));
   }
 
   /**
@@ -743,69 +818,72 @@ LIMIT 500`;
     colUri: string,
     parent: Name,
   ): Promise<void[]> {
-    const query = `
-PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
-SELECT DISTINCT ?current ?current_status (GROUP_CONCAT(DISTINCT ?dpr; separator="|") AS ?dprs) WHERE {
-  BIND(<${colUri}> AS ?col)
-  {
-    ?col dwc:acceptedName ?current .
-    ?dpr dwc:acceptedName ?current .
-    OPTIONAL { ?current dwc:taxonomicStatus ?current_status . }
-  } UNION {
-    ?col dwc:taxonomicStatus ?current_status .
-    OPTIONAL { ?dpr dwc:acceptedName ?col . }
-    FILTER NOT EXISTS { ?col dwc:acceptedName ?_ . }
-    BIND(?col AS ?current)
-  }
-}
-GROUP BY ?current ?current_status`;
-
+    console.log("COLSYN", colUri, this.acceptedCol.get(colUri));
     if (this.acceptedCol.has(colUri)) {
       // we have already found this group of synonyms
       return [];
     }
 
-    const json = await this.sparqlEndpoint.getSparqlResultSet(
-      query,
-      this.fetchOptions,
-      `AcceptedCol ${colUri}`,
-    );
-
     const promises: Promise<void>[] = [];
 
-    for (const b of json.results.bindings) {
-      for (const dpr of b.dprs!.value.split("|")) {
-        if (dpr) {
-          if (!this.acceptedCol.has(b.current!.value)) {
-            this.acceptedCol.set(b.current!.value, b.current!.value);
-            promises.push(
-              this.getName(b.current!.value, {
-                searchTerm: false,
-                parent,
-              }),
-            );
-          }
+    try {
+      const { accepted, synonyms } = await SQueries.getColSynonyms(
+        colUri,
+        this.sparqlEndpoint,
+        this.fetchOptions,
+      );
 
-          this.acceptedCol.set(dpr, b.current!.value);
-          if (!this.ignoreDeprecatedCoL) {
-            promises.push(
-              this.getName(dpr, { searchTerm: false, parent }),
+      console.log("COLSYN", colUri, "≡", synonyms, this.ignoreDeprecatedCoL);
+
+      if (!this.acceptedCol.has(accepted.colUri)) {
+        this.acceptedCol.set(accepted.colUri, accepted.colUri);
+        promises.push(
+          this.handleLatinName(accepted.latinName, {
+            parent,
+            searchTerm: false,
+          }),
+        );
+      }
+
+      const plaziPromises: Promise<Set<SQueries.PlaziResult>>[] = [];
+      const keys: Set<string> = new Set();
+
+      for (const synonym of synonyms) {
+        this.acceptedCol.set(synonym.colUri, accepted.colUri);
+        if (!this.ignoreDeprecatedCoL) {
+          const key = SQueries.stringifyLN(synonym.latinName);
+          if (!keys.has(key)) {
+            keys.add(key);
+            plaziPromises.push(
+              SQueries.getPlaziFromName(
+                synonym.latinName,
+                this.sparqlEndpoint,
+                this.fetchOptions,
+              ),
             );
           }
         }
       }
-    }
 
-    if (json.results.bindings.length === 0) {
-      // the provided colUri is not in CoL
-      // promises === []
+      const plazis = await Promise.all(plaziPromises);
+      promises.push(
+        this.handleColAndPlaziResult(
+          synonyms,
+          plazis.reduce((prev, set) => prev.union(set)),
+          "",
+          {
+            parent,
+            searchTerm: false,
+          },
+        ),
+      );
+
+      if (!this.acceptedCol.has(colUri)) this.acceptedCol.set(colUri, colUri);
+    } catch {
       if (!this.acceptedCol.has(colUri)) {
         this.acceptedCol.set(colUri, "INVALID COL");
       }
-      return Promise.all(promises);
     }
-
-    if (!this.acceptedCol.has(colUri)) this.acceptedCol.set(colUri, colUri);
     return Promise.all(promises);
   }
 
