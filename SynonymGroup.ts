@@ -1,20 +1,6 @@
-import type { SparqlEndpoint, SparqlJson } from "./mod.ts";
-import * as Queries from "./Queries.ts";
+import type { SparqlEndpoint } from "./mod.ts";
 import * as SQueries from "./SimpleQueries.ts";
 import { unifyAuthorithy } from "./UnifyAuthorities.ts";
-
-const abbreviateRank = (rank: string) => {
-  switch (rank) {
-    case "variety":
-      return "var.";
-    case "subspecies":
-      return "subsp.";
-    case "form":
-      return "f.";
-    default:
-      return rank;
-  }
-};
 
 /** Finds all synonyms of a taxon */
 export class SynonymGroup implements AsyncIterable<Name> {
