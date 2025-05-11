@@ -118,7 +118,7 @@ WHERE {
     ${
         name.infragenericEpithet
             ? `?col dwc:infragenericEpithet "${name.infragenericEpithet}" .`
-            : name.noMissing // && !searchTerm
+            : name.noMissing && !(searchTerm && name.specificEpithet)
             ? `FILTER NOT EXISTS { ?col dwc:infragenericEpithet ?_infrag . }`
             : ""
     }
