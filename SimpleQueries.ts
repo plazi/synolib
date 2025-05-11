@@ -10,9 +10,7 @@ import type { SparqlEndpoint } from "./SparqlEndpoint.ts";
 // TN → TN + TCs + Latin Name
 // TC → TN + TCs + Latin Name
 
-// TODO: subtaxa
-// TODO: no synonyms
-// TODO: (in synonym group) start with URL
+// TODO: proper subtaxa
 // TODO: factour out common code from plazi-queries
 
 /** Latin Name, split up into parts. */
