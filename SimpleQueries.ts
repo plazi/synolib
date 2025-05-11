@@ -111,7 +111,7 @@ export async function getColFromName(
         !name.genericName && !name.infragenericEpithet &&
         !name.specificEpithet && !name.infraspecificEpithet
     ) {
-        console.log("Empty name");
+        console.log("skipping getColFromName for empty name");
         return new Set();
     }
     const query = `
@@ -320,7 +320,7 @@ export async function getPlaziFromName(
         !name.genericName && !name.infragenericEpithet &&
         !name.specificEpithet && !name.infraspecificEpithet
     ) {
-        console.log("Empty name");
+        console.log("skipping getPlaziFromName for empty name");
         return new Set();
     }
     const query = `

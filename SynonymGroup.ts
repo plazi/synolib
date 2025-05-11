@@ -166,6 +166,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
       console.log(`Skipping known (${key0})`);
       return;
     }
+    console.debug(`synogroup: lnSynonyms ${key0}`);
 
     if (this.controller.signal?.aborted) return Promise.reject();
 
@@ -198,6 +199,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     key0: string,
     justification: Justification,
   ) {
+    console.debug(`synogroup: handling ${key0}`);
     const treatmentPromises: Promise<[Name, Treatment, TreatmentDetails]>[] =
       [];
     const colPromises: Promise<void[]>[] = [];
@@ -225,8 +227,6 @@ export class SynonymGroup implements AsyncIterable<Name> {
       newPlazi.set(key, r);
     }
 
-    console.log(newNames, newCol, newPlazi);
-
     for (const key of newNames) {
       if (key != key0 && this.expanded.has(key)) {
         console.log(`Skipping known (${key})`);
@@ -238,8 +238,6 @@ export class SynonymGroup implements AsyncIterable<Name> {
       const cols = newCol.get(key);
 
       const treatments: Treatment[] = [];
-
-      console.log(key, cols, plazi);
 
       let unauthorizedCol: ColEntry | undefined;
       const authorizedNames: AuthorizedName[] = [];
@@ -431,6 +429,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** @internal */
   async tcSynonyms(tcUri: string, justification: Justification) {
     if (this.noSynonyms && !justification.searchTerm) return;
+    console.debug(`synogroup: tcSynonyms ${tcUri}`);
     this.expanded.add(tcUri);
     const plazi = await SQueries.getNameFromTC(
       tcUri,
@@ -453,6 +452,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
   /** @internal */
   async tnSynonyms(tnUri: string, justification: Justification) {
     if (this.noSynonyms && !justification.searchTerm) return;
+    console.debug(`synogroup: tnSynonyms ${tnUri}`);
     this.expanded.add(tnUri);
     const plazi = await SQueries.getNameFromTN(
       tnUri,
@@ -523,6 +523,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
       // we have already found this group of synonyms
       return [];
     }
+    console.debug(`synogroup: colSynonyms ${colUri}`);
 
     const promises: Promise<void>[] = [];
 
@@ -575,8 +576,6 @@ export class SynonymGroup implements AsyncIterable<Name> {
           }
         }
       }
-
-      console.log(keys);
 
       const plazis = await Promise.all(plaziPromises);
       promises.push(
