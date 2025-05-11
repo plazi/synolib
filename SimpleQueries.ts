@@ -191,7 +191,7 @@ LIMIT 500`;
                 authority,
                 status,
                 latinName: {
-                    rank: result.rank?.value,
+                    rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
                     genericName,
                     infragenericEpithet: result.infrag?.value,
@@ -270,7 +270,7 @@ WHERE {
             authority,
             status,
             latinName: {
-                rank: result.rank?.value,
+                rank: result.rank?.value.toLocaleLowerCase(),
                 kingdom: result.kingdom?.value,
                 genericName,
                 infragenericEpithet: result.infrag?.value,
@@ -423,7 +423,7 @@ LIMIT 500`;
                 treats: result.tntreats?.value,
                 cites: result.tncites?.value,
                 latinName: {
-                    rank: result.rank?.value,
+                    rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
                     genericName,
                     infragenericEpithet: result.infrag?.value,
@@ -534,7 +534,7 @@ LIMIT 500`;
                 treats: result.tntreats?.value,
                 cites: result.tncites?.value,
                 latinName: {
-                    rank: result.rank?.value,
+                    rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
                     genericName,
                     infragenericEpithet: result.infrag?.value,
@@ -649,7 +649,7 @@ LIMIT 500`;
                 treats: result.tntreats?.value,
                 cites: result.tncites?.value,
                 latinName: {
-                    rank: result.rank?.value,
+                    rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
                     genericName,
                     infragenericEpithet: result.infrag?.value,
