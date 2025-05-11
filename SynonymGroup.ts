@@ -533,19 +533,28 @@ export class SynonymGroup implements AsyncIterable<Name> {
         this.fetchOptions,
       );
 
+      const plaziPromises: Promise<Set<SQueries.PlaziResult>>[] = [];
+      const keys: Set<string> = new Set();
+
       if (!this.acceptedCol.has(accepted.colUri)) {
         this.acceptedCol.set(accepted.colUri, accepted.colUri);
         const searchTerm = justification.searchTerm &&
           colUri === accepted.colUri;
         if (!this.noSynonyms || searchTerm) {
-          promises.push(
-            this.handleLatinName(accepted.latinName, justification),
-          );
+          const key = SQueries.stringifyLN(accepted.latinName);
+          if (!keys.has(key)) {
+            keys.add(key);
+            plaziPromises.push(
+              SQueries.getPlaziFromName(
+                accepted.latinName,
+                searchTerm,
+                this.sparqlEndpoint,
+                this.fetchOptions,
+              ),
+            );
+          }
         }
       }
-
-      const plaziPromises: Promise<Set<SQueries.PlaziResult>>[] = [];
-      const keys: Set<string> = new Set();
 
       for (const synonym of synonyms) {
         this.acceptedCol.set(synonym.colUri, accepted.colUri);
@@ -567,10 +576,12 @@ export class SynonymGroup implements AsyncIterable<Name> {
         }
       }
 
+      console.log(keys);
+
       const plazis = await Promise.all(plaziPromises);
       promises.push(
         this.handleColAndPlaziResult(
-          synonyms,
+          synonyms.add(accepted),
           plazis.reduce((prev, set) => prev.union(set)),
           "",
           justification,

@@ -18,7 +18,7 @@ export type LatinName = {
     /** undefined is interpreted as "any rank" */
     rank?: string;
     kingdom?: string;
-    genericName: string;
+    genericName?: string;
     infragenericEpithet?: string;
     specificEpithet?: string;
     infraspecificEpithet?: string;
@@ -31,19 +31,23 @@ export type LatinName = {
 };
 
 export function stringifyLN(name: LatinName): string {
-    return `${name.noMissing}|${name.rank}|${name.kingdom}|${name.genericName}|${name.infragenericEpithet}|${name.specificEpithet}|${name.infraspecificEpithet}`;
+    return `${name.noMissing}|${name.rank}|${name.kingdom ?? ""}|${
+        name.genericName ?? ""
+    }|${name.infragenericEpithet ?? ""}|${name.specificEpithet ?? ""}|${
+        name.infraspecificEpithet ?? ""
+    }`;
 }
 
 function abbreviateRank(rank: string): string {
     switch (rank) {
         case "variety":
-            return "var.";
+            return "var. ";
         case "subspecies":
-            return "subsp.";
+            return ""; // "subsp. ";
         case "form":
-            return "f.";
+            return "f. ";
         default:
-            return rank;
+            return rank + " ";
     }
 }
 
@@ -56,7 +60,7 @@ export function prettyPrintLN(name: LatinName): string {
         (name.specificEpithet ? ` ${name.specificEpithet}` : "") +
         (name.infraspecificEpithet
             ? name.rank
-                ? ` ${abbreviateRank(name.rank)} ${name.infraspecificEpithet}`
+                ? ` ${abbreviateRank(name.rank)}${name.infraspecificEpithet}`
                 : ` ${name.infraspecificEpithet}`
             : "");
 }
@@ -103,6 +107,13 @@ export async function getColFromName(
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
 ): Promise<Set<ColResult>> {
+    if (
+        !name.genericName && !name.infragenericEpithet &&
+        !name.specificEpithet && !name.infraspecificEpithet
+    ) {
+        console.log("Empty name");
+        return new Set();
+    }
     const query = `
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?col ?acceptedcol ?status ?name ?authority ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
@@ -173,16 +184,27 @@ LIMIT 500`;
             const colUri = result.col?.value;
             const acceptedColUri = result.acceptedcol?.value;
             const authority = result.authority?.value;
-            const humanReadable = authority
+            let humanReadable = authority
                 ? result.name?.value.replace(authority, "").trimEnd()
                 : result.name?.value;
             const status = result.status?.value;
-            const genericName = result.generic?.value;
-            if (
-                !colUri || !acceptedColUri || !humanReadable || !status ||
-                !genericName
-            ) {
+            if (!colUri || !acceptedColUri || !humanReadable || !status) {
                 return undefined;
+            }
+            const latinName = {
+                rank: result.rank?.value.toLocaleLowerCase(),
+                kingdom: result.kingdom?.value,
+                genericName: result.generic?.value,
+                infragenericEpithet: result.infrag?.value,
+                specificEpithet: result.specific?.value,
+                infraspecificEpithet: result.infrasp?.value,
+                noMissing: true,
+            };
+            if (
+                !latinName.genericName && !latinName.infragenericEpithet &&
+                !latinName.specificEpithet && !latinName.infraspecificEpithet
+            ) {
+                humanReadable = `“${humanReadable}”`;
             }
             return {
                 colUri,
@@ -190,15 +212,7 @@ LIMIT 500`;
                 humanReadable,
                 authority,
                 status,
-                latinName: {
-                    rank: result.rank?.value.toLocaleLowerCase(),
-                    kingdom: result.kingdom?.value,
-                    genericName,
-                    infragenericEpithet: result.infrag?.value,
-                    specificEpithet: result.specific?.value,
-                    infraspecificEpithet: result.infrasp?.value,
-                    noMissing: true,
-                },
+                latinName,
             };
         }).filter((r) => r !== undefined),
     );
@@ -252,16 +266,27 @@ WHERE {
         const colUri = result.col?.value;
         const acceptedColUri = result.acceptedcol?.value;
         const authority = result.authority?.value;
-        const humanReadable = authority
+        let humanReadable = authority
             ? result.name?.value.replace(authority, "").trimEnd()
             : result.name?.value;
         const status = result.status?.value;
-        const genericName = result.generic?.value;
-        if (
-            !colUri || !acceptedColUri || !humanReadable || !status ||
-            !genericName
-        ) {
+        if (!colUri || !acceptedColUri || !humanReadable || !status) {
             continue;
+        }
+        const latinName = {
+            rank: result.rank?.value.toLocaleLowerCase(),
+            kingdom: result.kingdom?.value,
+            genericName: result.generic?.value,
+            infragenericEpithet: result.infrag?.value,
+            specificEpithet: result.specific?.value,
+            infraspecificEpithet: result.infrasp?.value,
+            noMissing: true,
+        };
+        if (
+            !latinName.genericName && !latinName.infragenericEpithet &&
+            !latinName.specificEpithet && !latinName.infraspecificEpithet
+        ) {
+            humanReadable = `“${humanReadable}”`;
         }
         const r: ColResult = {
             colUri,
@@ -269,15 +294,7 @@ WHERE {
             humanReadable,
             authority,
             status,
-            latinName: {
-                rank: result.rank?.value.toLocaleLowerCase(),
-                kingdom: result.kingdom?.value,
-                genericName,
-                infragenericEpithet: result.infrag?.value,
-                specificEpithet: result.specific?.value,
-                infraspecificEpithet: result.infrasp?.value,
-                noMissing: true,
-            },
+            latinName,
         };
         if (colUri === result.acceptedcol?.value) {
             accepted = r;
@@ -299,6 +316,13 @@ export async function getPlaziFromName(
     endpoint: SparqlEndpoint,
     fetchOptions: RequestInit,
 ): Promise<Set<PlaziResult>> {
+    if (
+        !name.genericName && !name.infragenericEpithet &&
+        !name.specificEpithet && !name.infraspecificEpithet
+    ) {
+        console.log("Empty name");
+        return new Set();
+    }
     const query = `
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
@@ -400,8 +424,7 @@ LIMIT 500`;
 
     for (const result of json.results.bindings) {
         const tnUri = result.tn?.value;
-        const genericName = result.generic?.value;
-        if (!tnUri || !genericName) continue;
+        if (!tnUri) continue;
 
         const tcUri = result.tc?.value;
         const authorities = result.authorities?.value;
@@ -425,7 +448,7 @@ LIMIT 500`;
                 latinName: {
                     rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
-                    genericName,
+                    genericName: result.generic?.value,
                     infragenericEpithet: result.infrag?.value,
                     specificEpithet: result.specific?.value,
                     infraspecificEpithet: result.infrasp?.value,
@@ -511,8 +534,7 @@ LIMIT 500`;
 
     for (const result of json.results.bindings) {
         const tnUri = result.tn?.value;
-        const genericName = result.generic?.value;
-        if (!tnUri || !genericName) continue;
+        if (!tnUri) continue;
 
         const tcUri = result.tc?.value;
         const authorities = result.authorities?.value;
@@ -536,7 +558,7 @@ LIMIT 500`;
                 latinName: {
                     rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
-                    genericName,
+                    genericName: result.generic?.value,
                     infragenericEpithet: result.infrag?.value,
                     specificEpithet: result.specific?.value,
                     infraspecificEpithet: result.infrasp?.value,
@@ -626,8 +648,7 @@ LIMIT 500`;
 
     for (const result of json.results.bindings) {
         const tnUri = result.tn?.value;
-        const genericName = result.generic?.value;
-        if (!tnUri || !genericName) continue;
+        if (!tnUri) continue;
 
         const tcUri = result.tc?.value;
         const authorities = result.authorities?.value;
@@ -651,7 +672,7 @@ LIMIT 500`;
                 latinName: {
                     rank: result.rank?.value.toLocaleLowerCase(),
                     kingdom: result.kingdom?.value,
-                    genericName,
+                    genericName: result.generic?.value,
                     infragenericEpithet: result.infrag?.value,
                     specificEpithet: result.specific?.value,
                     infraspecificEpithet: result.infrasp?.value,
