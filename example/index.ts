@@ -390,7 +390,7 @@ class SynoName extends HTMLElement {
       treatments.append(li);
 
       const creators = document.createElement("span");
-      creators.innerText = "Catalogue of Life";
+      creators.innerText = `Catalogue of Life: ${name.col.status}`;
       li.append(creators);
 
       const names = document.createElement("div");
@@ -489,7 +489,7 @@ class SynoName extends HTMLElement {
         treatments.append(li);
 
         const creators = document.createElement("span");
-        creators.innerText = "Catalogue of Life";
+        creators.innerText = `Catalogue of Life: ${authorizedName.col.status}`;
         li.append(creators);
 
         const names = document.createElement("div");

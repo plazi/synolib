@@ -186,8 +186,18 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.expanded.add(key0);
 
     const [col, plazi] = await Promise.all([
-      SQueries.getColFromName(name, justification.searchTerm, this.sparqlEndpoint, this.fetchOptions),
-      SQueries.getPlaziFromName(name, justification.searchTerm, this.sparqlEndpoint, this.fetchOptions),
+      SQueries.getColFromName(
+        name,
+        justification.searchTerm,
+        this.sparqlEndpoint,
+        this.fetchOptions,
+      ),
+      SQueries.getPlaziFromName(
+        name,
+        justification.searchTerm,
+        this.sparqlEndpoint,
+        this.fetchOptions,
+      ),
     ]);
     await this.handleColAndPlaziResult(col, plazi, key0, justification);
   }
@@ -245,7 +255,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
       console.log(key, cols, plazi);
 
-      let unauthorizedCol: { colURI: string; acceptedURI: string } | undefined;
+      let unauthorizedCol: ColEntry | undefined;
       const authorizedNames: AuthorizedName[] = [];
 
       let kingdom: string | undefined;
@@ -264,6 +274,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
             }
             unauthorizedCol = {
               colURI,
+              status: col.status,
               acceptedURI: col.acceptedColUri,
             };
           } else if (!authorizedNames.find((e) => e.col?.colURI === colURI)) {
@@ -278,6 +289,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
               authorities: [col.authority!],
               col: {
                 colURI,
+                status: col.status,
                 acceptedURI: col.acceptedColUri,
               },
               taxonConceptURIs: [],
@@ -537,7 +549,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
       if (!this.acceptedCol.has(accepted.colUri)) {
         this.acceptedCol.set(accepted.colUri, accepted.colUri);
-        const searchTerm = justification.searchTerm && colUri === accepted.colUri;
+        const searchTerm = justification.searchTerm &&
+          colUri === accepted.colUri;
         if (!this.noSynonyms || searchTerm) {
           promises.push(
             this.handleLatinName(accepted.latinName, justification),
@@ -550,7 +563,8 @@ export class SynonymGroup implements AsyncIterable<Name> {
 
       for (const synonym of synonyms) {
         this.acceptedCol.set(synonym.colUri, accepted.colUri);
-        const searchTerm = justification.searchTerm && colUri === synonym.colUri;
+        const searchTerm = justification.searchTerm &&
+          colUri === synonym.colUri;
         if (searchTerm || (!this.ignoreDeprecatedCoL && !this.noSynonyms)) {
           const key = SQueries.stringifyLN(synonym.latinName);
           if (!keys.has(key)) {
@@ -883,21 +897,11 @@ export type Name = {
   /** The URI of the respective `dwcFP:TaxonName` if it exists */
   taxonNameURI?: string;
 
-  /** Catalogue of Life-Data */
-  col?: {
-    /** The URI of the respective CoL-taxon if it exists
-     *
-     * Note that this is only for CoL-taxa which do not have an authority.
-     */
-    colURI: string;
-    /** The URI of the corresponding accepted CoL-taxon if it exists.
-     *
-     * The same as URI if it is the accepted CoL-Taxon.
-     *
-     * May be the string "INVALID COL" if the colURI is not valid.
-     */
-    acceptedURI: string;
-  };
+  /** Catalogue of Life-Data
+   *
+   * Note that this is only for CoL-taxa which do not have an authority.
+   */
+  col?: ColEntry;
 
   /** All `AuthorizedName`s with this name */
   authorizedNames: AuthorizedName[];
@@ -949,17 +953,7 @@ export type AuthorizedName = {
   taxonConceptURIs: string[];
 
   /** Catalogue of Life-Data */
-  col?: {
-    /** The URI of the respective CoL-taxon if it exists */
-    colURI: string;
-    /** The URI of the corresponding accepted CoL-taxon if it exists.
-     *
-     * The same as URI if it is the accepted CoL-Taxon.
-     *
-     * May be the string "INVALID COL" if the colURI is not valid.
-     */
-    acceptedURI: string;
-  };
+  col?: ColEntry;
 
   // TODO: sensible?
   // /** these are CoL-taxa linked in the rdf, which differ lexically */
@@ -972,6 +966,19 @@ export type AuthorizedName = {
     dpr: Set<Treatment>;
     cite: Set<Treatment>;
   };
+};
+
+/** An entry in the CoL */
+export type ColEntry = {
+  colURI: string;
+  status: string;
+  /** The URI of the corresponding accepted CoL-taxon.
+   *
+   * The same as .colURI if it is the accepted CoL-Taxon.
+   *
+   * May be the string "INVALID COL" if the colURI is not valid.
+   */
+  acceptedURI: string;
 };
 
 /** A plazi-treatment */
