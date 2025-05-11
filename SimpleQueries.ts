@@ -324,9 +324,9 @@ WHERE {
     }
     ${
         name.infragenericEpithet
-            ? `?tn dwc:subGenus|dwc:section "${name.infragenericEpithet}" .`
+            ? `?tn dwc:subGenus|dwc:section|dwc:series "${name.infragenericEpithet}" .`
             : name.noMissing && !(searchTerm && name.specificEpithet)
-            ? `FILTER NOT EXISTS { ?tn dwc:subGenus|dwc:section ?_infrag . }`
+            ? `FILTER NOT EXISTS { ?tn dwc:subGenus|dwc:section|dwc:series ?_infrag . }`
             : ""
     }
     ${
@@ -355,7 +355,7 @@ WHERE {
     OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
-    OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
+    OPTIONAL { ?tn dwc:subGenus|dwc:section|dwc:series ?infrag . }
     OPTIONAL { ?tn dwc:species ?specific . }
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
 
@@ -466,7 +466,7 @@ WHERE {
     OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
-    OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
+    OPTIONAL { ?tn dwc:subGenus|dwc:section|dwc:series ?infrag . }
     OPTIONAL { ?tn dwc:species ?specific . }
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
 
@@ -581,7 +581,7 @@ WHERE {
     OPTIONAL { ?tn dwc:kingdom ?kingdom . }
     # { ... } UNION { ?tn trt:hasParentName* ?k . ?k dwc:rank "kingdom" ; dwc:kingdom ?kingdom . }
     OPTIONAL { ?tn dwc:genus ?generic . }
-    OPTIONAL { ?tn dwc:subGenus|dwc:section ?infrag . }
+    OPTIONAL { ?tn dwc:subGenus|dwc:section|dwc:series ?infrag . }
     OPTIONAL { ?tn dwc:species ?specific . }
     OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
 
