@@ -1,5 +1,5 @@
-synonym-group.js
-
-npm-package/node_modules
-npm-package/index.js
-npm-package/index.d.ts
+docs/
+build/
+example/index.js
+example/index.js.map
+node_modules/

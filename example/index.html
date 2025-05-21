@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SynoLib</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="index.css" />
+  </head>
+
+  <body>
+    <h1>SynoLib</h1>
+    <p>
+      Use url parameters to configure: (e.g. <a
+        href="?q=Sadayoshia&subtaxa=&show_col"
+      >/?q=Sadayoshia&subtaxa=&show_col</a>)
+      <ul>
+        <li>
+          <code>q=TAXON</code> for the search term (Latin name, CoL-URI,
+          taxon-name-URI or taxon-concept-URI)
+        </li>
+        <li>
+          <code>show_col=</code> to include many more CoL taxa
+        </li>
+        <li>
+          <code>subtaxa=</code> to include subtaxa of the search term
+        </li>
+        <li>
+          <code>server=URL</code> to configure the sparql endpoint
+        </li>
+      </ul>
+      <br />
+      Expand a treatment with the button on the right to show all cited taxa,
+      figures and materials. Click on a taxon identifier beneath a treatment to
+      scroll to that name — if it is (already) in the list.
+    </p>
+
+    <div id="root"></div>
+
+    <script type="module" src="index.js"></script>
+  </body>
+</html>
