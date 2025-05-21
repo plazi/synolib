@@ -491,7 +491,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
   }
 
   /** @internal */
-  async tcSynonyms(tcUri: string, justification: Justification) {
+  async tcSynonyms(tcUri: string, justification: Justification): Promise<void> {
     if (this.noSynonyms && !justification.searchTerm) return;
     console.debug(`synogroup: tcSynonyms ${tcUri}`);
     this.expanded.add(tcUri);
@@ -514,7 +514,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
   }
   /** @internal */
-  async tnSynonyms(tnUri: string, justification: Justification) {
+  async tnSynonyms(tnUri: string, justification: Justification): Promise<void> {
     if (this.noSynonyms && !justification.searchTerm) return;
     console.debug(`synogroup: tnSynonyms ${tnUri}`);
     this.expanded.add(tnUri);
