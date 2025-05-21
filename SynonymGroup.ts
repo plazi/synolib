@@ -234,7 +234,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     plazi: Set<SQueries.PlaziResult>,
     key0: string,
     justification: Justification,
-  ) {
+  ): Promise<void> {
     console.debug(`synogroup: handling ${key0}`);
     const treatmentPromises: Promise<[Name, Treatment, TreatmentDetails]>[] =
       [];
@@ -491,7 +491,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
   }
 
   /** @internal */
-  async tcSynonyms(tcUri: string, justification: Justification): Promise<void> {
+  private async tcSynonyms(
+    tcUri: string,
+    justification: Justification,
+  ): Promise<void> {
     if (this.noSynonyms && !justification.searchTerm) return;
     console.debug(`synogroup: tcSynonyms ${tcUri}`);
     this.expanded.add(tcUri);
@@ -514,7 +517,10 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
   }
   /** @internal */
-  async tnSynonyms(tnUri: string, justification: Justification): Promise<void> {
+  private async tnSynonyms(
+    tnUri: string,
+    justification: Justification,
+  ): Promise<void> {
     if (this.noSynonyms && !justification.searchTerm) return;
     console.debug(`synogroup: tnSynonyms ${tnUri}`);
     this.expanded.add(tnUri);
