@@ -10,8 +10,7 @@ import type { SparqlEndpoint } from "./SparqlEndpoint.ts";
 // TN → TN + TCs + Latin Name
 // TC → TN + TCs + Latin Name
 
-// TODO: proper subtaxa
-// TODO: factour out common code from plazi-queries
+// TODO: factor out common code from plazi-queries
 
 /** Latin Name, split up into parts. */
 export type LatinName = {
@@ -24,8 +23,9 @@ export type LatinName = {
     infraspecificEpithet?: string;
     // TODO: cultivarEpithet?
     /** if true, missing epithets are FILTER NOT EXISTS
-     *
-     * TODO: this seems rather slow
+     * 
+     * Note: this is currently always true
+     * // TODO: this seems rather slow
      */
     noMissing: boolean;
 };

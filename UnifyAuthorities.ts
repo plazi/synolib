@@ -40,7 +40,7 @@ export function unifyAuthorithy(a: string, b: string): string | null {
   return result.join(", ");
 }
 
-const lastNameRegex = /^(?:(?:\S\.\s*)*\s)?(\S+)\.?$/;
+const lastNameRegex = /^(?:(?:\S\.\s*)*)?(\S+\.?)$/;
 
 function unifySingleNameWithInitials(a: string, b: string) {
   const lastNameA = lastNameRegex.exec(a)?.[1];
@@ -65,8 +65,13 @@ function unifySingleName(a: string, b: string) {
     const index = indexA !== -1
       ? (indexB !== -1 ? Math.min(indexA, indexB) : indexA)
       : indexB;
-    prefixA = longA.substring(0, index);
-    prefixB = longB.substring(0, index);
+    if (
+      (indexA === -1 && longA.length >= longB.length) ||
+      (indexB === -1 && longB.length >= longA.length)
+    ) {
+      prefixA = longA.substring(0, index);
+      prefixB = longB.substring(0, index);
+    }
   }
 
   if (isEquivalent(prefixA, prefixB)) {

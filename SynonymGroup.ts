@@ -337,19 +337,23 @@ export class SynonymGroup implements AsyncIterable<Name> {
           aug.forEach((t) => treatments.push(t));
           dpr.forEach((t) => treatments.push(t));
 
+          const authority = authName.authorities.split(" / ").reduce((
+            prev,
+            current,
+          ) => unifyAuthorithy(prev, current) ?? prev + " / " + current);
+
           const prevName = authorizedNames.find((e) =>
-            unifyAuthorithy(e.authority, authName.authorities) !== null
+            unifyAuthorithy(e.authority, authority) !== null
             // authName.authorities.split(" / ").some((auth) =>
             //   unifyAuthorithy(e.authority, auth) !== null
             // )
           );
           if (prevName) {
             // TODO: I feel like this could be made much more efficient -- we are unifying repeatedly
-            const best = authName.authorities; // .split(" / ").find((auth) =>
-            //  unifyAuthorithy(prevName.authority, auth) !== null
-            // )!;
-
-            prevName.authority = unifyAuthorithy(prevName.authority, best)!;
+            prevName.authority = unifyAuthorithy(
+              prevName.authority,
+              authority,
+            )!;
             prevName.authorities.push(...authName.authorities.split(" / "));
             prevName.taxonConceptURIs.push(authName.tcUri);
             prevName.treatments = {
@@ -361,7 +365,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
           } else {
             authorizedNames.push({
               displayName,
-              authority: authName.authorities,
+              authority,
               authorities: authName.authorities.split(" / "),
               taxonConceptURIs: [authName.tcUri],
               treatments: {
@@ -997,9 +1001,6 @@ SELECT DISTINCT ?url ?description WHERE {
     };
   }
 }
-
-// TODO: CoL taxa without authority -- associate them with the Name directly
-// eg. 5KTTT is "Quercus robur subsp. robur" w/o authority
 
 /** The central object.
  *

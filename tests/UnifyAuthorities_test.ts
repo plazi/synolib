@@ -11,6 +11,7 @@ const unify_tests: [string, string, string][] = [
   // ["(Linnaeus, 1753) Linnaeus, 1763", "(L.) L.", "(Linnaeus, 1753) Linnaeus, 1763"],
   // ["(Linnaeus, 1753)", "(L.)", "(Linnaeus, 1753)"],
   ["Linnaeus", "L.", "Linnaeus"],
+  ["Wang & Erseus, 2004", "Wang & Erséus, 2004", "Wang & Erséus, 2004"],
   [
     "Bakker et al., 1988",
     "Bakker, Williams & Currie, 1988",
@@ -43,13 +44,18 @@ const unify_tests: [string, string, string][] = [
     "d’Orbigny, 1835",
     "d'Orbigny, 1835",
   ],
-  ["Name & Kulczyński, 1901", "Name & Kulczynski, 1901", "Name & Kulczyński, 1901"],
+  [
+    "Name & Kulczyński, 1901",
+    "Name & Kulczynski, 1901",
+    "Name & Kulczyński, 1901",
+  ],
   // ["Name, Kulczyński, 1901", "Name & Kulczynski, 1901", "Name & Kulczyński, 1901"],
 ];
 
 const incompatible_tests: [string, string][] = [
   ["(Bolívar, 1893)", "Bolivar, 1893"],
   ["Simon, 1890", "(Simon, 1890)"],
+  ["Weber", "Weber."],
 ];
 
 for (const test of unify_tests) {
