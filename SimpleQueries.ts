@@ -218,6 +218,86 @@ LIMIT 500`;
     );
 }
 
+// Using getColSynonyms for the search terms leads to issues with the justification...
+export async function getCol(
+    colUri: string,
+    endpoint: SparqlEndpoint,
+    fetchOptions: RequestInit,
+): Promise<ColResult> {
+    const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+SELECT DISTINCT ?acceptedcol ?col ?status ?name ?authority ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+WHERE {
+    BIND(<${colUri}> AS ?col)
+    ?col dwc:taxonomicStatus ?status ;
+        dwc:scientificName ?name ;
+        dwc:taxonRank ?rank .
+    OPTIONAL { ?col dwc:genericName ?generic . }
+    OPTIONAL { ?col dwc:infragenericEpithet ?infrag . }
+    OPTIONAL { ?col dwc:specificEpithet ?specific . }
+    OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
+    OPTIONAL { ?col dwc:kingdom ?kingdom . }
+    {
+        ?col dwc:acceptedName ?acceptedcol .
+    } UNION {
+        ?col dwc:taxonomicStatus "accepted" .
+        BIND(?col AS ?acceptedcol)
+    } UNION {
+        ?col dwc:taxonomicStatus "provisionally accepted" .
+        BIND(?col AS ?acceptedcol)
+    }
+}
+LIMIT 1`;
+    const json = await endpoint.getSparqlResultSet(
+        query,
+        fetchOptions,
+        "getColSynonyms",
+    );
+    if (json.results.bindings.length === 0) {
+        throw new Error(`Could not get info for CoL <${colUri}>`);
+    }
+    if (json.results.bindings.length > 1) {
+        throw new Error(
+            `Could not get info for CoL <${colUri}> -- to many rows`,
+        );
+    }
+    const result = json.results.bindings[0];
+    const r_colUri = result.col?.value;
+    const acceptedColUri = result.acceptedcol?.value;
+    const authority = result.authority?.value;
+    let humanReadable = authority
+        ? result.name?.value.replace(authority, "").trimEnd()
+        : result.name?.value;
+    const status = result.status?.value;
+    if (!r_colUri || !acceptedColUri || !humanReadable || !status) {
+        throw new Error(`Could not get info for CoL <${colUri}> -- data error`);
+    }
+    const latinName = {
+        rank: result.rank?.value.toLocaleLowerCase(),
+        kingdom: result.kingdom?.value,
+        genericName: result.generic?.value,
+        infragenericEpithet: result.infrag?.value,
+        specificEpithet: result.specific?.value,
+        infraspecificEpithet: result.infrasp?.value,
+        noMissing: true,
+    };
+    if (
+        !latinName.genericName && !latinName.infragenericEpithet &&
+        !latinName.specificEpithet && !latinName.infraspecificEpithet
+    ) {
+        humanReadable = `“${humanReadable}”`;
+    }
+    return {
+        colUri,
+        acceptedColUri,
+        humanReadable,
+        authority,
+        status,
+        latinName,
+    };
+}
+
 export async function getColSynonyms(
     colUri: string,
     endpoint: SparqlEndpoint,
@@ -255,7 +335,7 @@ WHERE {
     const json = await endpoint.getSparqlResultSet(
         query,
         fetchOptions,
-        "getNameFromCol",
+        "getColSynonyms",
     );
     if (json.results.bindings.length === 0) {
         throw new Error(`Could not get synonyms for CoL <${colUri}>`);
@@ -308,6 +388,80 @@ WHERE {
         );
     }
     return { accepted, synonyms };
+}
+
+export async function getColSubtaxa(
+    colUri: string,
+    endpoint: SparqlEndpoint,
+    fetchOptions: RequestInit,
+): Promise<Set<ColResult>> {
+    const query = `
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+SELECT DISTINCT ?col ?acceptedcol ?status ?name ?authority ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+WHERE {
+    ?col dwc:parent+ <${colUri}> .
+    ?col dwc:taxonomicStatus ?status ;
+         dwc:scientificName ?name ;
+         dwc:taxonRank ?rank .
+    OPTIONAL { ?col dwc:genericName ?generic . }
+    OPTIONAL { ?col dwc:infragenericEpithet ?infrag . }
+    OPTIONAL { ?col dwc:specificEpithet ?specific . }
+    OPTIONAL { ?col dwc:infraspecificEpithet ?infrasp . }
+    OPTIONAL { ?col dwc:scientificNameAuthorship ?authority . }
+    OPTIONAL { ?col dwc:kingdom ?kingdom . }
+    {
+        ?col dwc:acceptedName ?acceptedcol .
+    } UNION {
+        ?col dwc:taxonomicStatus "accepted" .
+        BIND(?col AS ?acceptedcol)
+    } UNION {
+        ?col dwc:taxonomicStatus "provisionally accepted" .
+        BIND(?col AS ?acceptedcol)
+    }
+}
+LIMIT 500`;
+    const json = await endpoint.getSparqlResultSet(
+        query,
+        fetchOptions,
+        "getColSubtaxa",
+    );
+    return new Set(
+        json.results.bindings.map((result): ColResult | undefined => {
+            const colUri = result.col?.value;
+            const acceptedColUri = result.acceptedcol?.value;
+            const authority = result.authority?.value;
+            let humanReadable = authority
+                ? result.name?.value.replace(authority, "").trimEnd()
+                : result.name?.value;
+            const status = result.status?.value;
+            if (!colUri || !acceptedColUri || !humanReadable || !status) {
+                return undefined;
+            }
+            const latinName = {
+                rank: result.rank?.value.toLocaleLowerCase(),
+                kingdom: result.kingdom?.value,
+                genericName: result.generic?.value,
+                infragenericEpithet: result.infrag?.value,
+                specificEpithet: result.specific?.value,
+                infraspecificEpithet: result.infrasp?.value,
+                noMissing: true,
+            };
+            if (
+                !latinName.genericName && !latinName.infragenericEpithet &&
+                !latinName.specificEpithet && !latinName.infraspecificEpithet
+            ) {
+                humanReadable = `“${humanReadable}”`;
+            }
+            return {
+                colUri,
+                acceptedColUri,
+                humanReadable,
+                authority,
+                status,
+                latinName,
+            };
+        }).filter((r) => r !== undefined),
+    );
 }
 
 export async function getPlaziFromName(
@@ -689,4 +843,113 @@ LIMIT 500`;
     }
 
     return results.values().next().value!;
+}
+
+export async function getTNSubtaxa(
+    tnUri: string,
+    endpoint: SparqlEndpoint,
+    fetchOptions: RequestInit,
+): Promise<Set<PlaziResult>> {
+    const query = `
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
+PREFIX dwcFP: <http://filteredpush.org/ontologies/oa/dwcFP#>
+PREFIX cito: <http://purl.org/spar/cito/>
+PREFIX trt: <http://plazi.org/vocab/treatment#>
+SELECT DISTINCT ?tn ?tc ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+  (group_concat(DISTINCT ?authority;separator=" / ") AS ?authorities)
+  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
+  (group_concat(DISTINCT ?def;separator="|") as ?defs)
+  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
+  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
+  (group_concat(DISTINCT ?trtn;separator="|") as ?tntreats)
+  (group_concat(DISTINCT ?citetn;separator="|") as ?tncites)
+WHERE {
+    ?tn trt:hasParentName+ <${tnUri}> .
+    ?tn dwc:rank ?rank ;
+       a dwcFP:TaxonName .
+    OPTIONAL { ?tn dwc:kingdom ?kingdom . }
+    OPTIONAL { ?tn dwc:genus ?generic . }
+    OPTIONAL { ?tn dwc:subGenus|dwc:section|dwc:series ?infrag . }
+    OPTIONAL { ?tn dwc:species ?specific . }
+    OPTIONAL { ?tn dwc:subSpecies|dwc:variety|dwc:form ?infrasp . }
+
+    OPTIONAL {
+      ?trtnt trt:treatsTaxonName ?tn ; trt:publishedIn/dc:date ?trtndate .
+      BIND(CONCAT(STR(?trtnt), ">", ?trtndate) AS ?trtn)
+    }
+    OPTIONAL {
+      ?citetnt trt:citesTaxonName ?tn ; trt:publishedIn/dc:date ?citetndate .
+      BIND(CONCAT(STR(?citetnt), ">", ?citetndate) AS ?citetn)
+    }
+
+    OPTIONAL {
+      ?tc trt:hasTaxonName ?tn ; dwc:scientificNameAuthorship ?authority ; a dwcFP:TaxonConcept .
+
+      OPTIONAL {
+        ?augt trt:augmentsTaxonConcept ?tc ; trt:publishedIn/dc:date ?augdate .
+        BIND(CONCAT(STR(?augt), ">", ?augdate) AS ?aug)
+      }
+      OPTIONAL {
+        ?deft trt:definesTaxonConcept ?tc ; trt:publishedIn/dc:date ?defdate .
+        BIND(CONCAT(STR(?deft), ">", ?defdate) AS ?def)
+      }
+      OPTIONAL {
+        ?dprt trt:deprecates ?tc ; trt:publishedIn/dc:date ?dprdate .
+        BIND(CONCAT(STR(?dprt), ">", ?dprdate) AS ?dpr)
+      }
+      OPTIONAL {
+        ?citet cito:cites ?tc ; trt:publishedIn/dc:date ?citedate .
+        BIND(CONCAT(STR(?citet), ">", ?citedate) AS ?cite)
+      }
+    }
+}
+GROUP BY ?tn ?tc ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
+LIMIT 500`;
+    const json = await endpoint.getSparqlResultSet(
+        query,
+        fetchOptions,
+        "getNameFromTN",
+    );
+    const results: Map<string, PlaziResult> = new Map();
+
+    for (const result of json.results.bindings) {
+        const tnUri = result.tn?.value;
+        if (!tnUri) continue;
+
+        const tcUri = result.tc?.value;
+        const authorities = result.authorities?.value;
+
+        const tc = !tcUri || !authorities ? undefined : {
+            tcUri,
+            authorities,
+            defs: result.defs?.value,
+            augs: result.augs?.value,
+            dprs: result.dprs?.value,
+            cites: result.cites?.value,
+        };
+
+        const r = results.get(tnUri);
+        if (!r) {
+            results.set(tnUri, {
+                tnUri,
+                authorized: !tc ? [] : [tc],
+                treats: result.tntreats?.value,
+                cites: result.tncites?.value,
+                latinName: {
+                    rank: result.rank?.value.toLocaleLowerCase(),
+                    kingdom: result.kingdom?.value,
+                    genericName: result.generic?.value,
+                    infragenericEpithet: result.infrag?.value,
+                    specificEpithet: result.specific?.value,
+                    infraspecificEpithet: result.infrasp?.value,
+                    noMissing: true,
+                },
+            });
+        } else if (tc) {
+            r.authorized.push(tc);
+        }
+    }
+
+    return new Set(results.values());
 }

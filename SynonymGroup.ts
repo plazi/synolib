@@ -109,7 +109,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     this.noSynonyms = noSynonyms;
 
     if (taxonName.startsWith("https://www.catalogueoflife.org/")) {
-      this.findColSynonyms(taxonName, { searchTerm: true, subTaxon: false })
+      this.handleColQuery(taxonName, { searchTerm: true, subTaxon: false })
         .catch((e) => {
           console.log("SynoGroup Failure: ", e);
           this.controller.abort("SynoGroup Failed");
@@ -144,7 +144,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         infragenericEpithet: match[2],
         specificEpithet: match[3],
         infraspecificEpithet: match[4],
-        noMissing: !this.startWithSubTaxa,
+        noMissing: true, // !this.startWithSubTaxa,
       };
 
       this.handleLatinName(name, { searchTerm: true, subTaxon: false })
@@ -189,6 +189,42 @@ export class SynonymGroup implements AsyncIterable<Name> {
     await this.handleColAndPlaziResult(col, plazi, key0, justification);
   }
 
+  /** @internal */
+  private async handleColQuery(
+    colUri: string,
+    justification: Justification,
+  ) {
+    const key0 = colUri;
+    if (this.expanded.has(key0)) {
+      console.log(`Skipping known (${key0})`);
+      return;
+    }
+    console.debug(`synogroup: col ${key0}`);
+
+    if (this.controller.signal?.aborted) return Promise.reject();
+
+    this.expanded.add(key0);
+
+    const col = await SQueries.getCol(
+      colUri,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+
+    const plazi = await SQueries.getPlaziFromName(
+      col.latinName,
+      false,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+    await this.handleColAndPlaziResult(
+      new Set([col]),
+      plazi,
+      key0,
+      justification,
+    );
+  }
+
   /** @internal
    *
    * @param key0 stringified LN which should not be skipped even if it is in this.expanded.
@@ -202,7 +238,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
     console.debug(`synogroup: handling ${key0}`);
     const treatmentPromises: Promise<[Name, Treatment, TreatmentDetails]>[] =
       [];
-    const colPromises: Promise<void[]>[] = [];
+    const colPromises: Promise<void[] | void>[] = [];
 
     const newNames: Set<string> = new Set();
     const newCol: Map<string, Set<SQueries.ColResult>> = new Map();
@@ -374,6 +410,22 @@ export class SynonymGroup implements AsyncIterable<Name> {
             parent: name,
           }),
         );
+        if (
+          this.startWithSubTaxa && justification.searchTerm &&
+          !justification.subTaxon
+        ) {
+          colPromises.push(
+            this.findColSubtaxa(unauthorizedCol.colURI),
+          );
+        }
+      }
+      if (
+        plazi && this.startWithSubTaxa && justification.searchTerm &&
+        !justification.subTaxon
+      ) {
+        colPromises.push(
+          this.findTnSubtaxa(plazi.tnUri),
+        );
       }
       for (const authName of authorizedNames) {
         if (authName.col) {
@@ -383,6 +435,14 @@ export class SynonymGroup implements AsyncIterable<Name> {
               parent: name,
             }),
           );
+          if (
+            this.startWithSubTaxa && justification.searchTerm &&
+            !justification.subTaxon
+          ) {
+            colPromises.push(
+              this.findColSubtaxa(authName.col.colURI),
+            );
+          }
         }
       }
 
@@ -438,14 +498,14 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
     const cols = await SQueries.getColFromName(
       plazi.latinName,
-      justification.searchTerm,
+      false,
       this.sparqlEndpoint,
       this.fetchOptions,
     );
     return this.handleColAndPlaziResult(
       cols,
       new Set([plazi]),
-      "",
+      tcUri,
       justification,
     );
   }
@@ -461,15 +521,52 @@ export class SynonymGroup implements AsyncIterable<Name> {
     );
     const cols = await SQueries.getColFromName(
       plazi.latinName,
-      justification.searchTerm,
+      false,
       this.sparqlEndpoint,
       this.fetchOptions,
     );
     return this.handleColAndPlaziResult(
       cols,
       new Set([plazi]),
-      "",
+      tnUri,
       justification,
+    );
+  }
+  /** @internal */
+  private async findTnSubtaxa(tnUri: string): Promise<void> {
+    console.debug(`synogroup: tnSubtaxa ${tnUri}`);
+
+    const subtaxa = await SQueries.getTNSubtaxa(
+      tnUri,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+
+    const colPromises: Promise<Set<SQueries.ColResult>>[] = [];
+    const keys: Set<string> = new Set();
+
+    for (const name of subtaxa) {
+      const key = SQueries.stringifyLN(name.latinName);
+      if (!keys.has(key)) {
+        keys.add(key);
+        colPromises.push(
+          SQueries.getColFromName(
+            name.latinName,
+            false,
+            this.sparqlEndpoint,
+            this.fetchOptions,
+          ),
+        );
+      }
+    }
+
+    const cols = await Promise.all(colPromises);
+
+    return await this.handleColAndPlaziResult(
+      cols.reduce((prev, set) => prev.union(set), new Set()),
+      subtaxa,
+      "",
+      { searchTerm: true, subTaxon: true },
     );
   }
 
@@ -582,7 +679,7 @@ export class SynonymGroup implements AsyncIterable<Name> {
         this.handleColAndPlaziResult(
           synonyms.add(accepted),
           plazis.reduce((prev, set) => prev.union(set)),
-          "",
+          colUri,
           justification,
         ),
       );
@@ -594,6 +691,45 @@ export class SynonymGroup implements AsyncIterable<Name> {
       }
     }
     return Promise.all(promises);
+  }
+
+  /** @internal */
+  private async findColSubtaxa(colUri: string): Promise<void> {
+    console.debug(`synogroup: colSubtaxa ${colUri}`);
+
+    const subtaxa = await SQueries.getColSubtaxa(
+      colUri,
+      this.sparqlEndpoint,
+      this.fetchOptions,
+    );
+
+    const plaziPromises: Promise<Set<SQueries.PlaziResult>>[] = [];
+    const keys: Set<string> = new Set();
+
+    for (const name of subtaxa) {
+      // this.acceptedCol.set(name.colUri, name.acceptedColUri);
+      const key = SQueries.stringifyLN(name.latinName);
+      if (!keys.has(key)) {
+        keys.add(key);
+        plaziPromises.push(
+          SQueries.getPlaziFromName(
+            name.latinName,
+            false,
+            this.sparqlEndpoint,
+            this.fetchOptions,
+          ),
+        );
+      }
+    }
+
+    const plazis = await Promise.all(plaziPromises);
+
+    return await this.handleColAndPlaziResult(
+      subtaxa,
+      plazis.reduce((prev, set) => prev.union(set), new Set()),
+      "",
+      { searchTerm: true, subTaxon: true },
+    );
   }
 
   /** @internal */
