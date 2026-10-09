@@ -6,7 +6,7 @@ json()}catch(t){if(i.signal?.aborted)throw t;if(d<10){let o=50*(1<<d++);return c
 ---
 `,t),t}};return await s()}};function L(n){return`${n.noMissing}|${n.rank}|${n.kingdom??""}|${n.genericName??""}|${n.infragenericEpithet??""}|${n.specificEpithet??
 ""}|${n.infraspecificEpithet??""}`}function at(n){switch(n){case"variety":return"var. ";case"subspecies":return"";case"f\
-orm":return"f. ";default:return n+" "}}function W(n){return n.genericName+(n.infragenericEpithet?` (${n.infragenericEpithet}\
+orm":return"f. ";default:return n+" "}}function Z(n){return n.genericName+(n.infragenericEpithet?` (${n.infragenericEpithet}\
 )`:"")+(n.specificEpithet?` ${n.specificEpithet}`:"")+(n.infraspecificEpithet?n.rank?` ${at(n.rank)}${n.infraspecificEpithet}`:
 ` ${n.infraspecificEpithet}`:"")}async function D(n,e,i,a){if(!n.genericName&&!n.infragenericEpithet&&!n.specificEpithet&&
 !n.infraspecificEpithet)return console.log("skipping getColFromName for empty name"),new Set;let d=`
@@ -48,7 +48,7 @@ l=t.acceptedcol?.value,c=t.authority?.value,u=c?t.name?.value.replace(c,"").trim
 !l||!u||!p)return;let f={rank:t.rank?.value.toLocaleLowerCase(),kingdom:t.kingdom?.value,genericName:t.generic?.value,infragenericEpithet:t.
 infrag?.value,specificEpithet:t.specific?.value,infraspecificEpithet:t.infrasp?.value,noMissing:!0};return!f.genericName&&
 !f.infragenericEpithet&&!f.specificEpithet&&!f.infraspecificEpithet&&(u=`\u201C${u}\u201D`),{colUri:o,acceptedColUri:l,humanReadable:u,
-authority:c,status:p,latinName:f}}).filter(t=>t!==void 0))}async function Z(n,e,i){let a=`
+authority:c,status:p,latinName:f}}).filter(t=>t!==void 0))}async function W(n,e,i){let a=`
 PREFIX dwc: <http://rs.tdwg.org/dwc/terms/>
 SELECT DISTINCT ?acceptedcol ?col ?status ?name ?authority ?rank ?kingdom ?generic ?infrag ?specific ?infrasp
 WHERE {
@@ -415,9 +415,9 @@ controller.signal,cache:"force-cache"};names=[];pushName(e){this.names.push(e),t
 "updated"))}finish(){this.isFinished=!0,this.monitor.dispatchEvent(new CustomEvent("updated"))}expanded=new Set;acceptedCol=new Map;treatments=new Map;ignoreDeprecatedCoL;startWithSubTaxa;noSynonyms;constructor(e,i,a=!0,d=!1,s=!1){
 if(this.sparqlEndpoint=e,this.ignoreDeprecatedCoL=a,this.startWithSubTaxa=d,this.noSynonyms=s,i.startsWith("https://www.\
 catalogueoflife.org/"))this.handleColQuery(i,{searchTerm:!0,subTaxon:!1}).catch(t=>{console.log("SynoGroup Failure: ",t),
-this.controller.abort("SynoGroup Failed")}).finally(()=>this.finish());else if(i.startsWith("http://taxon-concept.plazi.\
-org/id/"))this.tcSynonyms(i,{searchTerm:!0,subTaxon:!1}).catch(t=>{console.log("SynoGroup Failure: ",t),this.controller.
-abort("SynoGroup Failed")}).finally(()=>this.finish());else if(i.startsWith("http://taxon-name.plazi.org/id/"))this.tnSynonyms(
+this.controller.abort("SynoGroup Failed")}).finally(()=>this.finish());else if(/^https?:\/\/taxon-concept\.plazi\.org\/id\//.
+test(i))this.tcSynonyms(i,{searchTerm:!0,subTaxon:!1}).catch(t=>{console.log("SynoGroup Failure: ",t),this.controller.abort(
+"SynoGroup Failed")}).finally(()=>this.finish());else if(/^https?:\/\/taxon-name\.plazi\.org\/id\//.test(i))this.tnSynonyms(
 i,{searchTerm:!0,subTaxon:!1}).catch(t=>{console.log("SynoGroup Failure: ",t),this.controller.abort("SynoGroup Failed")}).
 finally(()=>this.finish());else{let t=/^(\w+)(?:\s+\((\w+)\))?(?:\s+×?\s*(\w+)(?:(?:\s+\w+\.\s*\w*)*?\s+(\w+))?)?$/.exec(
 i);if(t===null){console.log("SynoGroup Failure: Could not parse",i),this.controller.abort("SynoGroup Failed"),this.finish();
@@ -428,7 +428,7 @@ oGroup Failed")}).finally(()=>this.finish())}}async handleLatinName(e,i){let a=L
 reject();this.expanded.add(a);let[d,s]=await Promise.all([D(e,i.searchTerm,this.sparqlEndpoint,this.fetchOptions),x(e,i.
 searchTerm,this.sparqlEndpoint,this.fetchOptions)]);await this.handleColAndPlaziResult(d,s,a,i)}async handleColQuery(e,i){
 let a=e;if(this.expanded.has(a)){console.log(`Skipping known (${a})`);return}if(console.debug(`synogroup: col ${a}`),this.
-controller.signal?.aborted)return Promise.reject();this.expanded.add(a);let d=await Z(e,this.sparqlEndpoint,this.fetchOptions),
+controller.signal?.aborted)return Promise.reject();this.expanded.add(a);let d=await W(e,this.sparqlEndpoint,this.fetchOptions),
 s=await x(d.latinName,!1,this.sparqlEndpoint,this.fetchOptions);await this.handleColAndPlaziResult(new Set([d]),s,a,i)}async handleColAndPlaziResult(e,i,a,d){
 console.debug(`synogroup: handling ${a}`);let s=[],t=[],o=new Set,l=new Map,c=new Map;for(let f of e){let r=L(f.latinName),
 g=l.get(r);g?g.add(f):(o.add(r),l.set(r,new Set([f])))}for(let f of i){let r=L(f.latinName);c.has(r)&&console.warn("Foun\
@@ -437,7 +437,7 @@ known (${f})`);continue}this.expanded.add(f);let r=c.get(f),g=l.get(f),m=[],N,I=
 colUri;P||(P=h.latinName.kingdom),w||(w=h.humanReadable),S||(S=h.latinName.rank),h.authority?I.find(k=>k.col?.colURI===y)||
 I.push({displayName:h.humanReadable,authority:h.authority,authorities:[h.authority],col:{colURI:y,status:h.status,acceptedURI:h.
 acceptedColUri},taxonConceptURIs:[],treatments:{def:new Set,aug:new Set,dpr:new Set,cite:new Set}}):(N&&N.colURI!==y&&console.
-log("Duplicate unathorized COL:",y),N={colURI:y,status:h.status,acceptedURI:h.acceptedColUri})}if(r){w||(w=W(r.latinName));
+log("Duplicate unathorized COL:",y),N={colURI:y,status:h.status,acceptedURI:h.acceptedColUri})}if(r){w||(w=Z(r.latinName));
 for(let h of r.authorized){let y=this.makeTreatmentSet(h.defs?.split("|")),k=this.makeTreatmentSet(h.augs?.split("|")),M=this.
 makeTreatmentSet(h.dprs?.split("|")),X=this.makeTreatmentSet(h.cites?.split("|"));y.forEach(C=>m.push(C)),k.forEach(C=>m.
 push(C)),M.forEach(C=>m.push(C));let U=h.authorities.split(" / ").reduce((C,G)=>F(C,G)??C+" / "+G),E=I.find(C=>F(C.authority,
@@ -620,33 +620,33 @@ let a=document.createElement("button");a.classList.add("icon","button"),a.innerH
 ()=>{this.classList.toggle("expanded")?a.innerHTML=T.collapse:a.innerHTML=T.expand});let d=document.createElement("span");
 e.date?d.innerText=""+e.date:(d.classList.add("missing"),d.innerText="No Date"),this.append(d);let s=document.createElement(
 "progress");this.append(": ",s);let t=document.createElement("a");t.classList.add("treatment","uri"),t.href=e.url,t.target=
-"_blank",t.innerText=e.url.replace("http://treatment.plazi.org/id/",""),t.innerHTML+=T.link,this.append(" ",t),this.append(
-a);let o=document.createElement("div");o.classList.add("indent","details"),this.append(o),e.details.then(l=>{let c=document.
-createElement("span"),u=document.createElement("i");if(s.replaceWith(c," ",u),l.creators?c.innerText=l.creators:(c.classList.
-add("missing"),c.innerText="No Authors"),l.title?u.innerText="\u201C"+l.title+"\u201D":(u.classList.add("missing"),u.innerText=
-"No Title"),l.treats.def.size>0){let p=document.createElement("div");p.innerHTML=T.east,p.innerHTML+=T.def,(i==="def"||i===
-"cite")&&p.classList.add("hidden"),o.append(p),l.treats.def.forEach(f=>{let r=document.createElement("a");r.classList.add(
-"taxon","uri");let g=f.replace("http://taxon-concept.plazi.org/id/","");r.innerText=g,r.href="#"+g,r.title="show name",p.
-append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=m.displayName+" "+m.authority:r.innerText=
-m.displayName},()=>{r.removeAttribute("href")})})}if(l.treats.aug.size>0||l.treats.treattn.size>0){let p=document.createElement(
-"div");p.innerHTML=T.east,p.innerHTML+=T.aug,(i==="aug"||i==="cite")&&p.classList.add("hidden"),o.append(p),l.treats.aug.
-forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace("http://taxon-concept.plazi\
-.org/id/","");r.innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("\
-uri"),m.authority?r.innerText=m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})}),
-l.treats.treattn.forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace("http://ta\
-xon-name.plazi.org/id/","");r.innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.
-remove("uri"),m.authority?r.innerText=m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("h\
-ref")})})}if(l.treats.dpr.size>0){let p=document.createElement("div");p.innerHTML=T.west,p.innerHTML+=T.dpr,(i==="dpr"||
-i==="cite")&&p.classList.add("hidden"),o.append(p),l.treats.dpr.forEach(f=>{let r=document.createElement("a");r.classList.
-add("taxon","uri");let g=f.replace("http://taxon-concept.plazi.org/id/","");r.innerText=g,r.href="#"+g,r.title="show nam\
-e",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=m.displayName+" "+m.authority:
-r.innerText=m.displayName},()=>{r.removeAttribute("href")})})}if(l.treats.citetc.size>0||l.treats.citetn.size>0){let p=document.
-createElement("div");p.innerHTML=T.empty+T.cite,p.classList.add("hidden"),o.append(p),l.treats.citetc.forEach(f=>{let r=document.
-createElement("a");r.classList.add("taxon","uri");let g=f.replace("http://taxon-concept.plazi.org/id/","");r.innerText=g,
-r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=
-m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})}),l.treats.citetn.forEach(f=>{
-let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace("http://taxon-name.plazi.org/id/","");r.
-innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?
+"_blank",t.innerText=e.url.replace(/^https?:\/\/treatment\.plazi\.org\/id\//,""),t.innerHTML+=T.link,this.append(" ",t),
+this.append(a);let o=document.createElement("div");o.classList.add("indent","details"),this.append(o),e.details.then(l=>{
+let c=document.createElement("span"),u=document.createElement("i");if(s.replaceWith(c," ",u),l.creators?c.innerText=l.creators:
+(c.classList.add("missing"),c.innerText="No Authors"),l.title?u.innerText="\u201C"+l.title+"\u201D":(u.classList.add("mi\
+ssing"),u.innerText="No Title"),l.treats.def.size>0){let p=document.createElement("div");p.innerHTML=T.east,p.innerHTML+=
+T.def,(i==="def"||i==="cite")&&p.classList.add("hidden"),o.append(p),l.treats.def.forEach(f=>{let r=document.createElement(
+"a");r.classList.add("taxon","uri");let g=f.replace(/^https?:\/\/taxon-concept\.plazi\.org\/id\//,"");r.innerText=g,r.href=
+"#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=m.displayName+
+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})})}if(l.treats.aug.size>0||l.treats.treattn.size>
+0){let p=document.createElement("div");p.innerHTML=T.east,p.innerHTML+=T.aug,(i==="aug"||i==="cite")&&p.classList.add("h\
+idden"),o.append(p),l.treats.aug.forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace(
+/^https?:\/\/taxon-concept\.plazi\.org\/id\//,"");r.innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(
+f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{
+r.removeAttribute("href")})}),l.treats.treattn.forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","ur\
+i");let g=f.replace(/^https?:\/\/taxon-name\.plazi\.org\/id\//,"");r.innerText=g,r.href="#"+g,r.title="show name",p.append(
+" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=m.displayName+" "+m.authority:r.innerText=
+m.displayName},()=>{r.removeAttribute("href")})})}if(l.treats.dpr.size>0){let p=document.createElement("div");p.innerHTML=
+T.west,p.innerHTML+=T.dpr,(i==="dpr"||i==="cite")&&p.classList.add("hidden"),o.append(p),l.treats.dpr.forEach(f=>{let r=document.
+createElement("a");r.classList.add("taxon","uri");let g=f.replace(/^https?:\/\/taxon-concept\.plazi\.org\/id\//,"");r.innerText=
+g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?r.innerText=
+m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})})}if(l.treats.citetc.size>0||l.
+treats.citetn.size>0){let p=document.createElement("div");p.innerHTML=T.empty+T.cite,p.classList.add("hidden"),o.append(
+p),l.treats.citetc.forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace(/^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+"");r.innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?
+r.innerText=m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})}),l.treats.citetn.
+forEach(f=>{let r=document.createElement("a");r.classList.add("taxon","uri");let g=f.replace(/^https?:\/\/taxon-name\.plazi\.org\/id\//,
+"");r.innerText=g,r.href="#"+g,r.title="show name",p.append(" ",r),v.findName(f).then(m=>{r.classList.remove("uri"),m.authority?
 r.innerText=m.displayName+" "+m.authority:r.innerText=m.displayName},()=>{r.removeAttribute("href")})})}if(l.figureCitations.
 length>0){let p=document.createElement("div");p.classList.add("figures","hidden"),o.append(p);for(let f of l.figureCitations){
 let r=document.createElement("figure");p.append(r);let g=document.createElement("img");g.src=f.url,g.loading="lazy",g.alt=
@@ -658,7 +658,7 @@ al Citations:<br> -",p.classList.add("hidden"),o.append(p),p.innerText+=l.materi
 createElement("h2"),a=document.createElement("i");a.innerText=e.displayName,i.append(a),this.append(i);let d=document.createElement(
 "span");d.classList.add("rank"),d.innerText=e.rank;let s=document.createElement("span");if(s.classList.add("rank"),s.innerText=
 e.kingdom||"Missing Kingdom",i.append(" ",s," ",d),e.taxonNameURI){let c=document.createElement("a");c.classList.add("ta\
-xon","uri");let u=e.taxonNameURI.replace("http://taxon-name.plazi.org/id/","");c.innerText=u,c.id=u,c.href=e.taxonNameURI,
+xon","uri");let u=e.taxonNameURI.replace(/^https?:\/\/taxon-name\.plazi\.org\/id\//,"");c.innerText=u,c.id=u,c.href=e.taxonNameURI,
 c.target="_blank",c.innerHTML+=T.link,i.append(" ",c)}let t=document.createElement("div");t.classList.add("vernacular"),
 e.vernacularNames.then(c=>{c.size>0&&(t.innerText="\u201C"+et([...c.values()].flat()).join("\u201D, \u201C")+"\u201D")}),
 this.append(t);let o=document.createElement("ul");if(this.append(o),e.col){let c=document.createElement("a");c.classList.
@@ -675,23 +675,23 @@ u)}for(let c of e.treatments.cite){let u=new A(c,"cite");o.append(u)}}let l=docu
 "justification"),l.innerText="...?",Q(e).then(c=>l.title=`This ${c}`),i.append(" ",l);for(let c of e.authorizedNames){let u=document.
 createElement("h3"),p=document.createElement("i");p.innerText=c.displayName,p.classList.add("gray"),u.append(p),u.append(
 " ",c.authority),this.append(u);let f=document.createElement("ul");if(this.append(f),c.taxonConceptURIs[0]){let g=document.
-createElement("a");g.classList.add("taxon","uri");let m=c.taxonConceptURIs[0].replace("http://taxon-concept.plazi.org/id\
-/","");g.innerText=m,g.id=m,g.href=c.taxonConceptURIs[0],g.target="_blank",g.innerHTML+=T.link,u.append(" ",g)}if(c.col){
-let g=document.createElement("a");g.classList.add("col","uri");let m=c.col.colURI.replace("https://www.catalogueoflife.o\
-rg/data/taxon/","");g.innerText=m,g.id=m,g.href=c.col.colURI,g.target="_blank",g.innerHTML+=T.link,u.append(" ",g);let N=document.
-createElement("div");N.classList.add("treatmentline"),N.innerHTML=c.col.acceptedURI!==c.col.colURI?T.col_dpr:T.col_aug,f.
-append(N);let I=document.createElement("span");I.innerText=`Catalogue of Life: ${c.col.status}`,N.append(I);let P=document.
-createElement("div");if(P.classList.add("indent"),N.append(P),c.col.acceptedURI!==c.col.colURI){let w=document.createElement(
-"div");w.innerHTML=T.east+T.col_aug,P.append(w);let S=document.createElement("a");S.classList.add("col","uri");let R=c.col.
-acceptedURI.replace("https://www.catalogueoflife.org/data/taxon/","");S.innerText=R,S.href=`#${R}`,S.title="show name",w.
-append(" ",S),v.findName(c.col.acceptedURI).then(O=>{S.classList.remove("uri"),O.authority?S.innerText=O.displayName+" "+
-O.authority:S.innerText=O.displayName},()=>{S.removeAttribute("href")})}}let r=[];for(let g of c.treatments.def)r.push({
-trt:g,status:"def"});for(let g of c.treatments.aug)r.push({trt:g,status:"aug"});for(let g of c.treatments.dpr)r.push({trt:g,
-status:"dpr"});for(let g of c.treatments.cite)r.push({trt:g,status:"cite"});pt||r.sort((g,m)=>g.trt.date&&m.trt.date?g.trt.
-date-m.trt.date:g.trt.date?1:m.trt.date?-1:0);for(let{trt:g,status:m}of r){let N=new A(g,m);f.append(N)}}}};customElements.
-define("syno-name",$);async function Q(n){if(n.justification.searchTerm)return n.justification.subTaxon?"is a sub-taxon \
-of the search term.":"is the search term.";if(n.justification.treatment){let e=await n.justification.treatment.details,i=await Q(
-n.justification.parent);return`is, according to ${e.creators} ${n.justification.treatment.date},
+createElement("a");g.classList.add("taxon","uri");let m=c.taxonConceptURIs[0].replace(/^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+"");g.innerText=m,g.id=m,g.href=c.taxonConceptURIs[0],g.target="_blank",g.innerHTML+=T.link,u.append(" ",g)}if(c.col){let g=document.
+createElement("a");g.classList.add("col","uri");let m=c.col.colURI.replace("https://www.catalogueoflife.org/data/taxon/",
+"");g.innerText=m,g.id=m,g.href=c.col.colURI,g.target="_blank",g.innerHTML+=T.link,u.append(" ",g);let N=document.createElement(
+"div");N.classList.add("treatmentline"),N.innerHTML=c.col.acceptedURI!==c.col.colURI?T.col_dpr:T.col_aug,f.append(N);let I=document.
+createElement("span");I.innerText=`Catalogue of Life: ${c.col.status}`,N.append(I);let P=document.createElement("div");if(P.
+classList.add("indent"),N.append(P),c.col.acceptedURI!==c.col.colURI){let w=document.createElement("div");w.innerHTML=T.
+east+T.col_aug,P.append(w);let S=document.createElement("a");S.classList.add("col","uri");let R=c.col.acceptedURI.replace(
+"https://www.catalogueoflife.org/data/taxon/","");S.innerText=R,S.href=`#${R}`,S.title="show name",w.append(" ",S),v.findName(
+c.col.acceptedURI).then(O=>{S.classList.remove("uri"),O.authority?S.innerText=O.displayName+" "+O.authority:S.innerText=
+O.displayName},()=>{S.removeAttribute("href")})}}let r=[];for(let g of c.treatments.def)r.push({trt:g,status:"def"});for(let g of c.
+treatments.aug)r.push({trt:g,status:"aug"});for(let g of c.treatments.dpr)r.push({trt:g,status:"dpr"});for(let g of c.treatments.
+cite)r.push({trt:g,status:"cite"});pt||r.sort((g,m)=>g.trt.date&&m.trt.date?g.trt.date-m.trt.date:g.trt.date?1:m.trt.date?
+-1:0);for(let{trt:g,status:m}of r){let N=new A(g,m);f.append(N)}}}};customElements.define("syno-name",$);async function Q(n){
+if(n.justification.searchTerm)return n.justification.subTaxon?"is a sub-taxon of the search term.":"is the search term.";
+if(n.justification.treatment){let e=await n.justification.treatment.details,i=await Q(n.justification.parent);return`is,\
+ according to ${e.creators} ${n.justification.treatment.date},
      a synonym of ${n.justification.parent.displayName} which ${i}`}else{let e=await Q(n.justification.parent);return`is\
 , according to the Catalogue of Life,
      a synonym of ${n.justification.parent.displayName} which ${e}`}}for await(let n of v){let e=new $(n);H.append(e)}var ht=performance.
