@@ -108,7 +108,10 @@ class SynoTreatment extends HTMLElement {
     url.classList.add("treatment", "uri");
     url.href = trt.url;
     url.target = "_blank";
-    url.innerText = trt.url.replace("http://treatment.plazi.org/id/", "");
+    url.innerText = trt.url.replace(
+      /^https?:\/\/treatment\.plazi\.org\/id\//,
+      "",
+    );
     url.innerHTML += icons.link;
     this.append(" ", url);
 
@@ -148,7 +151,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.def.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -177,7 +183,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.aug.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -195,7 +204,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.treattn.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-name.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-name\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -224,7 +236,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.dpr.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -251,7 +266,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.citetc.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-concept.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-concept\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -269,7 +287,10 @@ class SynoTreatment extends HTMLElement {
         details.treats.citetn.forEach((n) => {
           const url = document.createElement("a");
           url.classList.add("taxon", "uri");
-          const short = n.replace("http://taxon-name.plazi.org/id/", "");
+          const short = n.replace(
+            /^https?:\/\/taxon-name\.plazi\.org\/id\//,
+            "",
+          );
           url.innerText = short;
           url.href = "#" + short;
           url.title = "show name";
@@ -344,7 +365,7 @@ class SynoName extends HTMLElement {
       const name_uri = document.createElement("a");
       name_uri.classList.add("taxon", "uri");
       const short = name.taxonNameURI.replace(
-        "http://taxon-name.plazi.org/id/",
+        /^https?:\/\/taxon-name\.plazi\.org\/id\//,
         "",
       );
       name_uri.innerText = short;
@@ -456,7 +477,7 @@ class SynoName extends HTMLElement {
         name_uri.classList.add("taxon", "uri");
         // TODO handle other URIs
         const short = authorizedName.taxonConceptURIs[0].replace(
-          "http://taxon-concept.plazi.org/id/",
+          /^https?:\/\/taxon-concept\.plazi\.org\/id\//,
           "",
         );
         name_uri.innerText = short;

@@ -115,14 +115,14 @@ export class SynonymGroup implements AsyncIterable<Name> {
           this.controller.abort("SynoGroup Failed");
         })
         .finally(() => this.finish());
-    } else if (taxonName.startsWith("http://taxon-concept.plazi.org/id/")) {
+    } else if (/^https?:\/\/taxon-concept\.plazi\.org\/id\//.test(taxonName)) {
       this.tcSynonyms(taxonName, { searchTerm: true, subTaxon: false })
         .catch((e) => {
           console.log("SynoGroup Failure: ", e);
           this.controller.abort("SynoGroup Failed");
         })
         .finally(() => this.finish());
-    } else if (taxonName.startsWith("http://taxon-name.plazi.org/id/")) {
+    } else if (/^https?:\/\/taxon-name\.plazi\.org\/id\//.test(taxonName)) {
       this.tnSynonyms(taxonName, { searchTerm: true, subTaxon: false })
         .catch((e) => {
           console.log("SynoGroup Failure: ", e);
