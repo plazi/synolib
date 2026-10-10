@@ -444,9 +444,9 @@ push(C)),M.forEach(C=>m.push(C));let U=h.authorities.split(" / ").reduce((C,G)=>
 U)!==null);E?(E.authority=F(E.authority,U),E.authorities.push(...h.authorities.split(" / ")),E.taxonConceptURIs.push(h.tcUri),
 E.treatments={def:E.treatments.def.union(y),aug:E.treatments.aug.union(k),dpr:E.treatments.dpr.union(M),cite:E.treatments.
 cite.union(X)}):I.push({displayName:w,authority:U,authorities:h.authorities.split(" / "),taxonConceptURIs:[h.tcUri],treatments:{
-def:y,aug:k,dpr:M,cite:X}})}}w||(w=f);let R=r?.treats?this.makeTreatmentSet(r.treats.split("|")):new Set;R.forEach(h=>m.
+def:y,aug:k,dpr:M,cite:X}})}}w||(w=f);let b=r?.treats?this.makeTreatmentSet(r.treats.split("|")):new Set;b.forEach(h=>m.
 push(h));let O={kingdom:P??r?.latinName.kingdom??"",displayName:w,rank:S??r?.latinName.rank??"",vernacularNames:r?this.getVernacular(
-r.tnUri):Promise.resolve(new Map),taxonNameURI:r?.tnUri,col:N,authorizedNames:I,justification:d,treatments:{treats:R,cite:r?.
+r.tnUri):Promise.resolve(new Map),taxonNameURI:r?.tnUri,col:N,authorizedNames:I,justification:d,treatments:{treats:b,cite:r?.
 cites?this.makeTreatmentSet(r.cites.split("|")):new Set}};this.pushName(O),N&&(t.push(this.findColSynonyms(N.acceptedURI,
 {searchTerm:!1,parent:O})),this.startWithSubTaxa&&d.searchTerm&&!d.subTaxon&&t.push(this.findColSubtaxa(N.colURI))),r&&this.
 startWithSubTaxa&&d.searchTerm&&!d.subTaxon&&t.push(this.findTnSubtaxa(r.tnUri));for(let h of I)h.col&&(t.push(this.findColSynonyms(
@@ -510,13 +510,13 @@ SELECT DISTINCT
   (group_concat(DISTINCT ?gbifOccurrenceId;separator=" / ") as ?gbifOccurrenceIds)
   (group_concat(DISTINCT ?gbifSpecimenId;separator=" / ") as ?gbifSpecimenIds)
   (group_concat(DISTINCT ?creator;separator="; ") as ?creators)
-  (group_concat(DISTINCT ?httpUri;separator="|") as ?httpUris)
-  (group_concat(DISTINCT ?aug;separator="|") as ?augs)
-  (group_concat(DISTINCT ?def;separator="|") as ?defs)
-  (group_concat(DISTINCT ?dpr;separator="|") as ?dprs)
-  (group_concat(DISTINCT ?cite;separator="|") as ?cites)
-  (group_concat(DISTINCT ?trttn;separator="|") as ?trttns)
-  (group_concat(DISTINCT ?citetn;separator="|") as ?citetns)
+  (group_concat(DISTINCT STR(?httpUri);separator="|") as ?httpUris)
+  (group_concat(DISTINCT STR(?aug);separator="|") as ?augs)
+  (group_concat(DISTINCT STR(?def);separator="|") as ?defs)
+  (group_concat(DISTINCT STR(?dpr);separator="|") as ?dprs)
+  (group_concat(DISTINCT STR(?cite);separator="|") as ?cites)
+  (group_concat(DISTINCT STR(?trttn);separator="|") as ?trttns)
+  (group_concat(DISTINCT STR(?citetn);separator="|") as ?citetns)
 WHERE {
   BIND (<${e}> as ?treatment)
   ?treatment dc:creator ?creator .
@@ -579,8 +579,8 @@ warn("SPARQL Error: "+a),{materialCitations:[],figureCitations:[],treats:{def:ne
 treattn:new Set,citetn:new Set}}}}[Symbol.asyncIterator](){let e=0;return{next:()=>new Promise((i,a)=>{let d=()=>{if(this.
 controller.signal.aborted)a(new Error("SynyonymGroup has been aborted"));else if(e<this.names.length)i({value:this.names[e++]});else if(this.
 isFinished)i({done:!0,value:!0});else{let s=()=>{this.monitor.removeEventListener("updated",s),d()};this.monitor.addEventListener(
-"updated",s)}};d()})}}};function et(n){let e=new Set(n);return Array.from(e)}var b=new URLSearchParams(document.location.search),ct=!b.has("show_col"),lt=b.has("nosynonyms"),dt=b.has("subtaxa"),pt=b.
-has("sort_treatments_by_type"),ut=b.get("server")||"https://treatment.ld.plazi.org/sparql",nt=b.get("q")||"https://www.c\
+"updated",s)}};d()})}}};function et(n){let e=new Set(n);return Array.from(e)}var R=new URLSearchParams(document.location.search),ct=!R.has("show_col"),lt=R.has("nosynonyms"),dt=R.has("subtaxa"),pt=R.
+has("sort_treatments_by_type"),ut=R.get("server")||"https://treatment.ld.plazi.org/sparql",nt=R.get("q")||"https://www.c\
 atalogueoflife.org/data/taxon/3WD9M",H=document.getElementById("root");var T={def:'<svg class="green" viewBox="0 -960 960 960"><path fill="currentcolor" d="M444-288h72v-156h156v-72H516v-156h-\
 72v156H288v72h156v156Zm36.28 192Q401-96 331-126t-122.5-82.5Q156-261 126-330.96t-30-149.5Q96-560 126-629.5q30-69.5 82.5-1\
 22T330.96-834q69.96-30 149.5-30t149.04 30q69.5 30 122 82.5T834-629.28q30 69.73 30 149Q864-401 834-331t-82.5 122.5Q699-15\
@@ -682,8 +682,8 @@ createElement("a");g.classList.add("col","uri");let m=c.col.colURI.replace("http
 "div");N.classList.add("treatmentline"),N.innerHTML=c.col.acceptedURI!==c.col.colURI?T.col_dpr:T.col_aug,f.append(N);let I=document.
 createElement("span");I.innerText=`Catalogue of Life: ${c.col.status}`,N.append(I);let P=document.createElement("div");if(P.
 classList.add("indent"),N.append(P),c.col.acceptedURI!==c.col.colURI){let w=document.createElement("div");w.innerHTML=T.
-east+T.col_aug,P.append(w);let S=document.createElement("a");S.classList.add("col","uri");let R=c.col.acceptedURI.replace(
-"https://www.catalogueoflife.org/data/taxon/","");S.innerText=R,S.href=`#${R}`,S.title="show name",w.append(" ",S),v.findName(
+east+T.col_aug,P.append(w);let S=document.createElement("a");S.classList.add("col","uri");let b=c.col.acceptedURI.replace(
+"https://www.catalogueoflife.org/data/taxon/","");S.innerText=b,S.href=`#${b}`,S.title="show name",w.append(" ",S),v.findName(
 c.col.acceptedURI).then(O=>{S.classList.remove("uri"),O.authority?S.innerText=O.displayName+" "+O.authority:S.innerText=
 O.displayName},()=>{S.removeAttribute("href")})}}let r=[];for(let g of c.treatments.def)r.push({trt:g,status:"def"});for(let g of c.
 treatments.aug)r.push({trt:g,status:"aug"});for(let g of c.treatments.dpr)r.push({trt:g,status:"dpr"});for(let g of c.treatments.
