@@ -1,0 +1,198 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 80rem;
+}
+
+#root:empty::before {
+  content: "You should see a list of synonyms here";
+}
+
+img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+svg {
+  height: 1rem;
+  vertical-align: sub;
+  margin: 0;
+}
+
+syno-name {
+  display: block;
+  margin: 1rem 0;
+}
+
+.rank,
+.justification {
+  font-size: 0.8rem;
+  line-height: 1rem;
+  padding: 0 0.2rem;
+  margin: 0.2rem 0;
+  border-radius: 0.2rem;
+  background: #ededed;
+  font-weight: normal;
+  color: #686868;
+}
+
+.taxon,
+.col {
+  color: #444;
+  font-size: 0.8rem;
+
+  &:not(:last-child):not(.uri)::after {
+    content: ",";
+  }
+}
+
+.uri:not(:empty) {
+  font-size: 0.8rem;
+  line-height: 1rem;
+  padding: 0 0.2rem;
+  margin: 0.2rem 0;
+  border-radius: 0.2rem;
+  background: #ededed;
+  font-family: monospace;
+  font-weight: normal;
+
+  &.taxon {
+    color: #4e69ae;
+  }
+
+  &.treatment {
+    color: #8894af;
+  }
+
+  &.col {
+    color: #177669;
+  }
+
+  svg {
+    height: 0.8em;
+    vertical-align: baseline;
+    margin: 0 -0.1em 0 0.2em;
+  }
+}
+
+h2,
+h3,
+ul {
+  margin: 0;
+}
+
+syno-treatment,
+.treatmentline {
+  display: block;
+  position: relative;
+  margin: 0;
+  transition: all 200ms;
+  clear: both;
+
+  & > svg {
+    height: 1rem;
+    vertical-align: sub;
+    margin: 0 0.2rem 0 -1.2rem;
+  }
+
+  > .icon.button {
+    float: right;
+  }
+
+  .details {
+    /* display: grid; */
+  }
+
+  .hidden {
+    max-height: 0;
+    overflow: hidden;
+    transition: all 200ms;
+  }
+
+  &.expanded {
+    /* position: absolute; */
+    background: #f0f9fc;
+    z-index: 10;
+    border-radius: 0.2rem;
+    padding: 0.2rem;
+    margin: 0.2rem -0.2rem;
+
+    .hidden {
+      max-height: 200rem;
+      overflow: auto;
+    }
+  }
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  grid-template-rows: masonry;
+  margin: 0.2rem 0 0.2rem 2.2rem;
+  gap: 1rem;
+
+  & figure {
+    margin: 0;
+  }
+
+  & figcaption {
+    font-size: 0.4rem;
+  }
+}
+
+.icon.button {
+  border-radius: 1rem;
+  border: none;
+  background: none;
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+  padding: 0;
+  position: relative;
+
+  & > svg {
+    height: 1rem;
+    margin: 0;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -1rem;
+    bottom: -1rem;
+    left: -1rem;
+    right: -1rem;
+    border-radius: 100%;
+  }
+
+  &:hover::before {
+    background: #ededed8c;
+  }
+}
+
+.indent {
+  margin-left: 1.4rem;
+}
+
+.blue {
+  color: #1e88e5;
+}
+
+.green {
+  color: #388e3c;
+}
+
+.red {
+  color: #e53935;
+}
+
+.gray {
+  color: #666666;
+}
