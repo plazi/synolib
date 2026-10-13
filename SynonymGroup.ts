@@ -838,7 +838,7 @@ WHERE {
   OPTIONAL { ?treatment trt:citesTaxonName ?citetn . }
   OPTIONAL {
     ?treatment dwc:basisOfRecord ?mc .
-    ?mc dwc:catalogNumber ?catalogNumber .
+    OPTIONAL { ?mc dwc:catalogNumber ?catalogNumber . }
     OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
     OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
     OPTIONAL { ?mc dwc:countryCode ?countryCode . }
@@ -880,11 +880,12 @@ GROUP BY ?date ?title ?mc`;
         `TreatmentDetails ${treatmentUri}`,
       );
       const materialCitations: MaterialCitation[] = json.results.bindings
-        .filter((t) => t.mc && t.catalogNumbers?.value)
+        .filter((t) => t.mc)
         .map((t) => {
           const httpUri = t.httpUris?.value?.split("|");
           return {
-            "catalogNumber": t.catalogNumbers!.value,
+            "uri": t.mc!.value,
+            "catalogNumber": t.catalogNumbers?.value || undefined,
             "collectionCode": t.collectionCodes?.value || undefined,
             "typeStatus": t.typeStatuss?.value || undefined,
             "countryCode": t.countryCodes?.value || undefined,
@@ -1147,7 +1148,10 @@ export type TreatmentDetails = {
 
 /** A cited material */
 export type MaterialCitation = {
-  "catalogNumber": string;
+  /** IRI of the material citation */
+  "uri": string;
+  /** Many material citations do not have a catalog number */
+  "catalogNumber"?: string;
   "collectionCode"?: string;
   "typeStatus"?: string;
   "countryCode"?: string;
