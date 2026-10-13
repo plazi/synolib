@@ -143,7 +143,7 @@ o=s.acceptedcol?.value,l=s.authority?.value,c=l?s.name?.value.replace(l,"").trim
 !o||!c||!u)return;let p={rank:s.rank?.value.toLocaleLowerCase(),kingdom:s.kingdom?.value,genericName:s.generic?.value,infragenericEpithet:s.
 infrag?.value,specificEpithet:s.specific?.value,infraspecificEpithet:s.infrasp?.value,noMissing:!0};return!p.genericName&&
 !p.infragenericEpithet&&!p.specificEpithet&&!p.infraspecificEpithet&&(c=`\u201C${c}\u201D`),{colUri:t,acceptedColUri:o,humanReadable:c,
-authority:l,status:u,latinName:p}}).filter(s=>s!==void 0))}async function x(n,e,i,a){if(!n.genericName&&!n.infragenericEpithet&&
+authority:l,status:u,latinName:p}}).filter(s=>s!==void 0))}async function A(n,e,i,a){if(!n.genericName&&!n.infragenericEpithet&&
 !n.specificEpithet&&!n.infraspecificEpithet)return console.log("skipping getPlaziFromName for empty name"),new Set;let d=`\
 
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -425,11 +425,11 @@ return}let o={genericName:t[1],infragenericEpithet:t[2],specificEpithet:t[3],inf
 handleLatinName(o,{searchTerm:!0,subTaxon:!1}).catch(l=>{console.log("SynoGroup Failure: ",l),this.controller.abort("Syn\
 oGroup Failed")}).finally(()=>this.finish())}}async handleLatinName(e,i){let a=L(e);if(this.expanded.has(a)){console.log(
 `Skipping known (${a})`);return}if(console.debug(`synogroup: lnSynonyms ${a}`),this.controller.signal?.aborted)return Promise.
-reject();this.expanded.add(a);let[d,s]=await Promise.all([D(e,i.searchTerm,this.sparqlEndpoint,this.fetchOptions),x(e,i.
+reject();this.expanded.add(a);let[d,s]=await Promise.all([D(e,i.searchTerm,this.sparqlEndpoint,this.fetchOptions),A(e,i.
 searchTerm,this.sparqlEndpoint,this.fetchOptions)]);await this.handleColAndPlaziResult(d,s,a,i)}async handleColQuery(e,i){
 let a=e;if(this.expanded.has(a)){console.log(`Skipping known (${a})`);return}if(console.debug(`synogroup: col ${a}`),this.
 controller.signal?.aborted)return Promise.reject();this.expanded.add(a);let d=await W(e,this.sparqlEndpoint,this.fetchOptions),
-s=await x(d.latinName,!1,this.sparqlEndpoint,this.fetchOptions);await this.handleColAndPlaziResult(new Set([d]),s,a,i)}async handleColAndPlaziResult(e,i,a,d){
+s=await A(d.latinName,!1,this.sparqlEndpoint,this.fetchOptions);await this.handleColAndPlaziResult(new Set([d]),s,a,i)}async handleColAndPlaziResult(e,i,a,d){
 console.debug(`synogroup: handling ${a}`);let s=[],t=[],o=new Set,l=new Map,c=new Map;for(let f of e){let r=L(f.latinName),
 g=l.get(r);g?g.add(f):(o.add(r),l.set(r,new Set([f])))}for(let f of i){let r=L(f.latinName);c.has(r)&&console.warn("Foun\
 d duplicate Plazi-LN: ${key}"),o.add(r),c.set(r,f)}for(let f of o){if(f!=a&&this.expanded.has(f)){console.log(`Skipping \
@@ -471,13 +471,13 @@ let t=s.authorizedNames.find(o=>o.col?.colURI===e||o.taxonConceptURIs.includes(e
 if(this.noSynonyms&&!i.searchTerm)return[];if(this.acceptedCol.has(e))return[];console.debug(`synogroup: colSynonyms ${e}`);
 let a=[];try{let{accepted:d,synonyms:s}=await j(e,this.sparqlEndpoint,this.fetchOptions),t=[],o=new Set;if(!this.acceptedCol.
 has(d.colUri)){this.acceptedCol.set(d.colUri,d.colUri);let c=i.searchTerm&&e===d.colUri;if(!this.noSynonyms||c){let u=L(
-d.latinName);o.has(u)||(o.add(u),t.push(x(d.latinName,c,this.sparqlEndpoint,this.fetchOptions)))}}for(let c of s){this.acceptedCol.
+d.latinName);o.has(u)||(o.add(u),t.push(A(d.latinName,c,this.sparqlEndpoint,this.fetchOptions)))}}for(let c of s){this.acceptedCol.
 set(c.colUri,d.colUri);let u=i.searchTerm&&e===c.colUri;if(u||!this.ignoreDeprecatedCoL&&!this.noSynonyms){let p=L(c.latinName);
-o.has(p)||(o.add(p),t.push(x(c.latinName,u,this.sparqlEndpoint,this.fetchOptions)))}}let l=await Promise.all(t);a.push(this.
+o.has(p)||(o.add(p),t.push(A(c.latinName,u,this.sparqlEndpoint,this.fetchOptions)))}}let l=await Promise.all(t);a.push(this.
 handleColAndPlaziResult(s.add(d),l.reduce((c,u)=>c.union(u)),e,i)),this.acceptedCol.has(e)||this.acceptedCol.set(e,e)}catch{
 this.acceptedCol.has(e)||this.acceptedCol.set(e,"INVALID COL")}return Promise.all(a)}async findColSubtaxa(e){console.debug(
 `synogroup: colSubtaxa ${e}`);let i=await J(e,this.sparqlEndpoint,this.fetchOptions),a=[],d=new Set;for(let t of i){let o=L(
-t.latinName);d.has(o)||(d.add(o),a.push(x(t.latinName,!1,this.sparqlEndpoint,this.fetchOptions)))}let s=await Promise.all(
+t.latinName);d.has(o)||(d.add(o),a.push(A(t.latinName,!1,this.sparqlEndpoint,this.fetchOptions)))}let s=await Promise.all(
 a);return await this.handleColAndPlaziResult(i,s.reduce((t,o)=>t.union(o),new Set),"",{searchTerm:!0,subTaxon:!0})}async getVernacular(e){
 let i=new Map,a=`SELECT DISTINCT ?n WHERE { <${e}> <http://rs.tdwg.org/dwc/terms/vernacularName> ?n . }`,d=(await this.sparqlEndpoint.
 getSparqlResultSet(a,this.fetchOptions,`Vernacular ${e}`)).results.bindings;for(let s of d)s.n?.value&&(s.n["xml:lang"]?
@@ -529,7 +529,7 @@ WHERE {
   OPTIONAL { ?treatment trt:citesTaxonName ?citetn . }
   OPTIONAL {
     ?treatment dwc:basisOfRecord ?mc .
-    ?mc dwc:catalogNumber ?catalogNumber .
+    OPTIONAL { ?mc dwc:catalogNumber ?catalogNumber . }
     OPTIONAL { ?mc dwc:collectionCode ?collectionCode . }
     OPTIONAL { ?mc dwc:typeStatus ?typeStatus . }
     OPTIONAL { ?mc dwc:countryCode ?countryCode . }
@@ -551,8 +551,8 @@ WHERE {
 }
 GROUP BY ?date ?title ?mc`;if(this.controller.signal.aborted)return{materialCitations:[],figureCitations:[],treats:{def:new Set,
 aug:new Set,dpr:new Set,citetc:new Set,treattn:new Set,citetn:new Set}};try{let a=await this.sparqlEndpoint.getSparqlResultSet(
-i,this.fetchOptions,`TreatmentDetails ${e}`),d=a.results.bindings.filter(l=>l.mc&&l.catalogNumbers?.value).map(l=>{let c=l.
-httpUris?.value?.split("|");return{catalogNumber:l.catalogNumbers.value,collectionCode:l.collectionCodes?.value||void 0,
+i,this.fetchOptions,`TreatmentDetails ${e}`),d=a.results.bindings.filter(l=>l.mc).map(l=>{let c=l.httpUris?.value?.split(
+"|");return{uri:l.mc.value,catalogNumber:l.catalogNumbers?.value||void 0,collectionCode:l.collectionCodes?.value||void 0,
 typeStatus:l.typeStatuss?.value||void 0,countryCode:l.countryCodes?.value||void 0,stateProvince:l.stateProvinces?.value||
 void 0,municipality:l.municipalitys?.value||void 0,county:l.countys?.value||void 0,locality:l.localitys?.value||void 0,verbatimLocality:l.
 verbatimLocalitys?.value||void 0,recordedBy:l.recordedBys?.value||void 0,eventDate:l.eventDates?.value||void 0,samplingProtocol:l.
@@ -615,7 +615,7 @@ v-168H480v-72h240v240h-72Z"/></svg>',collapse:'<svg class="gray" viewBox="0 -960
 class="gray" viewBox="0 -960 960 960"><path fill="currentColor" d="M360-216 96-480l264-264 51 51-177 177h630v72H234l177 \
 177-51 51Z"/></svg>',empty:'<svg viewBox="0 -960 960 960"></svg>'},q=document.createElement("div");H.insertAdjacentElement(
 "beforebegin",q);q.append(`Finding Synonyms for ${nt} `);var gt=document.createElement("progress");q.append(gt);var mt=performance.
-now(),ft=new z(ut),v=new _(ft,nt,ct,dt,lt),A=class extends HTMLElement{constructor(e,i){super(),this.innerHTML=T[i]??T.unknown;
+now(),ft=new z(ut),v=new _(ft,nt,ct,dt,lt),x=class extends HTMLElement{constructor(e,i){super(),this.innerHTML=T[i]??T.unknown;
 let a=document.createElement("button");a.classList.add("icon","button"),a.innerHTML=T.expand,a.addEventListener("click",
 ()=>{this.classList.toggle("expanded")?a.innerHTML=T.collapse:a.innerHTML=T.expand});let d=document.createElement("span");
 e.date?d.innerText=""+e.date:(d.classList.add("missing"),d.innerText="No Date"),this.append(d);let s=document.createElement(
@@ -654,7 +654,7 @@ f.description??"Cited Figure without caption",r.append(g);let m=document.createE
 "",r.append(m)}}if(l.materialCitations.length>0){let p=document.createElement("div");p.innerHTML=T.empty+T.cite+" Materi\
 al Citations:<br> -",p.classList.add("hidden"),o.append(p),p.innerText+=l.materialCitations.map(f=>JSON.stringify(f).replaceAll(
 "{","").replaceAll("}","").replaceAll('":',": ").replaceAll(",",", ").replaceAll('"',"")).join(`
- -`)}})}};customElements.define("syno-treatment",A);var $=class extends HTMLElement{constructor(e){super();let i=document.
+ -`)}})}};customElements.define("syno-treatment",x);var $=class extends HTMLElement{constructor(e){super();let i=document.
 createElement("h2"),a=document.createElement("i");a.innerText=e.displayName,i.append(a),this.append(i);let d=document.createElement(
 "span");d.classList.add("rank"),d.innerText=e.rank;let s=document.createElement("span");if(s.classList.add("rank"),s.innerText=
 e.kingdom||"Missing Kingdom",i.append(" ",s," ",d),e.taxonNameURI){let c=document.createElement("a");c.classList.add("ta\
@@ -670,8 +670,8 @@ add("indent"),p.append(r),e.col.acceptedURI!==e.col.colURI){let g=document.creat
 r.append(g);let m=document.createElement("a");m.classList.add("col","uri");let N=e.col.acceptedURI.replace("https://www.\
 catalogueoflife.org/data/taxon/","");m.innerText=N,m.href=`#${N}`,m.title="show name",g.append(m),v.findName(e.col.acceptedURI).
 then(I=>{I.authority?m.innerText=I.displayName+" "+I.authority:m.innerText=I.displayName},()=>{m.removeAttribute("href")})}}
-if(e.treatments.treats.size>0||e.treatments.cite.size>0){for(let c of e.treatments.treats){let u=new A(c,"aug");o.append(
-u)}for(let c of e.treatments.cite){let u=new A(c,"cite");o.append(u)}}let l=document.createElement("abbr");l.classList.add(
+if(e.treatments.treats.size>0||e.treatments.cite.size>0){for(let c of e.treatments.treats){let u=new x(c,"aug");o.append(
+u)}for(let c of e.treatments.cite){let u=new x(c,"cite");o.append(u)}}let l=document.createElement("abbr");l.classList.add(
 "justification"),l.innerText="...?",Q(e).then(c=>l.title=`This ${c}`),i.append(" ",l);for(let c of e.authorizedNames){let u=document.
 createElement("h3"),p=document.createElement("i");p.innerText=c.displayName,p.classList.add("gray"),u.append(p),u.append(
 " ",c.authority),this.append(u);let f=document.createElement("ul");if(this.append(f),c.taxonConceptURIs[0]){let g=document.
@@ -688,7 +688,7 @@ c.col.acceptedURI).then(O=>{S.classList.remove("uri"),O.authority?S.innerText=O.
 O.displayName},()=>{S.removeAttribute("href")})}}let r=[];for(let g of c.treatments.def)r.push({trt:g,status:"def"});for(let g of c.
 treatments.aug)r.push({trt:g,status:"aug"});for(let g of c.treatments.dpr)r.push({trt:g,status:"dpr"});for(let g of c.treatments.
 cite)r.push({trt:g,status:"cite"});pt||r.sort((g,m)=>g.trt.date&&m.trt.date?g.trt.date-m.trt.date:g.trt.date?1:m.trt.date?
--1:0);for(let{trt:g,status:m}of r){let N=new A(g,m);f.append(N)}}}};customElements.define("syno-name",$);async function Q(n){
+-1:0);for(let{trt:g,status:m}of r){let N=new x(g,m);f.append(N)}}}};customElements.define("syno-name",$);async function Q(n){
 if(n.justification.searchTerm)return n.justification.subTaxon?"is a sub-taxon of the search term.":"is the search term.";
 if(n.justification.treatment){let e=await n.justification.treatment.details,i=await Q(n.justification.parent);return`is,\
  according to ${e.creators} ${n.justification.treatment.date},
